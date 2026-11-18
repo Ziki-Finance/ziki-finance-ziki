@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { IssueApiError } from "@/lib/agent-api/errors";
 import type { AgentContext } from "@/lib/agents/require-agent";
+import { projectPath, refOf } from "@/lib/project-paths";
 import { activeIn } from "@/lib/agents/active-in";
 
 /**
@@ -184,6 +185,30 @@ async function requireOrganisationAgents(viewer: ClusterViewer, agentIds: string
   return ids;
 }
 
+/** Persist the invitation and its owner's inbox item together, once per new membership. */
+async function recordInvites(db: Prisma.TransactionClient, viewer: ClusterViewer, cluster: { id: string; name: string }, agentIds: string[]) {
+  if (!agentIds.length) return [];
+  const inserted = await db.clusterMember.createManyAndReturn({
+    data: agentIds.map(agentId => ({ clusterId: cluster.id, agentId, status: "invited" as const, invitedByAgentId: agentOf(viewer).agentId })),
+    skipDuplicates: true,
+    select: { agentId: true },
+  });
+  const ids = inserted.map(row => row.agentId);
+  if (!ids.length) return ids;
+  const project = await db.project.findUniqueOrThrow({
+    where: { id: viewer.projectId }, select: { slug: true, organisation: { select: { slug: true } } },
+  });
+  const recipients = await db.agent.findMany({
+    where: { id: { in: ids } }, select: { id: true, name: true, ownerUserId: true },
+  });
+  await db.notification.createMany({ data: recipients.map(agent => ({
+    userId: agent.ownerUserId, organisationId: viewer.organisationId, kind: "cluster_invitation",
+    title: `Your agent ${agent.name} was invited to ${cluster.name}`,
+    url: projectPath(refOf(project), `/clusters/${encodeURIComponent(cluster.id)}?info=1#cluster-invitations`),
+  })) });
+  return ids;
+}
+
 /** Start a persistent group and invite collaborators. */
 export async function createCluster(viewer: ClusterViewer, input: unknown) {
   const agent = agentOf(viewer);
@@ -196,11 +221,7 @@ export async function createCluster(viewer: ClusterViewer, input: unknown) {
       name: data.name, purpose: data.purpose, creatorAgentId: agent.agentId,
     } });
     await db.clusterMember.create({ data: { clusterId: created.id, agentId: agent.agentId, status: "active", joinedAt: now } });
-    if (invite.length) {
-      await db.clusterMember.createMany({ data: invite.map((agentId) => ({
-        clusterId: created.id, agentId, status: "invited" as const, invitedByAgentId: agent.agentId,
-      })) });
-    }
+    await recordInvites(db, viewer, created, invite);
     return created;
   });
   return { cluster: { id: cluster.id, name: cluster.name, purpose: cluster.purpose }, invited: invite };
@@ -221,15 +242,11 @@ export async function updateCluster(viewer: ClusterViewer, clusterId: string, in
 /** Members invite other active agents in their organisation. */
 export async function inviteToCluster(viewer: ClusterViewer, clusterId: string, input: unknown) {
   const agent = agentOf(viewer);
-  await requireMember(viewer, clusterId);
+  const cluster = await requireMember(viewer, clusterId);
   const { agentIds } = inviteInput.parse(input);
   const ids = await requireOrganisationAgents(viewer, agentIds);
-  const existing = await prisma.clusterMember.findMany({ where: { clusterId, agentId: { in: ids } }, select: { agentId: true } });
-  const known = new Set(existing.map((row) => row.agentId));
-  const fresh = ids.filter((id) => !known.has(id));
-  if (fresh.length) {
-    await prisma.clusterMember.createMany({ data: fresh.map((agentId) => ({ clusterId, agentId, status: "invited" as const, invitedByAgentId: agent.agentId })) });
-  }
+  const fresh = await prisma.$transaction(db => recordInvites(db, viewer, cluster, ids));
+  const known = new Set(ids.filter(id => !fresh.includes(id)));
   return { invited: fresh, alreadyThere: ids.filter((id) => known.has(id)) };
 }
 

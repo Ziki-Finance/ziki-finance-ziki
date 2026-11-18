@@ -8,10 +8,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * cluster quiet for 14 days is archived until a member reopens it.
  */
 const db = vi.hoisted(() => ({
-  project: { findFirst: vi.fn() }, membership: { findUnique: vi.fn() }, agent: { findMany: vi.fn() },
+  notification: { createMany: vi.fn() }, project: { findFirst: vi.fn(), findUniqueOrThrow: vi.fn() }, membership: { findUnique: vi.fn() }, agent: { findMany: vi.fn() },
   skillTag: { findMany: vi.fn() }, agentSkill: { findMany: vi.fn() }, bug: { findFirst: vi.fn() },
   cluster: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), count: vi.fn(), delete: vi.fn() },
-  clusterMember: { findFirst: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), createMany: vi.fn(), update: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
+  clusterMember: { createManyAndReturn: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), createMany: vi.fn(), update: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
   clusterPost: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn() },
   clusterBlocker: { findFirst: vi.fn(), create: vi.fn(), createMany: vi.fn(), update: vi.fn() },
   clusterNote: { findMany: vi.fn(), upsert: vi.fn() },
@@ -45,7 +45,9 @@ beforeEach(() => {
   db.agentSkill.findMany.mockImplementation(async ({ where }) =>
     (where.agentId.in as string[]).flatMap((agentId) => (SKILLS[agentId] ?? []).map((slug) => ({ agentId, tag: { slug } }))));
   db.skillTag.findMany.mockImplementation(async ({ where }) => (where.slug.in as string[]).filter((s) => ["security", "testing", "ux"].includes(s)).map((slug) => ({ slug })));
-  db.agent.findMany.mockImplementation(async ({ where }) => (where.id?.in ?? []).map((id: string) => ({ id })));
+  db.agent.findMany.mockImplementation(async ({ where }) => (where.id?.in ?? []).map((id: string) => ({ id, ownerUserId: "owner-"+id, name:id })));
+  db.clusterMember.createManyAndReturn.mockImplementation(async ({data})=>data);
+  db.project.findUniqueOrThrow.mockResolvedValue({ slug: "web", organisation: {slug:"ziki"} });
   db.cluster.count.mockResolvedValue(0);
 });
 
@@ -122,7 +124,10 @@ describe("creating and joining purpose-based groups", () => {
     db.cluster.create.mockResolvedValue({ id: "new", name: "Approaches", purpose: "Explore alternatives" });
     await createCluster(viewerFor("creator"), { name: "Approaches", purpose: "Explore alternatives", invite: ["designer"], ...legacy });
     expect(db.clusterMember.create).toHaveBeenCalledWith({ data: expect.objectContaining({ agentId: "creator", status: "active" }) });
-    expect(db.clusterMember.createMany).toHaveBeenCalledWith({ data: [expect.objectContaining({ agentId: "designer", status: "invited" })] });
+    expect(db.notification.createMany).toHaveBeenCalledWith({data:[{
+      userId:"owner-designer", organisationId:"org", kind:"cluster_invitation",
+      title:"Your agent designer was invited to Approaches", url:"/ziki/web/clusters/new?info=1#cluster-invitations",
+    }]});
     expect(db.agentSkill.findMany).not.toHaveBeenCalled();
     expect(db.cluster.count).not.toHaveBeenCalled();
   });
@@ -147,6 +152,12 @@ describe("creating and joining purpose-based groups", () => {
     db.clusterMember.findUnique.mockResolvedValue({ id: "row", status: "active" });
     await joinCluster(viewerFor("designer"), "c1");
     expect(db.clusterMember.update).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not notify again when the invitation already exists", async () => {
+    db.clusterMember.createManyAndReturn.mockResolvedValue([]);
+    await expect(inviteToCluster(viewerFor("member"), "c1", {agentIds:["designer"]})).resolves.toEqual({invited:[],alreadyThere:["designer"]});
+    expect(db.notification.createMany).not.toHaveBeenCalled();
   });
 
   it("allows only members to invite, keeping the invitee's content access private until acceptance", async () => {

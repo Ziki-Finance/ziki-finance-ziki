@@ -12,7 +12,7 @@ import {
   getClusterCard, listClusters, listPending, listTasks, ownAgentsIn, readDoc, readNotes, suggestInvites, type ClusterViewer,
 } from "@/lib/clusters";
 import {
-  addBlockerAction, addTaskAction, deleteClusterAction, inviteAction, joinClusterAction, leaveClusterAction, removeMemberAction,
+  respondToInviteAction, addBlockerAction, addTaskAction, deleteClusterAction, inviteAction, joinClusterAction, leaveClusterAction, removeMemberAction,
   saveDocAction, saveNoteAction, shareAction, solveBlockerAction,
 } from "../actions";
 
@@ -77,10 +77,10 @@ export default async function ClusterPage({ params, searchParams }: {
   const myNote = notes && acting ? notes.items.find((n) => n.agentId === acting.id) ?? null : null;
   const lastEdit = doc?.revisions[0] ?? null;
   // Accept with the invited agent, otherwise join with an owned agent.
-  const invite = cluster.myStatus === "invited"
-    ? await prisma.clusterMember.findFirst({ where: { clusterId, status: "invited", agent: { ownerUserId: user.id } }, select: { agentId: true } })
-    : null;
-  const invitedAgent = invite ? myAgents.find((a) => a.id === invite.agentId) ?? null : null;
+  const invitations = await prisma.clusterMember.findMany({
+    where: { clusterId, status: "invited", agentId: { in: myAgents.map(agent => agent.id) } },
+    select: { agentId: true, agent: { select: { name: true } } },
+  });
   const joiner = myAgents[0];
   const open = !cluster.archived;
   const hidden = (extra: Record<string, string> = {}) => {
@@ -96,6 +96,18 @@ export default async function ClusterPage({ params, searchParams }: {
     );
   };
 
+  const invitationControls = invitations.length > 0 && (
+    <section id="cluster-invitations" aria-label="Your invitations" className="space-y-3 border-b border-zk-border bg-zk-surface p-4">
+      {invitations.map(invite => (
+        <form key={invite.agentId} action={respondToInviteAction} className="flex flex-wrap items-center gap-2">
+          {hidden({ agentId: invite.agentId })}
+          <p className="w-full text-sm">Your agent <b>{invite.agent.name}</b> was invited to {cluster.name}.</p>
+          <button className={agentsPrimaryBtn} name="decision" value="accept">Accept invite</button>
+          <button className={agentsSecondaryBtn} name="decision" value="decline">Decline</button>
+        </form>
+      ))}
+    </section>
+  );
   return (
     <div className="mx-auto w-full max-w-6xl space-y-3 caret-transparent [&_input]:[caret-color:auto] [&_textarea]:[caret-color:auto]">
       {query.error ? <p role="alert" className="rounded-[20px] border border-zk-bad-bd bg-zk-bad-bg px-4 py-3 text-sm text-zk-bad-fg">{query.error}</p> : null}
@@ -130,6 +142,7 @@ export default async function ClusterPage({ params, searchParams }: {
             </Link>
           </header>
 
+          {(!showInfo || !member) && invitationControls}
           {member && acting ? (
             <nav aria-label="Cluster views" className="flex shrink-0 gap-1 overflow-x-auto border-b border-zk-border bg-zk-surface px-2 [scrollbar-width:none] sm:px-3 [&::-webkit-scrollbar]:hidden">
               {([["tasks", "Tasks", here], ["doc", "Shared doc", `${here}?view=doc`], ["private", "Private doc", `${here}?view=private`]] as const).map(([key, label, href]) => (
@@ -211,12 +224,7 @@ export default async function ClusterPage({ params, searchParams }: {
             ) : !member || !acting || !tasks ? (
               <div className="mx-auto max-w-md space-y-3 rounded-2xl bg-zk-surface p-6 text-center shadow-[0_1px_2px_rgba(11,23,51,0.06)]">
                 <p className="m-0 text-sm font-bold text-zk-text">Only members see this cluster&apos;s tasks.</p>
-                {invitedAgent && open ? (
-                  <div className="flex justify-center gap-2">
-                    <form action={leaveClusterAction}>{hidden({ agentId: invitedAgent.id, back: listPath })}<button type="submit" className={`${agentsSecondaryBtn} ${NOFOCUS}`}>Decline</button></form>
-                    <form action={joinClusterAction}>{hidden({ agentId: invitedAgent.id })}<button type="submit" className={`${agentsPrimaryBtn} ${NOFOCUS}`}>Accept invite</button></form>
-                  </div>
-                ) : joiner && open ? (
+                {invitations.length ? null : joiner && open ? (
                   <form action={joinClusterAction}>{hidden({ agentId: joiner.id })}<button type="submit" className={`${agentsPrimaryBtn} ${NOFOCUS}`}>Join as {joiner.name}</button></form>
                 ) : <p className={agentsMutedClass}>Choose an agent in this organisation to join.</p>}
               </div>
@@ -327,6 +335,7 @@ export default async function ClusterPage({ params, searchParams }: {
               </Link>
               <p className="m-0 text-[15px] font-extrabold text-zk-text">Group info</p>
             </div>
+            {invitationControls}
             <div className="space-y-2 border-b border-zk-border p-5 text-center">
               <div className="flex justify-center"><ClusterMark name={cluster.name} size={72} /></div>
               <p className="m-0 text-base font-extrabold text-zk-text">{cluster.name}</p>

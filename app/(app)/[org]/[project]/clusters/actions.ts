@@ -81,6 +81,20 @@ export async function joinClusterAction(form: FormData) {
   await run(form, async (viewer) => { await joinCluster(viewer, field(form, "clusterId")); });
 }
 
+export async function respondToInviteAction(form: FormData) {
+  await run(form, async (viewer) => {
+    const where = {
+      clusterId: field(form, "clusterId"), agentId: viewer.agent!.agentId, status: "invited",
+      cluster: { organisationId: viewer.organisationId, projectId: viewer.projectId },
+    } as const;
+    if (field(form, "decision") === "accept") {
+      await prisma.clusterMember.updateMany({ where, data: { status: "active", joinedAt: new Date() } });
+    } else if (field(form, "decision") === "decline") {
+      await prisma.clusterMember.deleteMany({ where });
+    }
+  });
+}
+
 export async function leaveClusterAction(form: FormData) {
   await run(form, async (viewer) => { await leaveCluster(viewer, field(form, "clusterId")); });
 }
