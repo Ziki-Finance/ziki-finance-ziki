@@ -97,10 +97,10 @@ describe("cluster access", () => {
       members: [{ agentId: "creator", joinedAt: new Date(0), agent: { name: "Creator", ownerUserId: "owner-creator" } }] }]);
     db.clusterMember.findMany.mockResolvedValue([]);
     const { items } = await listClusters(viewerFor("outsider"));
-    expect(items[0]).toMatchObject({ id: "c1", taskCount: 2, openBlockers: 1, project: { name: "Web", path: "/ziki/web" }, lastTask: { title: "Refund retries" }, myStatus: null, missingSkills: ["testing"], archived: false });
+    expect(items[0]).toMatchObject({ id: "c1", taskCount: 2, openBlockers: 1, project: { name: "Web", path: "/ziki/web" }, lastTask: null, myStatus: null, archived: false });
     expect(items[0]).not.toHaveProperty("doc");
     expect(db.cluster.findMany.mock.calls[0][0].select).not.toHaveProperty("doc");
-    expect(db.cluster.findMany.mock.calls[0][0].where).toHaveProperty("lastActivityAt");
+    expect(db.cluster.findMany.mock.calls[0][0].where).not.toHaveProperty("lastActivityAt");
     await listClusters(viewerFor("outsider"), { includeArchived: true });
     expect(db.cluster.findMany.mock.calls[1][0].where).not.toHaveProperty("lastActivityAt");
   });
@@ -117,65 +117,56 @@ describe("cluster access", () => {
   });
 });
 
-describe("creating clusters", () => {
-  it("makes the creator the first member and invites only agents with a needed skill the creator lacks", async () => {
-    db.cluster.create.mockResolvedValue({ id: "new", name: "Search", purpose: "Make search fast" });
-    await createCluster(viewerFor("creator"), { name: "Search", purpose: "Make search fast", neededSkills: ["security", "testing"], invite: ["tester"] });
-    expect(db.clusterMember.create).toHaveBeenCalledWith({ data: expect.objectContaining({ clusterId: "new", agentId: "creator", status: "active" }) });
-    expect(db.clusterMember.createMany).toHaveBeenCalledWith({ data: [expect.objectContaining({ agentId: "tester", status: "invited" })] });
-    await expect(createCluster(viewerFor("creator"), { name: "Search", purpose: "Make search fast", neededSkills: ["security", "testing"], invite: ["designer"] }))
-      .rejects.toMatchObject({ status: 422, body: { code: "skill_not_missing" } });
+describe("creating and joining purpose-based groups", () => {
+  it.each([{}, { neededSkills: ["retired-tag"] }])("creates a group and invitations without skill checks: %j", async (legacy) => {
+    db.cluster.create.mockResolvedValue({ id: "new", name: "Approaches", purpose: "Explore alternatives" });
+    await createCluster(viewerFor("creator"), { name: "Approaches", purpose: "Explore alternatives", invite: ["designer"], ...legacy });
+    expect(db.clusterMember.create).toHaveBeenCalledWith({ data: expect.objectContaining({ agentId: "creator", status: "active" }) });
+    expect(db.clusterMember.createMany).toHaveBeenCalledWith({ data: [expect.objectContaining({ agentId: "designer", status: "invited" })] });
+    expect(db.agentSkill.findMany).not.toHaveBeenCalled();
+    expect(db.cluster.count).not.toHaveBeenCalled();
   });
 
-  it("needs at least one skill, and only the organisation's skill tags", async () => {
-    await expect(createCluster(viewerFor("creator"), { name: "Search", purpose: "Make search fast", neededSkills: [] })).rejects.toThrow();
-    await expect(createCluster(viewerFor("creator"), { name: "Search", purpose: "Make search fast", neededSkills: ["juggling"] }))
-      .rejects.toMatchObject({ status: 422, body: { code: "unknown_skill" } });
+  it("rejects invitations to agents outside the organisation", async () => {
+    db.agent.findMany.mockResolvedValue([]);
+    await expect(createCluster(viewerFor("creator"), { name: "Approaches", purpose: "Explore alternatives", invite: ["foreign"] })).rejects.toMatchObject({ status: 422 });
     expect(db.cluster.create).not.toHaveBeenCalled();
   });
 
-  it("stops an agent at 3 open clusters it leads, and at 5 new ones a day", async () => {
-    db.cluster.count.mockResolvedValueOnce(3).mockResolvedValueOnce(0);
-    await expect(createCluster(viewerFor("creator"), { name: "Search", purpose: "Make search fast", neededSkills: ["security"] }))
-      .rejects.toMatchObject({ status: 429, body: { code: "cluster_limit_open" } });
-    db.cluster.count.mockResolvedValueOnce(1).mockResolvedValueOnce(5);
-    await expect(createCluster(viewerFor("creator"), { name: "Search", purpose: "Make search fast", neededSkills: ["security"] }))
-      .rejects.toMatchObject({ status: 429, body: { code: "cluster_limit_daily" } });
-    expect(db.cluster.create).not.toHaveBeenCalled();
-    expect(db.cluster.count.mock.calls[0][0].where).toMatchObject({ organisationId: "org", creatorAgentId: "creator" });
-  });
-});
-
-describe("joining and inviting by skill", () => {
-  it("lets any agent with a needed skill join at once, and refuses one without", async () => {
+  it("lets an organisation agent join an existing cluster with stored skill tags", async () => {
     db.clusterMember.findUnique.mockResolvedValue(null);
-    await expect(joinCluster(viewerFor("tester"), "c1")).resolves.toEqual({ status: "active" });
-    expect(db.clusterMember.create).toHaveBeenCalledWith({ data: expect.objectContaining({ agentId: "tester", status: "active" }) });
-    await expect(joinCluster(viewerFor("designer"), "c1")).rejects.toMatchObject({ status: 403, body: { code: "skill_needed" } });
-  });
-
-  it("turns an invite into membership", async () => {
-    db.clusterMember.findUnique.mockResolvedValue({ id: "row", status: "invited" });
     await expect(joinCluster(viewerFor("designer"), "c1")).resolves.toEqual({ status: "active" });
+    expect(db.clusterMember.create).toHaveBeenCalledWith({ data: expect.objectContaining({ agentId: "designer", status: "active" }) });
+    expect(db.agentSkill.findMany).not.toHaveBeenCalled();
+  });
+
+  it("accepts an invitation and keeps joining idempotent", async () => {
+    db.clusterMember.findUnique.mockResolvedValue({ id: "row", status: "invited" });
+    await joinCluster(viewerFor("designer"), "c1");
     expect(db.clusterMember.update).toHaveBeenCalledWith({ where: { id: "row" }, data: expect.objectContaining({ status: "active" }) });
+    db.clusterMember.findUnique.mockResolvedValue({ id: "row", status: "active" });
+    await joinCluster(viewerFor("designer"), "c1");
+    expect(db.clusterMember.update).toHaveBeenCalledTimes(1);
   });
 
-  it("lets only members invite, and only for a skill the members lack", async () => {
-    await expect(inviteToCluster(viewerFor("outsider"), "c1", { agentIds: ["tester"] })).rejects.toMatchObject({ status: 404 });
-    db.cluster.findFirst.mockResolvedValue({ ...cluster, neededSkills: ["security", "testing", "ux"] });
-    db.clusterMember.findMany.mockImplementation(async ({ where }) => (where.status === "active" ? [{ agentId: "creator" }, { agentId: "member" }] : []));
-    await expect(inviteToCluster(viewerFor("member"), "c1", { agentIds: ["tester"] })).rejects.toMatchObject({ status: 422, body: { missingSkills: ["ux"] } });
+  it("allows only members to invite, keeping the invitee's content access private until acceptance", async () => {
+    await expect(inviteToCluster(viewerFor("outsider"), "c1", { agentIds: ["designer"] })).rejects.toMatchObject({ status: 404 });
+    db.clusterMember.findMany.mockResolvedValue([]);
     await expect(inviteToCluster(viewerFor("member"), "c1", { agentIds: ["designer"] })).resolves.toMatchObject({ invited: ["designer"] });
+    await expect(readDoc(viewerFor("designer"), "c1")).rejects.toMatchObject({ status: 404 });
   });
 
-  it("suggests agents who bring the missing skills", async () => {
-    db.cluster.findFirst.mockResolvedValue({ ...cluster, neededSkills: ["security", "testing", "ux"] });
-    db.clusterMember.findMany.mockImplementation(async ({ where }) => (where.status === "active" ? [{ agentId: "creator" }, { agentId: "member" }] : [{ agentId: "creator" }, { agentId: "member" }]));
-    db.agent.findMany.mockResolvedValue([{ id: "designer", name: "Designer", skills: [{ tag: { slug: "ux" } }] }]);
-    await expect(suggestInvites(viewerFor("member"), "c1")).resolves.toEqual({ missingSkills: ["ux"], items: [{ agentId: "designer", name: "Designer", brings: ["ux"] }] });
+  it("suggests active organisation agents outside the cluster", async () => {
+    db.clusterMember.findMany.mockResolvedValue([{ agentId: "member" }]);
+    db.agent.findMany.mockResolvedValue([{ id: "designer", name: "Designer" }]);
+    await expect(suggestInvites(viewerFor("member"), "c1")).resolves.toEqual({ items: [{ agentId: "designer", name: "Designer" }] });
+    const where = db.agent.findMany.mock.calls[0][0].where;
+    expect(where.id).toEqual({ notIn: ["member"] });
+    expect(where).toMatchObject({ revokedAt: null });
+    expect(where).not.toHaveProperty("skills");
   });
 
-  it("lets only the creator remove a member, and never the creator", async () => {
+  it("prevents a non-creator removing members and prevents removing the creator", async () => {
     await expect(decideMember(viewerFor("member"), "c1", "tester", { decision: "remove" })).rejects.toMatchObject({ status: 403 });
     await expect(decideMember(viewerFor("creator"), "c1", "creator", { decision: "remove" })).rejects.toMatchObject({ status: 409 });
   });
@@ -200,16 +191,12 @@ describe("the cluster's owner", () => {
   });
 });
 
-describe("archived clusters", () => {
-  it("are read-only after 14 days without activity until a member reopens them", async () => {
-    const quiet = { ...cluster, lastActivityAt: new Date(Date.now() - 15 * DAY) };
-    db.cluster.findFirst.mockResolvedValue(quiet);
-    await expect(addTask(viewerFor("member"), "c1", { title: "New task", tryingToAchieve: "Ship it" })).rejects.toMatchObject({ status: 409, body: { code: "cluster_archived" } });
-    await expect(shareInformation(viewerFor("member"), "c1", "t1", { body: "x" })).rejects.toMatchObject({ status: 409 });
+describe("persistent groups", () => {
+  it("remains joinable after inactivity", async () => {
+    db.cluster.findFirst.mockResolvedValue({ ...cluster, lastActivityAt: new Date(Date.now() - 20 * DAY) });
     db.clusterMember.findUnique.mockResolvedValue(null);
-    await expect(joinCluster(viewerFor("tester"), "c1")).rejects.toMatchObject({ status: 409 });
-    await reopenCluster(viewerFor("member"), "c1");
-    expect(db.cluster.update).toHaveBeenCalledWith({ where: { id: "c1" }, data: { lastActivityAt: expect.any(Date) } });
+    await expect(joinCluster(viewerFor("designer"), "c1")).resolves.toEqual({ status: "active" });
+    await expect(reopenCluster(viewerFor("member"), "c1")).resolves.toEqual({ archived: false });
   });
 });
 
@@ -300,10 +287,10 @@ describe("the shared doc", () => {
     expect(db.clusterDocRevision.create).not.toHaveBeenCalled();
   });
 
-  it("is read-only while the cluster is archived", async () => {
+  it("can update the shared document after inactivity", async () => {
     db.cluster.findFirst.mockResolvedValue({ ...cluster, lastActivityAt: new Date(Date.now() - 20 * DAY) });
-    await expect(saveDoc(viewerFor("member"), "c1", { body: "x", expectedVersion: 3 })).rejects.toMatchObject({ status: 409 });
-    expect(db.cluster.updateMany).not.toHaveBeenCalled();
+    db.cluster.updateMany.mockResolvedValue({ count: 1 });
+    await expect(saveDoc(viewerFor("member"), "c1", { body: "Retained knowledge", expectedVersion: 3 })).resolves.toEqual({ version: 4 });
   });
 
   it("is edited by agents, not by a person's session", async () => {

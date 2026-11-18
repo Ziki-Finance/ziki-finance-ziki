@@ -9,7 +9,7 @@ import { ClusterMark } from "@/components/clusters/cluster-mark";
 import { CLUSTER_FRAME, ClusterSidebar } from "@/components/clusters/cluster-sidebar";
 import { agentsDangerBtn, agentsMutedClass, agentsPrimaryBtn, agentsSecondaryBtn } from "@/app/(app)/settings/agents/agents-ui";
 import {
-  INACTIVE_DAYS, getClusterCard, listClusters, listPending, listTasks, ownAgentsIn, readDoc, readNotes, suggestInvites, type ClusterViewer,
+  getClusterCard, listClusters, listPending, listTasks, ownAgentsIn, readDoc, readNotes, suggestInvites, type ClusterViewer,
 } from "@/lib/clusters";
 import {
   addBlockerAction, addTaskAction, deleteClusterAction, inviteAction, joinClusterAction, leaveClusterAction, removeMemberAction,
@@ -59,7 +59,7 @@ export default async function ClusterPage({ params, searchParams }: {
   const viewPath = view === "tasks" ? here : `${here}?view=${view}`;
   const member = cluster.myStatus === "active";
   const [{ items }, myAgents] = await Promise.all([
-    listClusters(viewer, { wholeOrganisation: true, query: query.q }),
+    listClusters(viewer, { query: query.q }),
     ownAgentsIn(user.id, organisationId),
   ]);
   const memberIds = new Set(cluster.members.map((m) => m.agentId));
@@ -70,18 +70,18 @@ export default async function ClusterPage({ params, searchParams }: {
   const [tasks, notes, pending, suggestions, doc] = member && acting
     ? await Promise.all([
       listTasks(viewer, clusterId), readNotes(viewer, clusterId), listPending(viewer, clusterId),
-      suggestInvites(viewer, clusterId).catch(() => ({ missingSkills: [], items: [] })),
+      suggestInvites(viewer, clusterId).catch(() => ({ items: [] })),
       readDoc(viewer, clusterId),
     ])
     : [null, null, null, null, null];
   const myNote = notes && acting ? notes.items.find((n) => n.agentId === acting.id) ?? null : null;
   const lastEdit = doc?.revisions[0] ?? null;
-  // Who would join: the invited agent of yours, else your first agent with a needed skill.
+  // Accept with the invited agent, otherwise join with an owned agent.
   const invite = cluster.myStatus === "invited"
     ? await prisma.clusterMember.findFirst({ where: { clusterId, status: "invited", agent: { ownerUserId: user.id } }, select: { agentId: true } })
     : null;
   const invitedAgent = invite ? myAgents.find((a) => a.id === invite.agentId) ?? null : null;
-  const joiner = myAgents.find((a) => a.skills.some((slug) => cluster.neededSkills.includes(slug)));
+  const joiner = myAgents[0];
   const open = !cluster.archived;
   const hidden = (extra: Record<string, string> = {}) => {
     const { back = here, agentId = acting?.id ?? "", ...rest } = extra;
@@ -116,7 +116,6 @@ export default async function ClusterPage({ params, searchParams }: {
               <p className="m-0 truncate text-[15px] font-extrabold text-zk-text">{cluster.name}</p>
               <p className="m-0 truncate text-xs text-zk-muted">
                 {cluster.project.name} · {cluster.members.length} {cluster.members.length === 1 ? "member" : "members"}
-                <span className="hidden sm:inline"> · {cluster.neededSkills.join(", ")}</span>
               </p>
             </div>
             {member ? (
@@ -150,8 +149,6 @@ export default async function ClusterPage({ params, searchParams }: {
             {view === "tasks" || !member ? (
               <div className="mx-auto max-w-xl rounded-2xl bg-zk-surface px-4 py-3 text-center text-xs text-zk-muted shadow-[0_1px_2px_rgba(11,23,51,0.06)] [overflow-wrap:anywhere]">
                 {owner ? `${owner} created this cluster. ` : ""}{cluster.purpose}
-                {cluster.missingSkills.length ? <> Still looking for: <b className="text-zk-accent">{cluster.missingSkills.join(", ")}</b>.</> : null}
-                {cluster.archived ? <> Archived after {INACTIVE_DAYS} days without activity.</> : null}
               </div>
             ) : null}
 
@@ -221,9 +218,7 @@ export default async function ClusterPage({ params, searchParams }: {
                   </div>
                 ) : joiner && open ? (
                   <form action={joinClusterAction}>{hidden({ agentId: joiner.id })}<button type="submit" className={`${agentsPrimaryBtn} ${NOFOCUS}`}>Join as {joiner.name}</button></form>
-                ) : (
-                  <p className={`${agentsMutedClass} m-0`}>None of your agents has a skill it needs ({cluster.neededSkills.join(", ")}).</p>
-                )}
+                ) : <p className={agentsMutedClass}>Choose an agent in this organisation to join.</p>}
               </div>
             ) : tasks.items.length ? (
               [...tasks.items].reverse().map((task) => {
@@ -345,7 +340,7 @@ export default async function ClusterPage({ params, searchParams }: {
                     <ClusterMark name={m.name} size={34} />
                     <div className="min-w-0 flex-1">
                       <p className="m-0 truncate text-sm font-bold text-zk-text">{m.name}</p>
-                      <p className="m-0 truncate text-xs text-zk-muted">{m.agentId === cluster.creatorAgentId ? "Owner" : m.skills.slice(0, 3).join(", ")}</p>
+                      <p className="m-0 truncate text-xs text-zk-muted">{m.agentId === cluster.creatorAgentId ? "Owner" : "Member"}</p>
                     </div>
                     {isOwner && m.agentId !== cluster.creatorAgentId ? (
                       <form action={removeMemberAction} className="shrink-0">
@@ -375,9 +370,9 @@ export default async function ClusterPage({ params, searchParams }: {
               {open && suggestions.items.length ? (
                 <form action={inviteAction} className="space-y-2 pt-1">
                   {hidden({ back: `${here}?info=1` })}
-                  <label htmlFor="invitee" className={`${PANEL_TITLE} block`}>Invite for a missing skill</label>
+                  <label htmlFor="invitee" className={`${PANEL_TITLE} block`}>Invite an agent</label>
                   <select id="invitee" name="invitee" className={INPUT}>
-                    {suggestions.items.map((s) => <option key={s.agentId} value={s.agentId}>{s.name} · {s.brings.join(", ")}</option>)}
+                    {suggestions.items.map((s) => <option key={s.agentId} value={s.agentId}>{s.name}</option>)}
                   </select>
                   <button type="submit" className={`${agentsSecondaryBtn} w-full min-h-9 ${NOFOCUS}`}>Invite</button>
                 </form>

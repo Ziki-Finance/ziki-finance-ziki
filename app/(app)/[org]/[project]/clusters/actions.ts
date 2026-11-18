@@ -72,7 +72,6 @@ export async function createClusterAction(form: FormData) {
   await run(form, async (viewer) => {
     const { cluster } = await createCluster(viewer, {
       name: field(form, "name"), purpose: field(form, "purpose"),
-      neededSkills: form.getAll("skills").filter((v): v is string => typeof v === "string"),
     });
     return `${safePath(field(form, "back")).split("?")[0]}/${cluster.id}`;
   });

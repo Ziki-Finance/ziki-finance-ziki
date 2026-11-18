@@ -6,38 +6,10 @@ import type { AgentContext } from "@/lib/agents/require-agent";
 import { activeIn } from "@/lib/agents/active-in";
 
 /**
- * Agent clusters (#agent-clusters, Ziki Major Feature #17).
- *
- * A cluster is a standing group of agents on one project that helps its members
- * get tasks done. An agent posts a task (what it is trying to achieve, and what
- * blocks it); the other members share the information that unblocks it, each piece
- * saying which blocker it answers; the task's author marks blockers solved. Its
- * card (name, purpose, needed skills, members) is visible to everyone who can see
- * the project. Everything inside it (tasks, shared information and each member's
- * private notes) is visible only to its active member agents, and read-only to
- * those agents' owners in the app.
- *
- * Rules every function here keeps:
- * - Content is read through `requireMember`, which answers 404 to anyone who is
- *   not an active member, so a private cluster's content can't be probed.
- * - Private notes are always filtered by the reading agent (or its owner's agents).
- * - Skills decide membership: an agent with one of the cluster's needed skills
- *   joins at once, with no cap on members; an invite goes only to an agent that
- *   brings a needed skill no member has yet.
- * - An agent leads at most `MAX_OPEN_CLUSTERS` open clusters it created in an
- *   organisation and starts at most `MAX_NEW_CLUSTERS_PER_DAY` a day.
- * - A cluster with no tasks, shared information or blocker changes for `INACTIVE_DAYS` is archived: hidden
- *   from the list and read-only until a member reopens it.
- * - Only agents act. People work a cluster from the app through one of their own
- *   agents (`ownerActingAgent`), under the same rules; the cluster's owner is the
- *   owner of its creator agent, who alone removes members and deletes it.
+ * Persistent project groups with member-only discussions and shared documents.
+ * Agents choose groups by purpose and invite collaborators. Each member's
+ * private notes are visible only to that agent and its owner.
  */
-
-export const MAX_OPEN_CLUSTERS = 3;
-export const MAX_NEW_CLUSTERS_PER_DAY = 5;
-export const INACTIVE_DAYS = 14;
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 export type ClusterViewer = {
   organisationId: string;
   projectId: string;
@@ -49,16 +21,20 @@ export type ClusterViewer = {
 
 const MAX_INVITES = 20;
 const NOT_FOUND = "Cluster not found.";
-const skillSlug = z.string().trim().toLowerCase().min(1).max(64);
-const neededSkillsInput = z.array(skillSlug).min(1).max(10);
-
+// Accept the old skills field for clients upgrading from the previous API.
+// It is ignored, including on clusters that already stored skill requirements.
+const legacySkills = z.unknown().optional();
 export const createClusterInput = z.object({
   name: z.string().trim().min(3).max(80),
   purpose: z.string().trim().min(10).max(500),
-  neededSkills: neededSkillsInput,
+  neededSkills: legacySkills,
   invite: z.array(z.string().trim().min(1).max(64)).max(MAX_INVITES).optional(),
 }).strict();
-export const updateClusterInput = z.object({ neededSkills: neededSkillsInput }).strict();
+export const updateClusterInput = z.object({
+  name: z.string().trim().min(3).max(80).optional(),
+  purpose: z.string().trim().min(10).max(500).optional(),
+  neededSkills: legacySkills,
+}).strict();
 export const inviteInput = z.object({ agentIds: z.array(z.string().trim().min(1).max(64)).min(1).max(MAX_INVITES) }).strict();
 export const decisionInput = z.object({ decision: z.enum(["remove", "cancel_invite"]) }).strict();
 const blockerText = z.string().trim().min(3).max(1000);
@@ -75,19 +51,6 @@ export const shareInput = z.object({
 export const blockerInput = z.object({ text: blockerText }).strict();
 export const solveInput = z.object({ solved: z.boolean() }).strict();
 export const noteInput = z.object({ body: z.string().max(20_000) }).strict();
-
-/** Before this moment, a cluster with no activity is archived. */
-export function archiveCutoff(now = new Date()) {
-  return new Date(now.getTime() - INACTIVE_DAYS * DAY_MS);
-}
-export function isArchived(cluster: { lastActivityAt: Date }, now = new Date()) {
-  return cluster.lastActivityAt < archiveCutoff(now);
-}
-function requireOpen(cluster: { lastActivityAt: Date }) {
-  if (isArchived(cluster)) {
-    throw new IssueApiError(409, `This cluster was archived after ${INACTIVE_DAYS} days without activity. A member reopens it first.`, { code: "cluster_archived" });
-  }
-}
 
 /** A project id never grants access: recheck the project, its organisation and the owner's membership. */
 export async function agentClusterViewer(agent: AgentContext, projectId: string): Promise<ClusterViewer> {
@@ -130,37 +93,8 @@ export async function requireMember(viewer: ClusterViewer, clusterId: string) {
   return cluster;
 }
 
-/** Each agent's skill slugs in the organisation. */
-async function skillsOf(organisationId: string, agentIds: string[]) {
-  const map = new Map<string, Set<string>>(agentIds.map((id) => [id, new Set<string>()]));
-  if (!agentIds.length) return map;
-  const rows = await prisma.agentSkill.findMany({
-    where: { agentId: { in: agentIds }, tag: { organisationId } },
-    select: { agentId: true, tag: { select: { slug: true } } },
-  });
-  for (const row of rows) map.get(row.agentId)?.add(row.tag.slug);
-  return map;
-}
-
-/** Needed skills no active member has yet. */
-function missingSkills(needed: string[], memberSkills: Iterable<Set<string>>) {
-  const covered = new Set<string>();
-  for (const skills of memberSkills) for (const slug of skills) covered.add(slug);
-  return needed.filter((slug) => !covered.has(slug));
-}
-
-/** Needed skills must be the organisation's own skill tags. */
-async function requireKnownSkills(organisationId: string, slugs: string[]) {
-  const unique = [...new Set(slugs)];
-  const found = await prisma.skillTag.findMany({ where: { organisationId, slug: { in: unique } }, select: { slug: true } });
-  const known = new Set(found.map((tag) => tag.slug));
-  const unknown = unique.filter((slug) => !known.has(slug));
-  if (unknown.length) throw new IssueApiError(422, `Unknown skill: ${unknown.join(", ")}. Use the organisation's skill tags (GET /api/v1/skill-tags).`, { code: "unknown_skill", unknown });
-  return unique;
-}
-
 const cardSelect = {
-  id: true, name: true, purpose: true, creatorAgentId: true, neededSkills: true, lastActivityAt: true, createdAt: true,
+  id: true, name: true, purpose: true, creatorAgentId: true, lastActivityAt: true, createdAt: true,
   members: {
     where: { status: "active" as const },
     orderBy: { joinedAt: "asc" as const },
@@ -172,7 +106,7 @@ const cardSelect = {
 };
 
 type CardRow = {
-  id: string; name: string; purpose: string; creatorAgentId: string; neededSkills: string[]; lastActivityAt: Date; createdAt: Date;
+  id: string; name: string; purpose: string; creatorAgentId: string; lastActivityAt: Date; createdAt: Date;
   members: { agentId: string; joinedAt: Date | null; agent: { name: string; ownerUserId: string } }[];
   _count: { posts: number; blockers: number };
   project: { name: string; slug: string; organisation: { slug: string } };
@@ -180,18 +114,16 @@ type CardRow = {
 };
 
 /** The public face of a cluster: never any of its content. */
-function card(row: CardRow, viewer: ClusterViewer, invited: Set<string>, skills: Map<string, Set<string>>) {
+function card(row: CardRow, viewer: ClusterViewer, invited: Set<string>) {
   const isMember = row.members.some((m) => (viewer.agent ? m.agentId === viewer.agent.agentId : m.agent.ownerUserId === viewer.userId));
   return {
     id: row.id, name: row.name, purpose: row.purpose, creatorAgentId: row.creatorAgentId,
     project: { name: row.project.name, path: `/${encodeURIComponent(row.project.organisation.slug)}/${encodeURIComponent(row.project.slug)}` },
-    lastTask: row.posts[0] ? { title: row.posts[0].title ?? "", authorName: row.posts[0].authorName } : null,
-    neededSkills: row.neededSkills,
-    missingSkills: missingSkills(row.neededSkills, row.members.map((m) => skills.get(m.agentId) ?? new Set<string>())),
-    members: row.members.map((m) => ({ agentId: m.agentId, name: m.agent.name, joinedAt: m.joinedAt, skills: [...(skills.get(m.agentId) ?? [])] })),
+    lastTask: isMember && row.posts[0] ? { title: row.posts[0].title ?? "", authorName: row.posts[0].authorName } : null,
+    members: row.members.map((m) => ({ agentId: m.agentId, name: m.agent.name, joinedAt: m.joinedAt })),
     taskCount: row._count.posts,
     openBlockers: row._count.blockers,
-    archived: isArchived(row),
+    archived: false,
     lastActivityAt: row.lastActivityAt, createdAt: row.createdAt,
     /** `active` (member), `invited`, or null. */
     myStatus: isMember ? "active" : invited.has(row.id) ? "invited" : null,
@@ -211,21 +143,17 @@ async function myInvites(viewer: ClusterViewer, clusterIds: string[]) {
 }
 
 async function cards(viewer: ClusterViewer, rows: CardRow[]) {
-  const [invited, skills] = await Promise.all([
-    myInvites(viewer, rows.map((r) => r.id)),
-    skillsOf(viewer.organisationId, [...new Set(rows.flatMap((r) => r.members.map((m) => m.agentId)))]),
-  ]);
-  return rows.map((row) => card(row, viewer, invited, skills));
+  const invited = await myInvites(viewer, rows.map((row) => row.id));
+  return rows.map((row) => card(row, viewer, invited));
 }
 
-/** The project's clusters as public cards, most recently active first. Archived ones only when asked. */
+/** Project groups remain discoverable across tasks and inactivity. */
 export async function listClusters(viewer: ClusterViewer, options: { includeArchived?: boolean; wholeOrganisation?: boolean; query?: string } = {}) {
   const q = options.query?.trim().slice(0, 100);
   const rows = await prisma.cluster.findMany({
     where: {
       organisationId: viewer.organisationId,
       ...(options.wholeOrganisation ? { project: { archivedAt: null } } : { projectId: viewer.projectId }),
-      ...(options.includeArchived ? {} : { lastActivityAt: { gte: archiveCutoff() } }),
       ...(q ? { OR: [{ name: { contains: q, mode: "insensitive" as const } }, { purpose: { contains: q, mode: "insensitive" as const } }] } : {}),
     },
     orderBy: [{ lastActivityAt: "desc" }, { id: "desc" }],
@@ -256,40 +184,16 @@ async function requireOrganisationAgents(viewer: ClusterViewer, agentIds: string
   return ids;
 }
 
-/** Each invitee must bring a needed skill the cluster's members lack. */
-async function requireMissingSkill(viewer: ClusterViewer, invitees: string[], missing: string[]) {
-  if (!invitees.length) return;
-  if (!missing.length) throw new IssueApiError(409, "The cluster's members already cover every skill it needs. Add a needed skill first.", { code: "no_missing_skill" });
-  const skills = await skillsOf(viewer.organisationId, invitees);
-  const without = invitees.filter((id) => !missing.some((slug) => skills.get(id)?.has(slug)));
-  if (without.length) {
-    throw new IssueApiError(422, `Invite agents for a skill the cluster lacks (${missing.join(", ")}). These agents have none of them: ${without.join(", ")}.`, { code: "skill_not_missing", missingSkills: missing, agentIds: without });
-  }
-}
-
-/** Start a cluster, within the creator's limits, for the skills it needs. */
+/** Start a persistent group and invite collaborators. */
 export async function createCluster(viewer: ClusterViewer, input: unknown) {
   const agent = agentOf(viewer);
   const data = createClusterInput.parse(input);
   const now = new Date();
-  const [open, today] = await Promise.all([
-    prisma.cluster.count({ where: { organisationId: viewer.organisationId, creatorAgentId: agent.agentId, lastActivityAt: { gte: archiveCutoff(now) } } }),
-    prisma.cluster.count({ where: { organisationId: viewer.organisationId, creatorAgentId: agent.agentId, createdAt: { gte: new Date(now.getTime() - DAY_MS) } } }),
-  ]);
-  if (open >= MAX_OPEN_CLUSTERS) {
-    throw new IssueApiError(429, `You already lead ${MAX_OPEN_CLUSTERS} open clusters in this organisation. Reuse one (a thread per task), or let one archive.`, { code: "cluster_limit_open", limit: MAX_OPEN_CLUSTERS });
-  }
-  if (today >= MAX_NEW_CLUSTERS_PER_DAY) {
-    throw new IssueApiError(429, `You can start at most ${MAX_NEW_CLUSTERS_PER_DAY} clusters a day. Reuse an existing one, or try again tomorrow.`, { code: "cluster_limit_daily", limit: MAX_NEW_CLUSTERS_PER_DAY });
-  }
-  const neededSkills = await requireKnownSkills(viewer.organisationId, data.neededSkills);
   const invite = await requireOrganisationAgents(viewer, data.invite ?? []);
-  const creatorSkills = (await skillsOf(viewer.organisationId, [agent.agentId])).get(agent.agentId) ?? new Set<string>();
-  await requireMissingSkill(viewer, invite, missingSkills(neededSkills, [creatorSkills]));
   const cluster = await prisma.$transaction(async (db) => {
     const created = await db.cluster.create({ data: {
       organisationId: viewer.organisationId, projectId: viewer.projectId,
-      name: data.name, purpose: data.purpose, neededSkills, creatorAgentId: agent.agentId,
+      name: data.name, purpose: data.purpose, creatorAgentId: agent.agentId,
     } });
     await db.clusterMember.create({ data: { clusterId: created.id, agentId: agent.agentId, status: "active", joinedAt: now } });
     if (invite.length) {
@@ -299,80 +203,55 @@ export async function createCluster(viewer: ClusterViewer, input: unknown) {
     }
     return created;
   });
-  return { cluster: { id: cluster.id, name: cluster.name, purpose: cluster.purpose, neededSkills }, invited: invite };
+  return { cluster: { id: cluster.id, name: cluster.name, purpose: cluster.purpose }, invited: invite };
 }
 
-/** The creator changes the skills the cluster needs. */
+/** The creator updates the group's name and purpose. */
 export async function updateCluster(viewer: ClusterViewer, clusterId: string, input: unknown) {
   const agent = agentOf(viewer);
   const cluster = await requireMember(viewer, clusterId);
-  if (cluster.creatorAgentId !== agent.agentId) throw new IssueApiError(403, "Only the cluster's creator changes its needed skills.");
-  const { neededSkills } = updateClusterInput.parse(input);
-  const known = await requireKnownSkills(viewer.organisationId, neededSkills);
-  await prisma.cluster.update({ where: { id: clusterId }, data: { neededSkills: known } });
+  if (cluster.creatorAgentId !== agent.agentId) throw new IssueApiError(403, "Only the cluster's creator changes its name or purpose.");
+  const { name, purpose } = updateClusterInput.parse(input);
+  if (name !== undefined || purpose !== undefined) {
+    await prisma.cluster.update({ where: { id: clusterId }, data: { name, purpose } });
+  }
   return getClusterCard(viewer, clusterId);
 }
 
-async function activeMemberIds(clusterId: string) {
-  const rows = await prisma.clusterMember.findMany({ where: { clusterId, status: "active" }, select: { agentId: true } });
-  return rows.map((r) => r.agentId);
-}
-
-/** A member invites agents that bring a needed skill no member has yet. */
+/** Members invite other active agents in their organisation. */
 export async function inviteToCluster(viewer: ClusterViewer, clusterId: string, input: unknown) {
   const agent = agentOf(viewer);
-  const cluster = await requireMember(viewer, clusterId);
-  requireOpen(cluster);
+  await requireMember(viewer, clusterId);
   const { agentIds } = inviteInput.parse(input);
   const ids = await requireOrganisationAgents(viewer, agentIds);
   const existing = await prisma.clusterMember.findMany({ where: { clusterId, agentId: { in: ids } }, select: { agentId: true } });
   const known = new Set(existing.map((row) => row.agentId));
   const fresh = ids.filter((id) => !known.has(id));
-  const members = await activeMemberIds(clusterId);
-  const missing = missingSkills(cluster.neededSkills, (await skillsOf(viewer.organisationId, members)).values());
-  await requireMissingSkill(viewer, fresh, missing);
   if (fresh.length) {
     await prisma.clusterMember.createMany({ data: fresh.map((agentId) => ({ clusterId, agentId, status: "invited" as const, invitedByAgentId: agent.agentId })) });
   }
   return { invited: fresh, alreadyThere: ids.filter((id) => known.has(id)) };
 }
 
-/** Agents worth inviting: active in the organisation, outside the cluster, with the most missing skills first. */
+/** Active organisation agents outside the group, ordered by name. */
 export async function suggestInvites(viewer: ClusterViewer, clusterId: string) {
-  const cluster = await requireMember(viewer, clusterId);
-  const members = await activeMemberIds(clusterId);
-  const missing = missingSkills(cluster.neededSkills, (await skillsOf(viewer.organisationId, members)).values());
-  if (!missing.length) return { missingSkills: [], items: [] };
+  await requireMember(viewer, clusterId);
   const taken = await prisma.clusterMember.findMany({ where: { clusterId }, select: { agentId: true } });
-  const candidates = await prisma.agent.findMany({
-    where: {
-      ...activeIn(viewer.organisationId), revokedAt: null,
-      id: { notIn: taken.map((row) => row.agentId) },
-      skills: { some: { tag: { organisationId: viewer.organisationId, slug: { in: missing } } } },
-    },
-    take: 100,
-    select: { id: true, name: true, skills: { where: { tag: { organisationId: viewer.organisationId } }, select: { tag: { select: { slug: true } } } } },
+  const items = await prisma.agent.findMany({
+    where: { ...activeIn(viewer.organisationId), revokedAt: null, id: { notIn: taken.map((row) => row.agentId) } },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    take: 20,
+    select: { id: true, name: true },
   });
-  const items = candidates
-    .map((a) => ({ agentId: a.id, name: a.name, brings: missing.filter((slug) => a.skills.some((s) => s.tag.slug === slug)) }))
-    .sort((a, b) => b.brings.length - a.brings.length || a.name.localeCompare(b.name))
-    .slice(0, 20);
-  return { missingSkills: missing, items };
+  return { items: items.map((agent) => ({ agentId: agent.id, name: agent.name })) };
 }
 
-/** Join: at once with an invite, or with one of the cluster's needed skills. Joining twice changes nothing. */
+/** Join a discoverable project group or accept an invitation. Rejoining is idempotent. */
 export async function joinCluster(viewer: ClusterViewer, clusterId: string) {
   const agent = agentOf(viewer);
-  const cluster = await findCluster(viewer, clusterId);
-  requireOpen(cluster);
+  await findCluster(viewer, clusterId);
   const row = await prisma.clusterMember.findUnique({ where: { clusterId_agentId: { clusterId, agentId: agent.agentId } } });
   if (row?.status === "active") return { status: "active" };
-  if (!row) {
-    const mine = (await skillsOf(viewer.organisationId, [agent.agentId])).get(agent.agentId) ?? new Set<string>();
-    if (!cluster.neededSkills.some((slug) => mine.has(slug))) {
-      throw new IssueApiError(403, `This cluster needs one of these skills: ${cluster.neededSkills.join(", ")}. Add the skill to your profile if you have it.`, { code: "skill_needed", neededSkills: cluster.neededSkills });
-    }
-  }
   const joinedAt = new Date();
   if (row) await prisma.clusterMember.update({ where: { id: row.id }, data: { status: "active", joinedAt } });
   else await prisma.clusterMember.create({ data: { clusterId, agentId: agent.agentId, status: "active", joinedAt } });
@@ -403,12 +282,10 @@ export async function decideMember(viewer: ClusterViewer, clusterId: string, age
   return { status: null };
 }
 
-/** A member brings an archived cluster back. */
+/** Compatibility for older clients: groups no longer expire through inactivity. */
 export async function reopenCluster(viewer: ClusterViewer, clusterId: string) {
   agentOf(viewer);
-  const cluster = await requireMember(viewer, clusterId);
-  if (!isArchived(cluster)) return { archived: false };
-  await prisma.cluster.update({ where: { id: clusterId }, data: { lastActivityAt: new Date() } });
+  await requireMember(viewer, clusterId);
   return { archived: false };
 }
 
@@ -445,8 +322,7 @@ async function touch(db: Prisma.TransactionClient, clusterId: string, at: Date) 
 /** Post a task: what it is trying to achieve, and what blocks it. */
 export async function addTask(viewer: ClusterViewer, clusterId: string, input: unknown) {
   const agent = agentOf(viewer);
-  const cluster = await requireMember(viewer, clusterId);
-  requireOpen(cluster);
+  await requireMember(viewer, clusterId);
   const data = taskInput.parse(input);
   if (data.issueNumber) {
     const issue = await prisma.bug.findFirst({ where: { projectId: viewer.projectId, number: data.issueNumber, deletedAt: null }, select: { id: true } });
@@ -475,8 +351,7 @@ async function findTask(clusterId: string, taskId: string) {
 /** Share information on a task, optionally answering one of its blockers. */
 export async function shareInformation(viewer: ClusterViewer, clusterId: string, taskId: string, input: unknown) {
   const agent = agentOf(viewer);
-  const cluster = await requireMember(viewer, clusterId);
-  requireOpen(cluster);
+  await requireMember(viewer, clusterId);
   await findTask(clusterId, taskId);
   const data = shareInput.parse(input);
   if (data.blockerId) {
@@ -497,8 +372,7 @@ export async function shareInformation(viewer: ClusterViewer, clusterId: string,
 /** Add a blocker to a task. Any member may raise one. */
 export async function addBlocker(viewer: ClusterViewer, clusterId: string, taskId: string, input: unknown) {
   const agent = agentOf(viewer);
-  const cluster = await requireMember(viewer, clusterId);
-  requireOpen(cluster);
+  await requireMember(viewer, clusterId);
   await findTask(clusterId, taskId);
   const { text } = blockerInput.parse(input);
   const blocker = await prisma.$transaction(async (db) => {
@@ -512,8 +386,7 @@ export async function addBlocker(viewer: ClusterViewer, clusterId: string, taskI
 /** The task's author marks a blocker solved (or open again) once it has what it needs. */
 export async function setBlockerSolved(viewer: ClusterViewer, clusterId: string, blockerId: string, input: unknown) {
   const agent = agentOf(viewer);
-  const cluster = await requireMember(viewer, clusterId);
-  requireOpen(cluster);
+  await requireMember(viewer, clusterId);
   const { solved } = solveInput.parse(input);
   const blocker = await prisma.clusterBlocker.findFirst({ where: { id: blockerId, clusterId }, select: { id: true, task: { select: { authorAgentId: true } } } });
   if (!blocker) throw new IssueApiError(404, "Blocker not found.");
@@ -553,8 +426,7 @@ const STALE_DOC = "The shared doc changed. Read the latest version and apply you
 /** Save the shared doc against the version the agent read; a save against an older version is a 409. */
 export async function saveDoc(viewer: ClusterViewer, clusterId: string, input: unknown) {
   const agent = agentOf(viewer);
-  const cluster = await requireMember(viewer, clusterId);
-  requireOpen(cluster);
+  await requireMember(viewer, clusterId);
   const data = docInput.parse(input);
   const version = data.expectedVersion + 1;
   try {
@@ -619,14 +491,14 @@ export async function deleteCluster(viewer: ClusterViewer, clusterId: string) {
   return { deleted: true };
 }
 
-/** A person's agents in an organisation, with their skill slugs, for acting in clusters from the app. */
+/** A person's agents available to act in clusters from the app. */
 export async function ownAgentsIn(userId: string, organisationId: string) {
   const agents = await prisma.agent.findMany({
     where: { ownerUserId: userId, ...activeIn(organisationId), revokedAt: null },
     orderBy: { createdAt: "asc" },
-    select: { id: true, name: true, skills: { where: { tag: { organisationId } }, select: { tag: { select: { slug: true } } } } },
+    select: { id: true, name: true },
   });
-  return agents.map((a) => ({ id: a.id, name: a.name, skills: a.skills.map((s) => s.tag.slug) }));
+  return agents;
 }
 
 /**

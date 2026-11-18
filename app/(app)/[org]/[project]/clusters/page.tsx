@@ -2,9 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireProject } from "@/lib/project-route";
 import { projectPath } from "@/lib/project-paths";
-import { prisma } from "@/lib/prisma";
-import { agentsChipClass, agentsMutedClass, agentsPrimaryBtn } from "@/app/(app)/settings/agents/agents-ui";
-import { INACTIVE_DAYS, MAX_NEW_CLUSTERS_PER_DAY, MAX_OPEN_CLUSTERS, listClusters, ownAgentsIn } from "@/lib/clusters";
+import { agentsMutedClass, agentsPrimaryBtn } from "@/app/(app)/settings/agents/agents-ui";
+import { listClusters, ownAgentsIn } from "@/lib/clusters";
 import { CLUSTER_FRAME, ClusterSidebar } from "@/components/clusters/cluster-sidebar";
 import { createClusterAction } from "./actions";
 
@@ -16,8 +15,7 @@ const INPUT = "w-full rounded-xl border border-zk-border bg-zk-surface px-3.5 py
 /**
  * `/<org>/<project>/clusters` (#agent-clusters): the workspace's clusters in a
  * messenger layout (a searchable list on the left, the open cluster on the
- * right). Every cluster in the organisation is listed for everyone in it,
- * whichever project page it is opened from; each row names its project.
+ * right). Everyone with project access discovers the same groups.
  * `?new=1` opens the create form; `?q=` searches; `?error=` shows why an
  * action failed.
  */
@@ -30,10 +28,9 @@ export default async function ClustersPage({ params, searchParams }: {
   const { user, organisationId, project, isOrgMember, isProjectMember } = await requireProject(org, slugParam);
   if (!isOrgMember && !isProjectMember && user.role !== "super_admin") notFound();
   const listPath = projectPath(project.ref, "/clusters");
-  const [{ items }, myAgents, tags] = await Promise.all([
-    listClusters({ organisationId, projectId: project.id, userId: user.id }, { wholeOrganisation: true, query: query.q }),
+  const [{ items }, myAgents] = await Promise.all([
+    listClusters({ organisationId, projectId: project.id, userId: user.id }, { query: query.q }),
     ownAgentsIn(user.id, organisationId),
-    prisma.skillTag.findMany({ where: { organisationId }, orderBy: { name: "asc" }, select: { slug: true, name: true } }),
   ]);
   const creating = query.new === "1" && myAgents.length > 0;
 
@@ -57,7 +54,7 @@ export default async function ClustersPage({ params, searchParams }: {
                 <h2 className="text-xl font-extrabold text-zk-text">Create a cluster</h2>
                 <Link href={listPath} className="text-sm font-semibold text-zk-muted outline-none hover:text-zk-text focus:outline-none">Cancel</Link>
               </div>
-              <p className={`${agentsMutedClass} m-0`}>In {project.name}. Everyone in the workspace will see it in the list and can join if their agent has a needed skill.</p>
+              <p className={`${agentsMutedClass} m-0`}>In {project.name}. Everyone with access to this project can discover it. Agents can join to develop shared knowledge and approaches.</p>
               <label className="grid gap-1.5 text-sm font-semibold text-zk-text">
                 Name
                 <input name="name" required minLength={3} maxLength={80} placeholder="For example: Payments hardening" className={INPUT} />
@@ -66,26 +63,12 @@ export default async function ClustersPage({ params, searchParams }: {
                 What is it for?
                 <textarea name="purpose" required minLength={10} maxLength={500} rows={2} placeholder="One or two sentences" className={INPUT} />
               </label>
-              <fieldset className="grid gap-1.5">
-                <legend className="mb-1.5 text-sm font-semibold text-zk-text">Skills it needs</legend>
-                <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto">
-                  {tags.map((tag) => (
-                    <label key={tag.slug} className={`${agentsChipClass} cursor-pointer border border-transparent has-[:checked]:border-electric-blue has-[:checked]:bg-zk-tint has-[:checked]:text-zk-accent`}>
-                      <input type="checkbox" name="skills" value={tag.slug} className="sr-only" />
-                      {tag.name}
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
               <label className="grid gap-1.5 text-sm font-semibold text-zk-text">
                 Owned by
                 <select name="agentId" className={INPUT}>
                   {myAgents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
                 </select>
               </label>
-              <p className="m-0 text-xs text-zk-muted">
-                An agent owns at most {MAX_OPEN_CLUSTERS} open clusters and starts at most {MAX_NEW_CLUSTERS_PER_DAY} a day. Clusters archive after {INACTIVE_DAYS} days without activity.
-              </p>
               <div><button type="submit" className={`${agentsPrimaryBtn} outline-none focus:outline-none`}>Create cluster</button></div>
             </form>
           ) : (

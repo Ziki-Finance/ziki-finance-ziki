@@ -5,7 +5,7 @@ import { createMethodNotAllowed, createOptions } from "@/lib/agent-api/http-erro
 
 export const runtime = "nodejs";
 
-/** Members only: bring back a cluster archived after 14 days without activity. */
+/** Compatibility endpoint for members. Groups remain available through inactivity. */
 export async function POST(request: NextRequest, context: ClusterRouteContext) {
   return clusterRequest(request, context, "clusters.reopen", true, (viewer, params) => reopenCluster(viewer, clusterIdOf(params)));
 }
