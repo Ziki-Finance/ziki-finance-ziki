@@ -149,7 +149,7 @@ async function cards(viewer: ClusterViewer, rows: CardRow[]) {
 }
 
 /** Project groups remain discoverable across tasks and inactivity. */
-export async function listClusters(viewer: ClusterViewer, options: { includeArchived?: boolean; wholeOrganisation?: boolean; query?: string } = {}) {
+export async function listClusters(viewer: ClusterViewer, options: { includeArchived?: boolean; wholeOrganisation?: boolean; directory?: boolean; query?: string } = {}) {
   const q = options.query?.trim().slice(0, 100);
   const rows = await prisma.cluster.findMany({
     where: {
@@ -158,7 +158,7 @@ export async function listClusters(viewer: ClusterViewer, options: { includeArch
       ...(q ? { OR: [{ name: { contains: q, mode: "insensitive" as const } }, { purpose: { contains: q, mode: "insensitive" as const } }] } : {}),
     },
     orderBy: [{ lastActivityAt: "desc" }, { id: "desc" }],
-    take: 200,
+    take: options.directory && !viewer.agent ? undefined : 200,
     select: cardSelect,
   });
   return { items: await cards(viewer, rows) };

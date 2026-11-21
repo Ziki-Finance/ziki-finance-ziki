@@ -1,13 +1,10 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { sharedMatches } from "@/app/(app)/[org]/[project]/clusters/search";
 import Link from "next/link";
 import { LocalTime } from "@/components/local-time";
 import { ClusterMark } from "@/components/clusters/cluster-mark";
-
-/**
- * The messenger frame: the chat list on the left, the open cluster on the right.
- * On phones it is one column (`minmax(0,1fr)`, so long names truncate instead
- * of widening the page) showing one pane at a time, the full screen high.
- */
-export const CLUSTER_FRAME = "grid grid-cols-[minmax(0,1fr)] overflow-hidden rounded-[20px] border border-zk-border bg-zk-surface h-[calc(100dvh-10rem)] min-h-[420px] md:h-[calc(100vh-13rem)] md:min-h-[560px]";
 
 export type SidebarCluster = {
   id: string;
@@ -27,15 +24,55 @@ export type SidebarCluster = {
  * (mark, name, time, the latest task or purpose, project and members). Your
  * clusters come first; the rest are clusters you can open and join.
  */
-export function ClusterSidebar({ clusters, currentId, searchPath, query, newHref }: {
+export function ClusterSidebar({ clusters, currentId, org, projectSlug, userId, query, newHref }: {
   clusters: SidebarCluster[];
   currentId?: string;
-  searchPath: string;
+  org: string;
+  projectSlug: string;
+  userId: string;
   query?: string;
   newHref: string | null;
 }) {
-  const mine = clusters.filter((c) => c.myStatus === "active");
-  const others = clusters.filter((c) => c.myStatus !== "active");
+  const [input, setInput] = useState(query ?? "");
+  const [limit, setLimit] = useState(8);
+  const [recent, setRecent] = useState<string[]>([]);
+  const [shared, setShared] = useState<{ query: string; excerpts: Map<string, string> }>();
+  const term = input.trim().toLowerCase();
+  useEffect(() => {
+    const key = JSON.stringify(["cluster-recent", org, projectSlug, userId]);
+    const load = () => { try {
+      const saved: unknown = JSON.parse(localStorage.getItem(key) ?? "[]");
+      const ids = Array.isArray(saved) ? saved.filter((id): id is string => typeof id === "string") : [];
+      const next = currentId ? [currentId, ...ids.filter(id => id !== currentId)].slice(0, 8) : ids;
+      setRecent(next);
+      if (currentId && ids[0] !== currentId) localStorage.setItem(key, JSON.stringify(next));
+    } catch { setRecent([]); } };
+    const frame = requestAnimationFrame(load);
+    return () => cancelAnimationFrame(frame);
+  }, [currentId, org, projectSlug, userId]);
+  useEffect(() => {
+    if (!term) return;
+    let active = true;
+    const timer = setTimeout(() => {
+      sharedMatches(org, projectSlug, term).then(rows => {
+        if (active) setShared({ query: term, excerpts: new Map(rows.map(r => [r.id, r.excerpt])) });
+      }).catch(() => { if (active) setShared(undefined); });
+    }, 220);
+    return () => { active = false; clearTimeout(timer); };
+  }, [org, projectSlug, term]);
+  const excerpts = shared?.query === term ? shared.excerpts : undefined;
+  const words = term.split(/\s+/);
+  const results = clusters.flatMap(cluster => {
+    const name = cluster.name.toLowerCase();
+    const text = name + " " + cluster.purpose.toLowerCase();
+    if (term && !words.every(word => text.includes(word)) && !excerpts?.has(cluster.id)) return [];
+    const position = recent.indexOf(cluster.id);
+    let score = position < 0 ? 0 : 10 - position;
+    if (term) {
+      score = name === term ? 5 : name.startsWith(term) ? 4 : name.includes(term) ? 3 : words.every(word => name.includes(word)) ? 2 : 1;
+    }
+    return [{ cluster, score }];
+  }).sort((a,b) => b.score - a.score || b.cluster.lastActivityAt.getTime() - a.cluster.lastActivityAt.getTime());
   const row = (c: SidebarCluster) => {
     const on = c.id === currentId;
     return (
@@ -52,7 +89,7 @@ export function ClusterSidebar({ clusters, currentId, searchPath, query, newHref
               <span className="shrink-0 text-[11px] text-zk-muted"><LocalTime date={c.lastActivityAt} /></span>
             </span>
             <span className="block truncate text-xs text-zk-text2">
-              {c.lastTask ? `${c.lastTask.authorName}: ${c.lastTask.title}` : c.purpose}
+              {term ? excerpts?.get(c.id) ?? c.purpose : c.lastTask ? `${c.lastTask.authorName}: ${c.lastTask.title}` : c.purpose}
             </span>
             <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-zk-muted">
               <span className="truncate">{c.project.name}</span>
@@ -75,33 +112,26 @@ export function ClusterSidebar({ clusters, currentId, searchPath, query, newHref
           </Link>
         ) : null}
       </div>
-      <form action={searchPath} method="get" className="px-4 pb-3">
+      <div className="px-4 pb-3">
         <label className="sr-only" htmlFor="cluster-search">Search clusters</label>
         <input
           id="cluster-search"
           name="q"
           type="search"
-          defaultValue={query ?? ""}
+          value={input}
+          maxLength={100}
+          onChange={event => { setInput(event.target.value); setLimit(8); }}
           placeholder="Search clusters"
           className="h-10 w-full rounded-full border border-zk-border bg-zk-chip/50 px-4 text-sm text-zk-text placeholder:text-zk-muted outline-none focus:outline-none"
         />
-      </form>
+      </div>
       <div className="min-h-0 flex-1 overflow-y-auto border-t border-zk-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {mine.length ? (
-          <>
-            <p className="m-0 px-4 pb-1 pt-3 text-[11px] font-bold uppercase tracking-wide text-zk-muted">Your clusters</p>
-            <ul className="m-0 list-none p-0">{mine.map(row)}</ul>
-          </>
-        ) : null}
-        {others.length ? (
-          <>
-            <p className="m-0 px-4 pb-1 pt-3 text-[11px] font-bold uppercase tracking-wide text-zk-muted">Join a cluster</p>
-            <ul className="m-0 list-none p-0">{others.map(row)}</ul>
-          </>
-        ) : null}
-        {!clusters.length ? (
-          <p className="m-0 px-4 py-6 text-sm text-zk-muted">{query ? "No clusters match your search." : "No clusters yet."}</p>
-        ) : null}
+        <p aria-live="polite" className="m-0 px-4 pb-1 pt-3 text-[11px] font-bold uppercase tracking-wide text-zk-muted">
+          {term ? results.length + " matching clusters" : "Recent clusters"}
+        </p>
+        <ul className="m-0 list-none p-0">{results.slice(0, limit).map(({ cluster }) => row(cluster))}</ul>
+        {results.length > limit && <button type="button" onClick={() => setLimit(limit + 8)} className="px-4 py-3 text-sm text-zk-muted">Show more clusters</button>}
+        {!results.length && <p className="px-4 py-3 text-sm text-zk-muted">{term ? "Try a different name or keyword." : "No clusters yet."}</p>}
       </div>
     </div>
   );

@@ -4,7 +4,8 @@ import { requireProject } from "@/lib/project-route";
 import { projectPath } from "@/lib/project-paths";
 import { agentsMutedClass, agentsPrimaryBtn } from "@/app/(app)/settings/agents/agents-ui";
 import { listClusters, ownAgentsIn } from "@/lib/clusters";
-import { CLUSTER_FRAME, ClusterSidebar } from "@/components/clusters/cluster-sidebar";
+import { CLUSTER_FRAME } from "@/components/clusters/cluster-frame";
+import { ClusterSidebar } from "@/components/clusters/cluster-sidebar";
 import { createClusterAction } from "./actions";
 
 export const metadata = { title: "Agent clusters" };
@@ -29,7 +30,7 @@ export default async function ClustersPage({ params, searchParams }: {
   if (!isOrgMember && !isProjectMember && user.role !== "super_admin") notFound();
   const listPath = projectPath(project.ref, "/clusters");
   const [{ items }, myAgents] = await Promise.all([
-    listClusters({ organisationId, projectId: project.id, userId: user.id }, { query: query.q }),
+    listClusters({ organisationId, projectId: project.id, userId: user.id }, { directory: true }),
     ownAgentsIn(user.id, organisationId),
   ]);
   const creating = query.new === "1" && myAgents.length > 0;
@@ -42,7 +43,7 @@ export default async function ClustersPage({ params, searchParams }: {
       <div className={`${CLUSTER_FRAME} md:grid-cols-[22rem_minmax(0,1fr)]`}>
         {/* Phones: the list, or the create form; the empty right pane is for wider screens. */}
         <div className={creating ? "hidden md:flex md:min-h-0 md:flex-col" : "flex min-h-0 flex-col"}>
-          <ClusterSidebar clusters={items} searchPath={listPath} query={query.q} newHref={myAgents.length ? `${listPath}?new=1` : null} />
+          <ClusterSidebar clusters={items} org={org} projectSlug={slugParam} userId={user.id} query={query.q} newHref={myAgents.length ? `${listPath}?new=1` : null} />
         </div>
 
         <section className={`${creating ? "flex" : "hidden md:flex"} min-h-0 min-w-0 flex-col overflow-y-auto bg-zk-bg/40`}>

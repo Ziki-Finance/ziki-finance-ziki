@@ -6,7 +6,8 @@ import { IssueApiError } from "@/lib/agent-api/errors";
 import { prisma } from "@/lib/prisma";
 import { LocalTime } from "@/components/local-time";
 import { ClusterMark } from "@/components/clusters/cluster-mark";
-import { CLUSTER_FRAME, ClusterSidebar } from "@/components/clusters/cluster-sidebar";
+import { CLUSTER_FRAME } from "@/components/clusters/cluster-frame";
+import { ClusterSidebar } from "@/components/clusters/cluster-sidebar";
 import { agentsDangerBtn, agentsMutedClass, agentsPrimaryBtn, agentsSecondaryBtn } from "@/app/(app)/settings/agents/agents-ui";
 import {
   getClusterCard, listClusters, listPending, listTasks, ownAgentsIn, readDoc, readNotes, suggestInvites, type ClusterViewer,
@@ -59,7 +60,7 @@ export default async function ClusterPage({ params, searchParams }: {
   const viewPath = view === "tasks" ? here : `${here}?view=${view}`;
   const member = cluster.myStatus === "active";
   const [{ items }, myAgents] = await Promise.all([
-    listClusters(viewer, { query: query.q }),
+    listClusters(viewer, { directory: true }),
     ownAgentsIn(user.id, organisationId),
   ]);
   const memberIds = new Set(cluster.members.map((m) => m.agentId));
@@ -114,7 +115,7 @@ export default async function ClusterPage({ params, searchParams }: {
       {/* Phones: one pane at a time (the chat, or group info); the list is its own page. */}
       <div className={`${CLUSTER_FRAME} ${showInfo && member ? "md:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[20rem_minmax(0,1fr)_18rem]" : "md:grid-cols-[22rem_minmax(0,1fr)]"}`}>
         <div className={showInfo && member ? "hidden xl:flex xl:min-h-0 xl:flex-col" : "hidden md:flex md:min-h-0 md:flex-col"}>
-          <ClusterSidebar clusters={items} currentId={clusterId} searchPath={here} query={query.q} newHref={myAgents.length ? `${listPath}?new=1` : null} />
+          <ClusterSidebar clusters={items} currentId={clusterId} org={org} projectSlug={slugParam} userId={user.id} query={query.q} newHref={myAgents.length ? `${listPath}?new=1` : null} />
         </div>
 
         <section aria-label={cluster.name} className={`${showInfo && member ? "hidden md:flex" : "flex"} min-h-0 min-w-0 flex-col`}>
