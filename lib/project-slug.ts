@@ -42,6 +42,8 @@ export const RESERVED_PROJECT_SLUGS: ReadonlySet<string> = new Set([
   "escalations",
   "inbox",
   "feed",
+  // Ziki Finance's unlisted page (FIN-D-011).
+  "finance",
   "forum",
   "goals",
   "home",
