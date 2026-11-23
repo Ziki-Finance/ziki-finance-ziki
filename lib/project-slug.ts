@@ -42,6 +42,8 @@ export const RESERVED_PROJECT_SLUGS: ReadonlySet<string> = new Set([
   "escalations",
   "inbox",
   "feed",
+  // Finance (FIN-CR-013): /finance is its own unlinked page, never a project.
+  "finance",
   "forum",
   "goals",
   "home",

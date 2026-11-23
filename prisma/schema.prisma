@@ -404,6 +404,10 @@ model User {
   shareRedemptions          OrganisationShareRedemption[]
   projectAuditEvents        ProjectAuditEvent[]
   jobsCreated               Job[]                   @relation("JobCreator")
+  /// Finance (FIN-CR-013, Stream A): the owner's criteria and research runs.
+  /// Finance belongs to no organisation; every record is scoped to its owner.
+  financeCriteria           FinanceCriteria[]       @relation("FinanceCriteriaOwner")
+  financeRuns               FinanceRun[]            @relation("FinanceRunOwner")
   goalsCreated              Goal[]                  @relation("GoalCreator")
   jobSubmissions            JobSubmission[]         @relation("JobSubmissionBeneficiary")
   jobReviews                JobReview[]             @relation("JobReviewBeneficiary")
@@ -1457,6 +1461,8 @@ model Agent {
   jobSubmissions       JobSubmission[]
   jobReviews           JobReview[]
   jobReviewOffers      JobReviewOffer[]
+  /// Finance screening (Stream A): a stock this agent proposed or confirmed.
+  financeCandidateSignals FinanceCandidateSignal[]
   inboxItems           AgentInboxItem[]
   workAlerts           WorkAlert[]
   goalAllocations      GoalAllocation[]
@@ -4485,4 +4491,166 @@ model ForumRead {
 
   @@id([postId, agentId])
   @@index([agentId, readAt])
+}
+
+// ---------------------------------------------------------------------------
+// Finance (FIN-CR-013). A private tool for one owner: no organisation, no
+// project, no paid data API. Stream A owns criteria, runs and screening.
+// ---------------------------------------------------------------------------
+
+/// The three suggested starting points, or the owner's own words (§4.1).
+enum FinanceCriteriaPreset {
+  steady_dividend_growers
+  quality_at_a_fair_price
+  long_term_growth_leaders
+  own_words
+}
+
+/// A code-checkable size tag on criteria. `any` checks nothing.
+enum FinanceCompanySize {
+  any
+  small
+  mid
+  large
+}
+
+/// Where a research run is in the five-stage flow. Stream A starts every run
+/// at `screen`; later streams move it on.
+enum FinanceRunStage {
+  screen
+  enrich
+  evaluate
+  review
+  decide
+  done
+}
+
+/// A candidate's life in a run. `issue` is a confirmed match (the stock goes
+/// forward); `dropped` means a code check failed.
+enum FinanceCandidateStage {
+  proposed
+  issue
+  dropped
+}
+
+/// What Finnhub's free data said about a candidate against the criteria.
+/// `unavailable` never drops a candidate: missing data is not a failed check.
+enum FinanceCodeCheckStatus {
+  not_checked
+  matched
+  failed
+  unavailable
+}
+
+/// How an agent backed a candidate: it proposed the stock, or it confirmed
+/// another agent's proposal (§4.2).
+enum FinanceSignalKind {
+  proposed
+  confirmed
+}
+
+/// The owner's current criteria (§4.1). Editing writes a new
+/// `FinanceCriteriaVersion`; an existing run keeps the version it started with.
+model FinanceCriteria {
+  id            String                @id @default(cuid())
+  ownerId       String
+  preset        FinanceCriteriaPreset @default(own_words)
+  /// The exact words the owner chose: a preset's text, or their own.
+  words         String
+  companySize   FinanceCompanySize    @default(any)
+  /// Industries the owner wants, lower-case tags matched against Finnhub.
+  industries    String[]
+  /// Industries to leave out, matched against Finnhub.
+  leaveOut      String[]
+  /// How many stocks the run keeps (5 / 10 / 15, default 10).
+  howManyStocks Int                   @default(10)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @default(now()) @updatedAt
+  owner         User                  @relation("FinanceCriteriaOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  versions      FinanceCriteriaVersion[]
+  runs          FinanceRun[]
+
+  @@index([ownerId, createdAt])
+}
+
+/// One immutable version of criteria. A run always points at the version it
+/// used, so a decision can be traced to the exact criteria that produced it.
+model FinanceCriteriaVersion {
+  id            String                @id @default(cuid())
+  criteriaId    String
+  version       Int
+  preset        FinanceCriteriaPreset
+  words         String
+  companySize   FinanceCompanySize
+  industries    String[]
+  leaveOut      String[]
+  howManyStocks Int
+  createdAt     DateTime              @default(now())
+  criteria      FinanceCriteria       @relation(fields: [criteriaId], references: [id], onDelete: Cascade)
+  runs          FinanceRun[]
+
+  @@unique([criteriaId, version])
+  @@index([criteriaId, createdAt])
+}
+
+/// One research run: criteria version, stage, candidates. Starting research
+/// creates a run; editing criteria starts another.
+model FinanceRun {
+  id                String                @id @default(cuid())
+  ownerId           String
+  criteriaId        String
+  criteriaVersionId String
+  stage             FinanceRunStage       @default(screen)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @default(now()) @updatedAt
+  owner             User                  @relation("FinanceRunOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  criteria          FinanceCriteria       @relation(fields: [criteriaId], references: [id], onDelete: Cascade)
+  criteriaVersion   FinanceCriteriaVersion @relation(fields: [criteriaVersionId], references: [id], onDelete: Cascade)
+  candidates        FinanceCandidate[]
+
+  @@index([ownerId, createdAt])
+  @@index([stage])
+  @@index([criteriaId])
+}
+
+/// One stock in a run (§4.2). Agents add `FinanceCandidateSignal` rows; the
+/// code check runs once against Finnhub's free data.
+model FinanceCandidate {
+  id              String                 @id @default(cuid())
+  runId           String
+  ticker          String
+  companyName     String?
+  stage           FinanceCandidateStage  @default(proposed)
+  codeCheckStatus FinanceCodeCheckStatus @default(not_checked)
+  /// The checks the code ran: rule, expected, actual and passed.
+  codeCheckDetail Json?
+  /// When the candidate became a confirmed match (stage `issue`).
+  confirmedAt     DateTime?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @default(now()) @updatedAt
+  run             FinanceRun             @relation(fields: [runId], references: [id], onDelete: Cascade)
+  signals         FinanceCandidateSignal[]
+
+  @@unique([runId, ticker])
+  @@index([runId, stage])
+}
+
+/// One agent's proposal or confirmation for a candidate. One entry per agent
+/// per kind: an agent can propose a stock once, and confirm another's once.
+model FinanceCandidateSignal {
+  id          String            @id @default(cuid())
+  candidateId String
+  agentId     String
+  kind        FinanceSignalKind
+  /// Why it fits, one entry per criterion: [{ criterion, why }].
+  whyItFits   Json?
+  /// The public sources the agent read.
+  sources     String[]
+  createdAt   DateTime          @default(now())
+  candidate   FinanceCandidate  @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  agent       Agent             @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([candidateId, agentId, kind])
+  @@index([candidateId])
+  @@index([agentId])
 }
