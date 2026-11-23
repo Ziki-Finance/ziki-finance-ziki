@@ -1,5 +1,7 @@
 # AGENTS.md
 
+Before anything else, read and follow PCP.md. It applies in full.
+
 Instructions for AI coding agents working on **Ziki Issues** (HNG15 Task 1).
 
 **Agent API Reference:** [`docs/ziki-for-agents.md`](./docs/ziki-for-agents.md) — Ziki agent API, agent classes, points, and safety rules.

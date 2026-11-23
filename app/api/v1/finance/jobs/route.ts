@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { financeAgentRequest } from "@/lib/finance/agent-api";
 import { listPipelineJobsForAgent } from "@/lib/finance/pipeline";
 import { listJobsForAgent } from "@/lib/finance/research";
+import { listDecisionJobs } from "@/lib/finance/decisions";
+import { listMonitorJobs } from "@/lib/finance/monitor";
 
 export const runtime = "nodejs";
 
@@ -17,12 +19,15 @@ export const runtime = "nodejs";
  */
 export async function GET(request: NextRequest) {
   return financeAgentRequest(request, "read", async (agent) => {
-    const [jobs, enrich, evaluate] = await Promise.all([
+    const [jobs, enrich, evaluate, review, decide, check] = await Promise.all([
       listJobsForAgent(prisma, agent),
       listPipelineJobsForAgent(prisma, agent, "enrich"),
       listPipelineJobsForAgent(prisma, agent, "evaluate"),
+      listDecisionJobs(prisma, agent, "review"),
+      listDecisionJobs(prisma, agent, "decide"),
+      listMonitorJobs(prisma, agent),
     ]);
-    return NextResponse.json({ jobs, pipeline: { enrich, evaluate } });
+    return NextResponse.json({ jobs, pipeline: { enrich, evaluate, review, decide, check } });
   });
 }
 

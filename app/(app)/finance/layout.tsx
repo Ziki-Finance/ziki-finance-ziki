@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { requireFinanceOwner } from "@/lib/finance/owner";
 
 /**
  * Ziki Finance is unlisted (FIN-D-011): anyone with the link can open it, but
@@ -9,6 +10,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true, googleBot: { index: false, follow: false } },
 };
 
-export default function FinanceLayout({ children }: { children: React.ReactNode }) {
+export default async function FinanceLayout({ children }: { children: React.ReactNode }) {
+  await requireFinanceOwner();
   return children;
 }

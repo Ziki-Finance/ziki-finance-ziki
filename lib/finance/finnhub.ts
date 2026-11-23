@@ -121,7 +121,11 @@ export function finnhubMarketData(key: string): MarketData {
     async lookup(symbol) {
       const found = await get<{ result?: SearchItem[] }>("/search", { q: symbol, exchange: "US" }, key);
       const exact = (found?.result ?? []).find((item) => item.symbol.trim().toUpperCase() === symbol.trim().toUpperCase());
-      return exact ? matchOf(exact) : null;
+      if (!exact) return null;
+      const match = matchOf(exact);
+      if (!match) return null;
+      const profile = await get<{ finnhubIndustry?: string }>("/stock/profile2", { symbol }, key);
+      return profile?.finnhubIndustry ? { ...match, industry: profile.finnhubIndustry } : match;
     },
 
     /** The latest quote. Finnhub's daily candles are a paid feature, so this is the bar. */

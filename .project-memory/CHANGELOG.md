@@ -64,3 +64,9 @@ its attempt limit fails instead of retrying forever; staff-page errors carry a
 `section` so both forms don't show the same message; the foundations test
 expects `/finance` to need sign-in (v3) instead of being public; a `new Map`
 tuple needed `as const` under `strict`.
+
+## FNC-CR-001 — Decision, portfolio and logging (Stream C)
+Date: 2026-11-23. BEFORE: PR #1 has enrichment/evaluation and read-only Finance pages, no decisions or trade ledger/monitor. PROPOSED/APPROVED AFTER: implement PRD jobs 9–12 on its contracts. User approved Stream C and selected PR #1. Benefit: traceable Go/No-go, owner-managed trade log, monitored reasons and audit trail. Risks: unmerged dependency and new financial calculations/migrations. Acceptance: review quorum counted by head, rejected candidates never Needs you, splits answered, isolated roles, append-only trade/reason/decision history with trusted actor, code-derived holdings and no oversell, private owner UI, weekly/event/manual checks, no automatic trading. Files: Finance schema/migrations/services/API/actions/UI/tests/docs/memory, package version. Approval APPROVED; implementation IN PROGRESS; verification NOT RUN.
+
+
+FNC-CR-001 ACTUAL AFTER: decision/portfolio/audit/monitor vertical implemented on PR #1; owner-only actions and noindex UI; three migrations deployed to isolated local DB. Implementation COMPLETED. Full run 715a5fa88ed7: lint/typecheck pass, 2435/2437 tests; repaired two regressions. Targeted 2026-11-23T15-30-58-779Z: all phases pass, 72/72 tests. Separate PostgreSQL smoke passed. Final recheck/CLI/PR publication pending; no CI/build claim.

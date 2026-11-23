@@ -10,3 +10,9 @@
 | FIN-T-006 | Stream B tests (pure pipeline rules) | COMPLETED (unverified) |
 | FIN-T-007 | Install, migrate and run `pnpm verify:ready`; fix failures | NOT STARTED |
 | FIN-T-008 | Open the PR into `zedu-hng/zedu-fe:dev` | NOT STARTED |
+
+| FNC-T-001 | PRD job 9: decision engine and UI | COMPLETED |
+| FNC-T-002 | PRD job 10: append-only trades and computed holdings | COMPLETED |
+| FNC-T-003 | PRD job 11: portfolio and holding UI | COMPLETED |
+| FNC-T-004 | PRD job 12: immutable audit and monitor | COMPLETED |
+| FNC-T-005 | Isolated migrations, tests and review evidence | NOT STARTED |

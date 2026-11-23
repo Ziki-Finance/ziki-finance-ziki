@@ -41,3 +41,6 @@ _Updated 2026-11-23_
 - The v1 briefing/holdings page and its libs (`briefing.ts`, `holdings.ts`,
   `prices.ts`, `ideas.ts`) were **not** ported; only the spine Stream B needs.
 - `FinanceSettingsChange` still audits only the three agreement numbers.
+
+## FNC — Stream C
+Implemented PRD jobs 9–12 on branch feat/finance-stream-c-decision-portfolio, based on PR #1 d63bbaa. Three additive migrations; all 259 applied to isolated port-5434 database, old database unchanged. Full verify: lint/typecheck pass, 2435/2437 unit tests passed; two failures repaired (optional industry API shape, shared Finance path constant). Targeted recheck passed lint/typecheck and 72/72 tests. Separate PostgreSQL smoke passed quorum, split, role/task independence, private ledger, idempotency, concurrent/backdated oversells, immutable history and monitor-to-Trim. Final small accounting/display repairs and CLI clearance scenario are being rechecked. Version 0.1.265. PR publication requested by user; no fork, merge or deployment. FIN section above is inherited historical state from PR #1.

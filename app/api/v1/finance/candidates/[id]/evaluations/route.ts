@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { financeAgentRequest, readJson } from "@/lib/finance/agent-api";
 import { evaluationBodySchema, listEvaluationsForAgent, submitEvaluation } from "@/lib/finance/pipeline";
+import { advanceCandidateReviews } from "@/lib/finance/decisions";
 
 export const runtime = "nodejs";
 
@@ -16,6 +17,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { id } = await params;
     const body = evaluationBodySchema.parse(await readJson(request));
     const evaluation = await submitEvaluation(prisma, agent, id, body);
+    await advanceCandidateReviews(prisma, id);
     return NextResponse.json({ evaluation }, { status: 201 });
   });
 }

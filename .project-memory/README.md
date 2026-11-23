@@ -12,3 +12,5 @@ The continuity protocol is [`../PCP.md`](../PCP.md). Start a session by reading
 
 Each workstream edits only its own entries and its own section in
 `CURRENT_STATE.md` and `HANDOFF.md`.
+
+- FNC-: Stream C decision, portfolio and logging; own records only.

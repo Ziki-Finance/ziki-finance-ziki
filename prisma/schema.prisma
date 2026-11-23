@@ -4546,6 +4546,7 @@ model FinanceTicker {
   /// Upper case, e.g. "AAPL", "BRK.B".
   symbol         String            @unique
   name           String
+  industry       String?
   exchange       String?
   type           FinanceTickerType @default(stock)
   lastSnapshotAt DateTime?
@@ -4557,6 +4558,8 @@ model FinanceTicker {
   views          FinanceView[]
   agreedViews    FinanceAgreedView[]
   candidates     FinanceCandidate[]
+  trades         FinanceTrade[]
+  decisions      FinanceDecision[]
 
   @@index([name])
 }
@@ -4582,6 +4585,8 @@ model FinanceHolding {
   /// When they said they sold it; it then stops counting as held.
   soldAt    DateTime?
   updatedAt DateTime      @updatedAt
+  reasonPoints FinanceReasonPoint[]
+  checks       FinanceCheck[]
 
   @@unique([userId, tickerId])
   @@index([tickerId])
@@ -4847,6 +4852,8 @@ enum FinanceEvalCall {
 enum FinancePipelineKind {
   enrich
   evaluate
+  review
+  decide
 }
 
 enum FinancePipelineStatus {
@@ -4885,6 +4892,11 @@ model FinanceCandidate {
   evidence      FinanceEvidence[]
   evaluations   FinanceEvaluation[]
   jobs          FinancePipelineJob[]
+  reviews       FinanceReview[]
+  decision      FinanceDecision?
+  /// Review thresholds are frozen when evaluation reaches its quota.
+  reviewSlots   Int?
+  reviewGoRequired Int?
 
   @@unique([runId, tickerId])
   @@index([tickerId])
@@ -4976,4 +4988,144 @@ model FinancePipelineJob {
 
   @@index([kind, status, nextRunAt])
   @@index([candidateId])
+}
+
+/// One independent manager vote, counted by head, never by confidence/weight.
+model FinanceReview {
+  id String @id @default(cuid())
+  candidateId String
+  candidate FinanceCandidate @relation(fields: [candidateId], references: [id], onDelete: Restrict)
+  agentId String
+  actorLabel String
+  call String
+  summary String
+  answerAgainst String
+  createdAt DateTime @default(now())
+  @@unique([candidateId, agentId])
+}
+
+/// Immutable final recommendation. A review rejection cannot reach a Decider.
+model FinanceDecision {
+  id String @id @default(cuid())
+  tickerId String
+  ticker FinanceTicker @relation(fields: [tickerId], references: [id], onDelete: Restrict)
+  candidateId String? @unique
+  candidate FinanceCandidate? @relation(fields: [candidateId], references: [id], onDelete: Restrict)
+  checkId String? @unique
+  check FinanceCheck? @relation(fields: [checkId], references: [id], onDelete: Restrict)
+  call String
+  sentence String
+  reasons String[]
+  reasonPoints Json @default("[]")
+  answerAgainst String
+  answerDissent String?
+  changeMind String
+  buyRangeLow Decimal? @db.Decimal(20,4)
+  buyRangeHigh Decimal? @db.Decimal(20,4)
+  reviewIfBelow Decimal? @db.Decimal(20,4)
+  holdDuration String?
+  agentId String?
+  actorLabel String
+  origin String
+  reviewGo Int
+  reviewTotal Int
+  createdAt DateTime @default(now())
+  trades FinanceTrade[]
+  actions FinanceOwnerAction[]
+  @@index([tickerId, createdAt])
+}
+
+/// The authoritative ledger. Correct mistakes with compensating entries.
+/// Null price is reserved for migrated legacy holdings whose cost is unknown.
+model FinanceTrade {
+  id String @id @default(cuid())
+  userId String
+  tickerId String
+  ticker FinanceTicker @relation(fields: [tickerId], references: [id], onDelete: Restrict)
+  decisionId String?
+  decision FinanceDecision? @relation(fields: [decisionId], references: [id], onDelete: Restrict)
+  side String
+  shares Decimal @db.Decimal(20,6)
+  price Decimal? @db.Decimal(20,4)
+  benchmarkPrice Decimal? @db.Decimal(20,4)
+  tradedAt DateTime
+  requestId String
+  actorId String
+  actorLabel String
+  createdAt DateTime @default(now())
+  @@unique([userId, requestId])
+  @@index([userId, tickerId, tradedAt, createdAt])
+}
+
+/// Checkable thesis, immutable once attached. Status lives in check results.
+model FinanceReasonPoint {
+  id String @id @default(cuid())
+  holdingId String
+  holding FinanceHolding @relation(fields: [holdingId], references: [id], onDelete: Restrict)
+  text String
+  main Boolean @default(false)
+  createdAt DateTime @default(now())
+  results FinanceCheckResult[]
+}
+
+/// Retryable monitor work; it contains no mutable investment verdict.
+model FinanceCheck {
+  id String @id @default(cuid())
+  holdingId String
+  holding FinanceHolding @relation(fields: [holdingId], references: [id], onDelete: Restrict)
+  trigger String
+  dedupeKey String @unique
+  status String @default("queued")
+  researcherAgentId String?
+  reviewerAgentId String?
+  deciderAgentId String?
+  claimedByAgentId String?
+  leaseUntil DateTime?
+  reasonStatus String?
+  reviewSummary String?
+  reviewedAt DateTime?
+  createdAt DateTime @default(now())
+  results FinanceCheckResult[]
+  decision FinanceDecision?
+  @@index([status, createdAt])
+}
+
+model FinanceCheckResult {
+  id String @id @default(cuid())
+  checkId String
+  check FinanceCheck @relation(fields: [checkId], references: [id], onDelete: Restrict)
+  reasonPointId String
+  reasonPoint FinanceReasonPoint @relation(fields: [reasonPointId], references: [id], onDelete: Restrict)
+  status String
+  summary String
+  sources String[]
+  actorId String
+  actorLabel String
+  createdAt DateTime @default(now())
+  @@unique([checkId, reasonPointId])
+}
+
+model FinanceOwnerAction {
+  id String @id @default(cuid())
+  userId String
+  decisionId String
+  decision FinanceDecision @relation(fields: [decisionId], references: [id], onDelete: Restrict)
+  action String
+  reason String?
+  actorLabel String
+  createdAt DateTime @default(now())
+  @@index([userId, decisionId, createdAt])
+}
+
+/// Append-only audit with trusted actor identity and before/after detail.
+model FinanceChange {
+  id String @id @default(cuid())
+  userId String?
+  tickerId String
+  kind String
+  actorId String
+  actorLabel String
+  detail Json
+  createdAt DateTime @default(now())
+  @@index([userId, tickerId, createdAt])
 }
