@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth-helpers";
 import { fromZodError } from "@/lib/form-errors";
+import { isCloudflareWorkers } from "@/lib/runtime";
 import {
   createFinanceCriteria,
   deleteFinanceCriteria,
@@ -60,12 +61,12 @@ export async function saveFinanceCriteriaAction(
     if (criteriaId) {
       const updated = await updateFinanceCriteria(user.id, criteriaId, parsed.data);
       if (!updated) return { error: "That criteria no longer exists." };
-      revalidatePath("/finance");
+      if (!isCloudflareWorkers()) revalidatePath("/finance");
       return { ok: true, criteriaId: updated.id };
     }
 
     const created = await createFinanceCriteria(user.id, parsed.data);
-    revalidatePath("/finance");
+    if (!isCloudflareWorkers()) revalidatePath("/finance");
     return { ok: true, criteriaId: created.id };
   } catch {
     return { error: "The criteria could not be saved. Try again." };
@@ -86,7 +87,7 @@ export async function deleteFinanceCriteriaAction(
   try {
     const deleted = await deleteFinanceCriteria(user.id, criteriaId);
     if (!deleted) return { error: "That criteria no longer exists." };
-    revalidatePath("/finance");
+    if (!isCloudflareWorkers()) revalidatePath("/finance");
     return { ok: true, criteriaId };
   } catch {
     return { error: "The criteria could not be deleted. Try again." };

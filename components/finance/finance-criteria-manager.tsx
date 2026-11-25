@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
 import {
   deleteFinanceCriteriaAction,
@@ -69,6 +70,7 @@ function CriteriaModalInner({
   editing: FinanceCriteriaView | null;
   onClose: () => void;
 }) {
+  const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const toast = useToast();
   const { fieldErrors, show, clear, attrs } = useFieldErrors(FORM_ID, formRef);
@@ -89,10 +91,11 @@ function CriteriaModalInner({
       clear();
       toast("Criteria saved. A new screening run started.", "success");
       onClose();
+      router.refresh();
     } else {
       show(saveState);
     }
-  }, [saveState, show, clear, toast, onClose]);
+  }, [saveState, show, clear, toast, onClose, router]);
 
   return (
     <div
@@ -237,6 +240,7 @@ export function FinanceCriteriaManager({
   onOpenNew: () => void;
   onOpenEdit: (item: FinanceCriteriaView) => void;
 }) {
+  const router = useRouter();
   const toast = useToast();
   const [deleteState, deleteAction, deleting] = useActionState<
     FinanceCriteriaActionResult | undefined,
@@ -247,10 +251,11 @@ export function FinanceCriteriaManager({
     if (!deleteState) return;
     if (deleteState.ok) {
       toast("Criteria deleted, with the runs it started.", "success");
+      router.refresh();
     } else {
       toast(deleteState.error ?? "The criteria could not be deleted.", "error");
     }
-  }, [deleteState, toast]);
+  }, [deleteState, toast, router]);
 
   return (
     <section
