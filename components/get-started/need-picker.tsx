@@ -1,5 +1,7 @@
 "use client";
 
+import { GHOST_ACTION, PRIMARY_ACTION } from "@/lib/ui-style";
+
 import type { ReactNode } from "react";
 import type { ProductKind } from "@/lib/product-kinds";
 
@@ -83,12 +85,10 @@ export function needsFor(kinds: readonly ProductKind[]): Need[] {
   return needs;
 }
 
-/** The card's main button: full width and tall, as Pinterest's Continue. */
-export const PRIMARY_BUTTON =
-  "inline-flex min-h-12 w-full items-center justify-center rounded-control bg-electric-blue-strong px-6 text-base font-bold text-white transition hover:bg-zk-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40";
+/** The card's main action, using the shared primary control. */
+export const PRIMARY_BUTTON = PRIMARY_ACTION + " w-full";
 /** The quiet way out under it. */
-export const SECONDARY_BUTTON =
-  "inline-flex min-h-11 w-full items-center justify-center rounded-control px-6 text-sm font-semibold text-zk-text2 transition hover:bg-zk-chip hover:text-zk-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue";
+export const SECONDARY_BUTTON = GHOST_ACTION + " w-full";
 
 type Props = {
   /** The question, rendered by the parent (it may own focus on it). */

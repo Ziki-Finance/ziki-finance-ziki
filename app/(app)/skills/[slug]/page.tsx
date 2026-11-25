@@ -125,7 +125,7 @@ export default async function SkillDetailPage({
       <JsonLd data={jsonLd} />
 
       {/* Hero Header */}
-      <div className="rounded-2xl border border-zk-border bg-zk-surface p-6 sm:p-8 overflow-hidden shadow-xs">
+      <div className="rounded-2xl border border-zk-border bg-zk-surface p-6 sm:p-8 overflow-hidden shadow-none">
         <div className="space-y-4 sm:space-y-6">
           {/* Breadcrumb */}
           <div className="flex items-center justify-between gap-2 text-xs text-zk-muted">
@@ -145,7 +145,7 @@ export default async function SkillDetailPage({
                 <SkillIcon icon={skill.icon} />
               </div>
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-zk-muted">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-zk-muted">
                   {skill.categoryLabel}
                 </span>
                 <h1 className="text-2xl font-extrabold tracking-tight text-zk-text sm:text-3xl sm:leading-tight">
@@ -215,7 +215,7 @@ export default async function SkillDetailPage({
                     className="flex items-start gap-2.5 text-xs text-zk-text leading-relaxed"
                   >
                     <span
-                      className="mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white text-[10px] font-bold"
+                      className="mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white text-[11px] font-bold"
                       aria-hidden="true"
                     >
                       ✓
@@ -305,7 +305,7 @@ export default async function SkillDetailPage({
                   <Link
                     key={tag}
                     href={`/skills?search=${encodeURIComponent(tag)}`}
-                    className="rounded-md bg-zk-chip px-2 py-1 text-[10px] font-mono text-zk-text2 hover:bg-zk-border transition"
+                    className="rounded-md bg-zk-chip px-2 py-1 text-[11px] font-mono text-zk-text2 hover:bg-zk-border transition"
                   >
                     #{tag}
                   </Link>

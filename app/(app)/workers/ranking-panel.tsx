@@ -320,7 +320,7 @@ export default async function RankingPanel({
               return (
                 <div
                   key={entry.userId}
-                  className="zk-motion group relative flex flex-col gap-4 overflow-hidden rounded-panel border border-zk-border bg-zk-surface p-5 motion-safe:animate-[leaderboard-in_0.5s_cubic-bezier(0.2,0.7,0.2,1)_both] motion-safe:transition-[transform,box-shadow,border-color] motion-safe:duration-250 hover:border-[#BFD6FB] hover:shadow-[0_18px_40px_rgba(11,23,51,0.10),0_2px_6px_rgba(57,120,246,0.10)] motion-safe:hover:-translate-y-1 dark:hover:border-electric-blue-strong dark:hover:shadow-[0_18px_40px_rgba(0,0,0,0.45),0_0_0_1px_rgba(57,120,246,0.25)]"
+                  className="zk-motion group relative flex flex-col gap-4 overflow-hidden rounded-panel border border-zk-border bg-zk-surface p-5 motion-safe:animate-[leaderboard-in_0.5s_cubic-bezier(0.2,0.7,0.2,1)_both] transition-colors motion-safe:duration-250 hover:border-zk-accent dark:hover:border-electric-blue-strong"
                   style={{ animationDelay: `${i * 70}ms` }}
                 >
                   <div
@@ -370,7 +370,7 @@ export default async function RankingPanel({
                     <div className="h-2 overflow-hidden rounded-full bg-zk-tint">
                       <div
                         className="h-full rounded-full"
-                        style={{ width: `${pct}%`, background: met ? "#2E6FEF" : "#8FC9FF" }}
+                        style={{ width: `${pct}%`, background: met ? "var(--zk-blue)" : "var(--color-teal-300)" }}
                       />
                     </div>
                     <span className={`text-xs font-bold ${met ? "text-zk-ok-fg" : "text-zk-muted"}`}>
@@ -384,44 +384,39 @@ export default async function RankingPanel({
             })}
           </div>
 
-          <div className="relative flex min-w-0 flex-[1_1_300px] flex-col gap-4 overflow-hidden rounded-panel bg-deep-ocean p-[22px] text-white">
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute -right-[90px] -top-[90px] h-60 w-60 rounded-full"
-              style={{ background: "radial-gradient(circle, rgba(57,120,246,0.45), rgba(57,120,246,0) 70%)" }}
-            />
-            <span className="relative text-xs font-bold uppercase tracking-[0.08em] text-[#A9BCDF]">
+          <div className="relative flex min-w-0 flex-[1_1_300px] flex-col gap-4 overflow-hidden rounded-panel border border-zk-border bg-zk-surface p-5 text-zk-text">
+            <span className="relative text-xs font-bold uppercase tracking-[0.08em] text-zk-muted">
               Your standing
             </span>
             <div className="relative flex items-baseline gap-2.5">
               <span className="text-[44px] font-extrabold leading-none">
                 {standing ? `#${standing.rank}` : "—"}
               </span>
-              <span className="text-sm text-[#C9D6EF]">
+              <span className="text-sm text-zk-text2">
                 of {standing?.total ?? ranked.length} {(standing?.total ?? ranked.length) === 1 ? "person" : "people"}
               </span>
             </div>
             <div className="relative flex flex-col gap-2">
               <div className="flex justify-between text-[13px]">
-                <span className="text-[#C9D6EF]">
+                <span className="text-zk-text2">
                   {money(myTotals.ziks)} / {money(targetZiks)}
                 </span>
                 {goalMet ? (
-                  <span className="rounded-full bg-[#0F3326] px-2 py-px font-bold text-[#6EE7A8]">
+                  <span className="rounded-full bg-zk-ok-bg px-2 py-px font-bold text-zk-ok-fg">
                     Goal reached · +{money(myTotals.ziks - targetZiks)}
                   </span>
                 ) : (
-                  <span className="rounded-full bg-blue-slate px-2 py-px font-bold text-[#C9D6EF]">
+                  <span className="rounded-full bg-zk-chip px-2 py-px font-bold text-zk-text2">
                     {money(targetZiks - myTotals.ziks)} to goal
                   </span>
                 )}
               </div>
-              <div className="h-2.5 overflow-hidden rounded-full bg-blue-slate">
+              <div className="h-2.5 overflow-hidden rounded-full bg-zk-chip">
                 <div className="h-full rounded-full bg-electric-blue" style={{ width: `${myPct}%` }} />
               </div>
             </div>
             <WeeklyPaceBar earned={recentById.get(user.id) ?? 0} inMotion={myInMotion} target={targetZiks} />
-            <span className="relative text-[13px] text-[#C9D6EF]">{standingDetail}</span>
+            <span className="relative text-[13px] text-zk-text2">{standingDetail}</span>
           </div>
         </div>
       )}
@@ -498,7 +493,7 @@ export default async function RankingPanel({
                     aria-selected={on}
                     className={`inline-flex min-h-8 items-center rounded-full px-3.5 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue ${
                       on
-                        ? "bg-zk-surface font-bold text-zk-text shadow-[0_1px_3px_rgba(21,18,31,0.12)]"
+                        ? "bg-zk-surface font-bold text-zk-text shadow-none"
                         : "font-medium text-zk-text2 hover:text-zk-text"
                     }`}
                   >

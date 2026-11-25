@@ -271,7 +271,7 @@ export function WebhookManagement() {
           {subscriptions.length === 0 ? (
             <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-zk-border bg-zk-tint px-6 py-10 text-center">
               <span
-                className="flex h-14 w-14 items-center justify-center rounded-panel bg-zk-surface text-zk-accent shadow-[0_8px_20px_rgba(46,111,239,0.15)]"
+                className="flex h-14 w-14 items-center justify-center rounded-panel bg-zk-surface text-zk-accent shadow-none"
                 aria-hidden="true"
               >
                 <svg
@@ -398,7 +398,7 @@ export function WebhookManagement() {
                   ?.focus();
               }
             }}
-            className="m-auto max-h-[calc(100dvh-2rem)] w-[min(42rem,calc(100vw-2rem))] max-w-full overflow-y-auto flex-col gap-3 rounded-panel border border-zk-warn-bd bg-zk-warn-bg px-[22px] py-5 text-zk-text shadow-xl backdrop:bg-black/50 open:flex"
+            className="m-auto max-h-[calc(100dvh-2rem)] w-[min(42rem,calc(100vw-2rem))] max-w-full overflow-y-auto flex-col gap-3 rounded-panel border border-zk-warn-bd bg-zk-warn-bg px-[22px] py-5 text-zk-text shadow-none backdrop:bg-black/50 open:flex"
           >
             <div className="flex items-start gap-3">
               <svg
@@ -439,8 +439,8 @@ export function WebhookManagement() {
                 onClick={() => void copyCreatedSecret()}
                 className={`inline-flex h-[42px] items-center rounded-full px-4 text-sm font-bold text-white ${
                   copied
-                    ? "bg-[#146C43]"
-                    : "bg-electric-blue-strong shadow-[0_8px_20px_rgba(46,111,239,0.30)]"
+                    ? "bg-zk-ok-fg"
+                    : "bg-electric-blue-strong shadow-none"
                 }`}
               >
                 {copied ? "Copied" : "Copy secret"}
@@ -614,7 +614,7 @@ export function WebhookManagement() {
                 disabled={createPending || !canAdd}
                 className={`inline-flex h-[46px] items-center gap-2 rounded-full px-[22px] text-sm font-bold ${
                   canAdd && !createPending
-                    ? "bg-electric-blue-strong text-white shadow-[0_8px_20px_rgba(46,111,239,0.30)]"
+                    ? "bg-electric-blue-strong text-white shadow-none"
                     : "cursor-not-allowed bg-zk-chip text-zk-muted"
                 }`}
               >
@@ -655,11 +655,11 @@ export function WebhookManagement() {
             </div>
           ))}
         </section>
-        <section className="flex flex-col gap-2.5 rounded-panel bg-deep-ocean p-5 text-[#DCE5F5]">
-          <span className="text-xs font-bold uppercase tracking-[0.08em] text-[#A9BCDF]">
+        <section className="flex flex-col gap-2.5 rounded-panel bg-deep-ocean p-5 text-zk-text">
+          <span className="text-xs font-bold uppercase tracking-[0.08em] text-zk-muted">
             Verify a signature
           </span>
-          <pre className="m-0 overflow-x-auto font-mono text-xs leading-[1.7] text-[#DCE5F5]">
+          <pre className="m-0 overflow-x-auto font-mono text-xs leading-[1.7] text-zk-text">
             {`expected = hmac_sha256(
   secret, raw_request_body
 )
@@ -668,7 +668,7 @@ if !timing_safe_equal(
 ):
   reject(401)`}
           </pre>
-          <span className="text-xs text-[#A9BCDF]">
+          <span className="text-xs text-zk-muted">
             Header name and payload format: see the webhook docs.
           </span>
         </section>

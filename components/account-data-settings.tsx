@@ -122,7 +122,7 @@ export function AccountDataSettings() {
                 className={`h-[42px] rounded-full border-0 px-[18px] text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zk-bad-fg focus-visible:ring-offset-2 ${
                   deleteLocked
                     ? "cursor-not-allowed bg-zk-chip text-zk-muted"
-                    : "bg-[#B4233F] text-white hover:brightness-105"
+                    : "bg-zk-bad-fg text-white hover:brightness-105"
                 }`}
               >
                 {pending ? "Deleting…" : "Permanently delete"}

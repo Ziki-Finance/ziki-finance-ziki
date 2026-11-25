@@ -1,5 +1,7 @@
 "use client";
 
+import { PRIMARY_ACTION } from "@/lib/ui-style";
+
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import type { SecuritySeverity } from "@prisma/client";
@@ -100,7 +102,7 @@ export function CheckList({
                 type="button"
                 aria-haspopup="dialog"
                 onClick={() => window.dispatchEvent(new CustomEvent("zk:start-deeper-scan"))}
-                className="inline-flex h-9 items-center rounded-xl bg-electric-blue-strong px-4 text-sm font-semibold text-white hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zk-accent"
+                className={PRIMARY_ACTION}
               >
                 {code ? (
                   <>
@@ -125,7 +127,7 @@ export function CheckList({
             <button
               type="button"
               onClick={() => setFixOpen(true)}
-              className="h-9 rounded-xl bg-electric-blue-strong px-4 text-sm font-semibold text-white hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zk-accent"
+              className={PRIMARY_ACTION}
             >
               Fix {selected.length} selected
             </button>

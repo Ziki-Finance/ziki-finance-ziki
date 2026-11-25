@@ -13,9 +13,9 @@ import { useToast } from "@/components/ui/toast";
 import type { OrganisationRole } from "@/lib/organisation-role";
 
 const secondaryBtn =
-  "inline-flex min-h-10 items-center justify-center rounded-full border border-zk-border bg-zk-surface px-3.5 py-2 text-sm font-bold text-zk-text transition hover:bg-zk-chip focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2 disabled:opacity-50";
+  "inline-flex min-h-10 items-center justify-center rounded-control border border-zk-border bg-zk-surface px-3.5 py-2 text-sm font-semibold text-zk-text transition hover:bg-zk-chip focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2 disabled:opacity-50";
 const dangerBtn =
-  "inline-flex min-h-10 items-center justify-center rounded-full border border-zk-bad-bd bg-zk-surface px-3.5 py-2 text-sm font-bold text-zk-bad-fg transition hover:bg-zk-bad-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zk-bad-fg focus-visible:ring-offset-2 disabled:opacity-50";
+  "inline-flex min-h-10 items-center justify-center rounded-control border border-zk-bad-bd bg-zk-surface px-3.5 py-2 text-sm font-semibold text-zk-bad-fg transition hover:bg-zk-bad-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zk-bad-fg focus-visible:ring-offset-2 disabled:opacity-50";
 
 /**
  * Promote, demote, remove, or leave inside one organisation, and, for an owner,

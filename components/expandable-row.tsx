@@ -39,7 +39,7 @@ export function RowToggle({ label, children = null }: { label: string; children?
       aria-controls={row.panelId}
       title={row.open ? "Hide details" : label}
       aria-label={children ? undefined : row.open ? "Hide details" : label}
-      className="inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center gap-1 rounded-[7px] hover:bg-zk-chip focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-electric-blue"
+      className="inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center gap-1 rounded-chip hover:bg-zk-chip focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-electric-blue"
     >
       {children}
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"

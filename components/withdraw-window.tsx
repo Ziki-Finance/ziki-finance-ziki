@@ -1,5 +1,7 @@
 "use client";
 
+import { PRIMARY_ACTION, SECONDARY_ACTION } from "@/lib/ui-style";
+
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { WITHDRAW_THRESHOLD } from "@/lib/earnings-threshold";
@@ -10,10 +12,8 @@ import { ZIKS_PER_DOLLAR, formatZik } from "@/lib/coins/math";
 const money = (ziks: number) => formatZik(Math.round(ziks));
 const MINIMUM = WITHDRAW_THRESHOLD * ZIKS_PER_DOLLAR;
 const THRESHOLD = money(MINIMUM);
-const PRIMARY =
-  "inline-flex min-h-11 items-center justify-center rounded-full bg-electric-blue-strong px-5 text-sm font-bold whitespace-nowrap text-white max-sm:px-2 max-sm:text-[13px] shadow-[0_8px_20px_rgba(46,111,239,0.30)] transition hover:bg-[#2552af] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2";
-const SECONDARY =
-  "inline-flex min-h-11 items-center justify-center rounded-full border border-zk-border bg-zk-surface px-5 text-sm font-bold whitespace-nowrap text-zk-text max-sm:px-2 max-sm:text-[13px] transition hover:bg-zk-chip focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2";
+const PRIMARY = PRIMARY_ACTION;
+const SECONDARY = SECONDARY_ACTION;
 
 /**
  * The withdraw bar, as Earn always drew it: what you've earned (green), what Ziki is still checking (yellow
@@ -29,7 +29,7 @@ function WithdrawBar({ earned: raw, checking: rawChecking }: { earned: number; c
   const pct = (value: number) => `${(value / total) * 100}%`;
   const parts = [
     { key: "earned", value: earned, shown: Math.max(0, raw), bar: "bg-zk-ok-fg", dot: "bg-zk-ok-fg", text: "font-bold text-zk-text", label: "earned" },
-    { key: "checking", value: checking, shown: rawChecking, bar: "bg-[repeating-linear-gradient(45deg,#f2c14e_0,#f2c14e_6px,#f7d98a_6px,#f7d98a_12px)]", dot: "bg-[#f2c14e]", text: "font-bold text-zk-warn-fg", label: "being checked" },
+    { key: "checking", value: checking, shown: rawChecking, bar: "bg-[repeating-linear-gradient(45deg,#f2c14e_0,#f2c14e_6px,#f7d98a_6px,#f7d98a_12px)]", dot: "bg-zk-warn-fg", text: "font-bold text-zk-warn-fg", label: "being checked" },
     { key: "togo", value: toGo, shown: toGo, bar: "bg-zk-accent/35", dot: "bg-zk-accent/40", text: "font-bold text-zk-accent", label: "to go" },
   ];
 
@@ -52,7 +52,7 @@ function WithdrawBar({ earned: raw, checking: rawChecking }: { earned: number; c
         {earned > 0 && !ready ? (
           <span aria-hidden="true" className="absolute top-[18px] z-10 flex h-[22px] w-[22px] -translate-x-1/2 items-center justify-center" style={{ left: pct(earned) }}>
             <span className="absolute h-full w-full rounded-full bg-zk-ok-fg/30 motion-safe:animate-ping" />
-            <span className="relative h-3.5 w-3.5 rounded-full border-[3px] border-zk-surface bg-zk-ok-fg shadow-[0_1px_4px_rgba(11,23,51,0.35)]" />
+            <span className="relative h-3.5 w-3.5 rounded-full border-[3px] border-zk-surface bg-zk-ok-fg shadow-none" />
           </span>
         ) : null}
       </div>
@@ -120,7 +120,7 @@ export function WithdrawWindow({ className, children }: { className: string; chi
           onClick={(event) => {
             if (event.target === event.currentTarget) close();
           }}
-          className="m-auto w-[min(32rem,calc(100vw-2rem))] rounded-panel border border-zk-border bg-zk-surface p-6 text-zk-text shadow-xl backdrop:bg-black/40"
+          className="m-auto w-[min(32rem,calc(100vw-2rem))] rounded-panel border border-zk-border bg-zk-surface p-6 text-zk-text shadow-none backdrop:bg-black/40"
         >
           <div className="flex items-start justify-between gap-3">
             <h2 id="withdraw-title" className="text-xl font-extrabold tracking-tight text-zk-text">

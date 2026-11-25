@@ -52,7 +52,7 @@ export function OrganisationDialog({
         event.preventDefault();
         onClose();
       }}
-      className="m-auto w-[min(30rem,calc(100vw-2rem))] overflow-hidden rounded-panel border border-zk-border bg-zk-surface p-0 text-zk-text shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-[2px]"
+      className="m-auto w-[min(30rem,calc(100vw-2rem))] overflow-hidden rounded-panel border border-zk-border bg-zk-surface p-0 text-zk-text shadow-none backdrop:bg-black/50 backdrop:backdrop-blur-[2px]"
     >
       <div className="flex items-start gap-3.5 px-6 pb-1 pt-6">
         <span

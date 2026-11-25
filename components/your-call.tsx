@@ -25,7 +25,7 @@ function UrgencyCell({ urgency, reasons }: { urgency: Urgency; reasons: string[]
     <span className={`${COL.urgency} inline-flex items-center`} title={why}>
       <span aria-hidden="true" className="flex gap-0.5">
         {[1, 2, 3, 4].map((step) => (
-          <span key={step} className={`h-1.5 w-[11px] rounded-[2px] ${step <= look.segments ? look.fill : "bg-zk-border"}`} />
+          <span key={step} className={`h-1.5 w-[11px] rounded-sm ${step <= look.segments ? look.fill : "bg-zk-border"}`} />
         ))}
       </span>
       <span className="sr-only">{why}</span>

@@ -20,7 +20,7 @@ const WHAT_IT_MEANS = {
 const FIX_STATE = { fixing: "Being fixed", fixed: "Fixed", closed: "Closed" } as const;
 
 const PRIMARY =
-  "inline-flex h-10 items-center justify-center gap-2 rounded-full bg-electric-blue-strong px-5 text-sm font-bold text-white hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2";
+  "inline-flex h-9 items-center justify-center gap-2 rounded-control bg-electric-blue-strong px-4 text-sm font-semibold text-white hover:bg-zk-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2";
 
 /**
  * One finding of a security check (16 Nov, Hamzat): one section with the threat, where it was found, what's

@@ -40,7 +40,7 @@ function Switch({
       } ${disabled ? "cursor-not-allowed opacity-45" : ""}`}
     >
       <span
-        className={`pointer-events-none absolute top-[3px] h-[22px] w-[22px] rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.25)] transition-[left] motion-reduce:transition-none ${
+        className={`pointer-events-none absolute top-[3px] h-[22px] w-[22px] rounded-full bg-white shadow-none transition-[left] motion-reduce:transition-none ${
           checked ? "left-[21px]" : "left-[3px]"
         }`}
       />

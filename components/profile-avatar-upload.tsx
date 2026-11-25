@@ -93,7 +93,7 @@ export function ProfileAvatarUpload({ initialImage, name }: ProfileAvatarUploadP
             name={name}
             image={currentDisplayImage}
             size="lg"
-            className="!h-20 !w-20 !text-2xl shadow-sm ring-2 ring-zk-border"
+            className="!h-20 !w-20 !text-2xl shadow-none ring-2 ring-zk-border"
           />
           {isPending && (
             <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 text-xs font-bold text-white">

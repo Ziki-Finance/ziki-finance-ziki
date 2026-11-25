@@ -208,7 +208,7 @@ export function AccountThemeSelector() {
             aria-label={themeLabels[opt]}
             title={themeLabels[opt]}
             className={`inline-flex h-7 w-7 items-center justify-center rounded-md ${
-              theme === opt ? "bg-zk-surface text-zk-text shadow-sm" : "text-zk-muted hover:text-zk-text"
+              theme === opt ? "bg-zk-surface text-zk-text shadow-none" : "text-zk-muted hover:text-zk-text"
             }`}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

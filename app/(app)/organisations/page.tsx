@@ -1,3 +1,4 @@
+import { PRIMARY_ACTION } from "@/lib/ui-style";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -307,7 +308,7 @@ export default async function OrganisationsPage({
           </div>
           <Link
             href="/discover"
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-control bg-electric-blue-strong px-4 text-[13px] font-bold text-white transition hover:bg-zk-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-electric-blue"
+            className={`${PRIMARY_ACTION} shrink-0`}
           >
             Discover projects
           </Link>

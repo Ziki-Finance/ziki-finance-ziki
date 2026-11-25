@@ -199,7 +199,7 @@ export function ScanList({
               href={id === "all" ? "/security" : `/security?show=${id}`}
               scroll={false}
               aria-current={on ? "page" : undefined}
-              className={`inline-flex min-h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-electric-blue ${on ? "bg-white text-zk-text shadow-[0_1px_3px_rgba(16,24,40,0.12)] ring-1 ring-black/[0.04]" : "bg-zk-bg text-zk-text2 hover:bg-zk-chip"}`}
+              className={`inline-flex min-h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-electric-blue ${on ? "bg-white text-zk-text shadow-none ring-1 ring-black/[0.04]" : "bg-zk-bg text-zk-text2 hover:bg-zk-chip"}`}
             >
               {label}
               <span className="text-[12px] tabular-nums text-zk-muted">
@@ -256,7 +256,7 @@ export function ScanList({
                 <col className="w-[150px]" />
                 <col className="w-[44px]" />
               </colgroup>
-              <thead className="bg-[#f7f8fa]">
+              <thead className="bg-zk-chip">
                 <tr>
                   <th scope="col" className={HEAD}>Name</th>
                   <th scope="col" className={HEAD}>Problems</th>
@@ -341,7 +341,7 @@ function StatusFilter({ filter, count }: { filter: Filter; count: (id: Filter) =
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="h-4 w-4"><path d="M3 5h18l-7 8v6l-4 2v-8L3 5z" /></svg>
         {picked ? picked.label : null}
       </summary>
-      <div role="menu" aria-label="Filter by status" className="absolute right-0 z-20 mt-1.5 w-56 rounded-xl border border-zk-border bg-zk-surface p-1.5 shadow-[0_4px_16px_-4px_rgba(16,24,40,0.12)]">
+      <div role="menu" aria-label="Filter by status" className="absolute right-0 z-20 mt-1.5 w-56 rounded-xl border border-zk-border bg-zk-surface p-1.5 shadow-none">
         {[{ label: "Status", items: STAGE_FILTERS.filter(({ id }) => id !== "all") }, { label: "Needs attention", items: ATTENTION_FILTERS }].map((group) => (
           <div key={group.label}>
             <p className="m-0 px-2.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-zk-muted">{group.label}</p>
@@ -471,12 +471,12 @@ function TargetTableRow({
       <td className={`${CELL} text-[12.5px] text-zk-text2`}>
         <LocalTime date={lastScanned(check)} />
       </td>
-      <td className={`${CELL} bg-[#fafafb]`}>
+      <td className={`${CELL} bg-zk-surface`}>
         <span className={PILL} style={{ backgroundColor: PILL_TONES[STAGE_TONE[stage]].color }}>
           {STAGE[stage].label}
         </span>
       </td>
-      <td className={`${CELL} bg-[#fafafb] px-1`}>
+      <td className={`${CELL} bg-zk-surface px-1`}>
         <RowMenu site={check.value} href={href} onScanAgain={onScanAgain} onRemove={onRemove} busy={busy} />
       </td>
     </tr>
@@ -503,7 +503,7 @@ function TargetIcon({ check, large = false }: { check: WorkspaceCheckRow; large?
     if (img && img.complete && img.naturalWidth < 2) setFailed(true);
   }, []);
   return (
-    <span className={`grid shrink-0 place-items-center overflow-hidden border border-zk-border bg-zk-surface ${large ? "h-10 w-10 rounded-[11px]" : "h-7 w-7 rounded-md"}`}>
+    <span className={`grid shrink-0 place-items-center overflow-hidden border border-zk-border bg-zk-surface ${large ? "h-10 w-10 rounded-control" : "h-7 w-7 rounded-md"}`}>
       {host && !failed ? (
         // eslint-disable-next-line @next/next/no-img-element -- the site's own favicon, from the site itself
         <img
@@ -570,7 +570,7 @@ function RowMenu({ site, href, onScanAgain, onRemove, busy }: { site: string; hr
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
       </button>
       {open ? (
-        <div role="menu" className="absolute right-0 top-8 z-30 min-w-44 rounded-xl border border-zk-border bg-zk-surface py-1.5 shadow-[0_16px_40px_rgba(11,23,51,0.18)]">
+        <div role="menu" className="absolute right-0 top-8 z-30 min-w-44 rounded-xl border border-zk-border bg-zk-surface py-1.5 shadow-none">
           <Link role="menuitem" href={href} className={item}>Open</Link>
           <button role="menuitem" type="button" disabled={busy} className={item} onClick={() => { setOpen(false); onScanAgain(); }}>Scan again</button>
           <button
@@ -585,7 +585,7 @@ function RowMenu({ site, href, onScanAgain, onRemove, busy }: { site: string; hr
             Copy link
           </button>
           <div className="mt-1 border-t border-zk-divider pt-1">
-            <button role="menuitem" type="button" disabled={busy} className={`${base} text-[#b42318]`} onClick={() => { setOpen(false); onRemove(); }}>Remove scan</button>
+            <button role="menuitem" type="button" disabled={busy} className={`${base} text-zk-bad-fg`} onClick={() => { setOpen(false); onRemove(); }}>Remove scan</button>
           </div>
         </div>
       ) : null}

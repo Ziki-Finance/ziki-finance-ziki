@@ -347,7 +347,7 @@ export async function WorkQueue({
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-[13px]">
             <thead>
-              <tr className="bg-[#f4f6f9]">
+              <tr className="bg-zk-bg">
                 <th scope="col" className={HEAD}><ColumnHead icon="text">Issue</ColumnHead></th>
                 {/* On a phone only the issue and its next step show: Tests and Moved are left out. */}
                 {showTests ? <th scope="col" className={`${HEAD} max-sm:hidden`}><ColumnHead icon="check">Tests</ColumnHead></th> : null}

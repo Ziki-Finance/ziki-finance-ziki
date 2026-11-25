@@ -433,7 +433,7 @@ function FindingTable({ findings, kind, filterHref }: { findings: DashboardFindi
 }
 
 const REPORT_BUTTON =
-  "inline-flex h-10 items-center rounded-full bg-electric-blue-strong px-5 text-sm font-bold text-white hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2";
+  "inline-flex h-9 items-center rounded-control bg-electric-blue-strong px-4 text-sm font-semibold text-white hover:bg-zk-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2";
 
 /** "Report a vulnerability": straight to the form in a one-project workspace, else pick the project. */
 function ReportButton({ projects }: { projects: { name: string; ref: ProjectRef }[] }) {
@@ -445,7 +445,7 @@ function ReportButton({ projects }: { projects: { name: string; ref: ProjectRef 
   return (
     <details className="security-report relative">
       <summary className={`${REPORT_BUTTON} cursor-pointer list-none`}>Report a vulnerability</summary>
-      <div className="absolute left-0 z-10 mt-2 w-64 sm:left-auto sm:right-0 rounded-2xl border border-zk-border bg-zk-surface p-2 shadow-lg">
+      <div className="absolute left-0 z-10 mt-2 w-64 sm:left-auto sm:right-0 rounded-2xl border border-zk-border bg-zk-surface p-2 shadow-none">
         <p className="px-2 py-1 text-xs text-zk-muted">Which product is it in?</p>
         <ul>
           {projects.map((project) => (

@@ -25,10 +25,10 @@ export function StatCards({ stats }: { stats: WorkStat[] }) {
             <span aria-hidden="true" className="absolute left-[17px] top-[22px] h-[60px] w-px" style={{ backgroundColor: stat.colour }} />
             <span aria-hidden="true" className="absolute left-[15px] top-[20px] h-[5px] w-[5px] rounded-full" style={{ backgroundColor: stat.colour }} />
             <div className="pl-3">
-              <p className="m-0 text-[14px] font-medium leading-5 text-[#697386]">{stat.label}</p>
+              <p className="m-0 text-[14px] font-medium leading-5 text-zk-muted">{stat.label}</p>
               <p className="m-0 mt-1.5 flex items-center gap-2 text-[14px] leading-5">
                 <span className="text-[20px] font-medium tracking-[-0.4px] text-zk-text">{stat.thisWeek}</span>
-                <span className={`inline-flex items-center gap-0.5 ${change.up === null ? "text-zk-muted" : change.up ? "text-[#0f6e4c]" : "text-[#c4292e]"}`}>
+                <span className={`inline-flex items-center gap-0.5 ${change.up === null ? "text-zk-muted" : change.up ? "text-zk-ok-fg" : "text-zk-bad-fg"}`}>
                   {change.up === null ? null : (
                     <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={`h-3 w-3 ${change.up ? "" : "rotate-90"}`}>
                       <path d="M3 9 9 3M4.1 3H9v4.9" />
@@ -37,14 +37,14 @@ export function StatCards({ stats }: { stats: WorkStat[] }) {
                   {change.text}
                 </span>
               </p>
-              <p className="m-0 mt-1 truncate text-[14px] leading-5 text-[#697386]" title={stat.note}>vs. {stat.lastWeek} last week</p>
+              <p className="m-0 mt-1 truncate text-[14px] leading-5 text-zk-muted" title={stat.note}>vs. {stat.lastWeek} last week</p>
             </div>
             {/* A tick a day for four weeks: coloured on days with any, stronger on busier ones. */}
             <span aria-hidden="true" className="mt-3 flex h-[13px] items-stretch gap-[2px]">
               {stat.daily.map((count, day) => (
                 <span
                   key={day}
-                  className="flex-1 rounded-[1px]"
+                  className="flex-1 rounded-sm"
                   style={count > 0 ? { backgroundColor: stat.colour, opacity: 0.35 + 0.65 * (count / peak) } : { backgroundColor: "#e8e8e8" }}
                 />
               ))}

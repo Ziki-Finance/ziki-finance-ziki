@@ -70,7 +70,7 @@ export function ToolbarFilterMenu({ groups, summary }: {
           ref={menuRef}
           role="menu"
           style={{ position: "fixed", top: position.top, right: position.right }}
-          className="z-50 min-w-52 rounded-xl border border-zk-border bg-zk-surface py-1.5 text-left shadow-[0_16px_40px_rgba(11,23,51,0.18)]"
+          className="z-50 min-w-52 rounded-xl border border-zk-border bg-zk-surface py-1.5 text-left shadow-none"
         >
           {groups.map((group, index) => (
             <div key={group.label ?? index} className={index > 0 ? "mt-1 border-t border-zk-divider pt-1" : ""}>

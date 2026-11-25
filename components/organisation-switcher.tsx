@@ -14,7 +14,7 @@ function OrganisationMark({ name, size = "sm" }: { name: string; size?: "sm" | "
     <span
       aria-hidden="true"
       className={`inline-flex shrink-0 items-center justify-center font-bold ${avatarTone(name)} ${
-        size === "sm" ? "h-6 w-6 rounded-[7px] text-[12px]" : "h-5 w-5 rounded-md text-[10.5px]"
+        size === "sm" ? "h-6 w-6 rounded-chip text-[12px]" : "h-5 w-5 rounded-md text-[11px]"
       }`}
     >
       {initial}
@@ -145,7 +145,7 @@ export function OrganisationSwitcher({
         href={onEarnRoute ? "/earn" : "/organisations"}
         className={`inline-flex h-8 items-center rounded-lg px-2 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 ${
           chrome
-            ? "border border-surface-border bg-[#132347] text-porcelain hover:bg-[#1a2d57]"
+            ? "border border-surface-border bg-zk-chip text-porcelain hover:bg-zk-chip"
             : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
         } ${fullWidth ? "w-full" : ""} ${className}`}
       >
@@ -202,8 +202,8 @@ export function OrganisationSwitcher({
         </button>
         {open ? (
           <div
-            className={`absolute left-0 top-full z-50 mt-1 rounded-lg border p-1 shadow-sm ${
-              chrome ? "border-surface-border bg-[#142343]" : bar ? "w-60 rounded-2xl border-zk-border bg-zk-surface p-1.5 shadow-[0_16px_40px_rgba(11,23,51,0.16)]" : "border-slate-200 bg-card"
+            className={`absolute left-0 top-full z-50 mt-1 rounded-lg border p-1 shadow-none ${
+              chrome ? "border-surface-border bg-zk-chip" : bar ? "w-60 rounded-2xl border-zk-border bg-zk-surface p-1.5 shadow-none" : "border-slate-200 bg-card"
             } ${fullWidth ? "w-full" : bar ? "" : "w-max min-w-full max-w-56"}`}
           >
             <ul

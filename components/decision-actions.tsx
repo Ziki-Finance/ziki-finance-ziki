@@ -1,5 +1,7 @@
 "use client";
 
+import { PRIMARY_ACTION, SECONDARY_ACTION } from "@/lib/ui-style";
+
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { agreeWithCloseAction, respondToCloseAction } from "@/app/actions/your-decision";
@@ -43,20 +45,20 @@ export function DecisionActions({ issueId, reopenable }: { issueId: string; reop
           rows={3}
           required
           placeholder="Why the decision is wrong: what they missed, a link, a screenshot, a request id…"
-          className="w-full rounded-xl border border-zk-border bg-zk-surface px-3 py-2 text-[13px] text-zk-text"
+          className="w-full rounded-xl border border-zk-border bg-zk-surface px-3 py-2 text-sm text-zk-text"
         />
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="submit"
             disabled={pending || !evidence.trim()}
-            className="rounded-full bg-electric-blue-strong px-3.5 py-1.5 text-[13px] font-bold text-white hover:opacity-90 disabled:opacity-50"
+            className={PRIMARY_ACTION}
           >
             {pending ? "Sending…" : "Send"}
           </button>
           <button
             type="button"
             onClick={() => setAppealing(false)}
-            className="rounded-full border border-zk-border bg-transparent px-3.5 py-1.5 text-[13px] font-semibold text-zk-text hover:bg-zk-chip"
+            className={SECONDARY_ACTION}
           >
             Cancel
           </button>
@@ -77,7 +79,7 @@ export function DecisionActions({ issueId, reopenable }: { issueId: string; reop
         <button
           type="button"
           onClick={() => setAppealing(true)}
-          className="rounded-full bg-electric-blue-strong px-3.5 py-1.5 text-[13px] font-bold text-white hover:opacity-90"
+          className={PRIMARY_ACTION}
         >
           Respond
         </button>
@@ -85,7 +87,7 @@ export function DecisionActions({ issueId, reopenable }: { issueId: string; reop
           type="button"
           disabled={pending}
           onClick={() => send(() => agreeWithCloseAction(issueId))}
-          className="rounded-full border border-zk-border bg-transparent px-3.5 py-1.5 text-[13px] font-semibold text-zk-text hover:bg-zk-chip disabled:opacity-50"
+          className={SECONDARY_ACTION}
         >
           I agree
         </button>

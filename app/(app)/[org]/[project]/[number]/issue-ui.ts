@@ -2,10 +2,10 @@ import type { Substatus } from "@prisma/client";
 
 /** Shared card shell for the issue detail redesign. */
 export const issueCardClass =
-  "rounded-[20px] border border-zk-border bg-zk-surface p-5 sm:p-6";
+  "rounded-panel border border-zk-border bg-zk-surface p-5 sm:p-6";
 
 export const issueRailCardClass =
-  "rounded-[20px] border border-zk-border bg-zk-surface p-5";
+  "rounded-panel border border-zk-border bg-zk-surface p-5";
 
 export const issueSectionLabelClass =
   "text-xs font-bold uppercase tracking-[0.08em] text-zk-muted";

@@ -1,5 +1,7 @@
 "use client";
 
+import { PRIMARY_ACTION } from "@/lib/ui-style";
+
 import { useActionState, useRef, useState } from "react";
 import { setWeeklyGoalAction, type GoalResult } from "./actions";
 
@@ -42,7 +44,7 @@ export function ChangeGoal({ goal }: { goal: number }) {
         />
         <span aria-hidden="true" className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-zk-muted">Ziks</span>
       </span>
-      <button type="submit" disabled={saving} className="h-9 rounded-full bg-electric-blue-strong px-4 text-sm font-bold text-white disabled:opacity-60">
+      <button type="submit" disabled={saving} className={PRIMARY_ACTION}>
         {saving ? "Saving…" : "Save"}
       </button>
       <button type="button" onClick={() => setOpen(false)} className="h-9 px-1 text-sm text-zk-muted hover:text-zk-text">Cancel</button>

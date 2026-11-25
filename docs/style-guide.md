@@ -2,6 +2,20 @@
 
 The one reference for Ziki's colours, corners and core components, in the app and on the public site. The values live as tokens in `app/globals.css` (and `app/theme-brand.css` for the blue ramp and dark mode), and in `components/homepage/homepage.css` for the public site. Use the tokens, not hex codes: a change here should be a change to one token.
 
+## Source of truth
+
+This document governs the app, authentication screens, public pages, and marketing tools. `docs/brand-guide.md` covers product language and identity; it does not define another visual system. Historical design exports and migration plans do not override this guide.
+
+| Source | Responsibility |
+| --- | --- |
+| `app/globals.css` | Semantic colour aliases, Geist fonts, and the shared radius scale. |
+| `app/theme-brand.css` | Brand ramp and semantic dark theme values. |
+| `lib/ui-style.ts` | Button variants, action links, fields, panels, headings, and toolbar styles. |
+| `components/ui/` | Reusable accessible controls and dialogs. |
+| `components/homepage/homepage.css` | Public page layout and light-theme aliases using the same brand values and radius tokens. |
+
+Change the owning token or primitive before adding a page-specific override. Page CSS controls layout, content spacing, and responsive behaviour; it must not redefine control colours, corners, or effects. Do not use global `!important` selectors to hide inconsistent component styles.
+
 ## Colour
 
 ### Blue
@@ -10,7 +24,7 @@ One blue, in two strengths.
 
 | Name | Hex | Token | Use |
 | --- | --- | --- | --- |
-| Ziki Blue | `#0972D5` | `--zk-blue` (`bg-zk-blue`, `text-zk-blue`), Tailwind `teal-500` / `blue` ramp 500 | The prominent blue: primary links in large text, accent words in headlines, focus rings, selected states, progress, blue fills with white text. |
+| Ziki Blue | `#0972D5` | `--zk-blue` (`bg-zk-blue`, `text-zk-blue`), Tailwind `teal-500` | The prominent blue: primary links in large text, accent words in headlines, focus rings, selected states, progress, blue fills with white text. |
 | Light Blue | `#EEF8FF` | `--zk-tint`, `--zk-info-bg` (`bg-zk-tint`), ramp 50 | Light backgrounds: info banners, selected rows, highlighted chips. |
 | Blue text | `#086CCC` | `--zk-accent` (`text-zk-accent`), `--zk-info-fg` | Small link and accent text. It is Ziki Blue a hair deeper so it passes 4.5:1 on white (5.2), the page gray (4.8) and Light Blue (4.8). Ziki Blue itself is 4.8 on white but 4.45 on Light Blue, so use Blue text for small text on tinted backgrounds. |
 
@@ -40,6 +54,8 @@ In dark mode filled buttons are Ziki Blue (a dark gray button disappears on a da
 ### Status
 
 Green, red and amber stay as they are: `--zk-ok-*`, `--zk-bad-*`, `--zk-warn-*`. Use them only for real states (passed, failed, needs attention), never as decoration.
+
+Prefer semantic tokens over legacy palette classes for text, surfaces, borders, and states. `teal`, `violet`, and `purple` are compatibility scales mapped to blue, not separate brand colours. Do not add literal purple or teal values to bypass the theme. Keep severity scales where they convey security severity; an agent's role alone is not a success or failure state.
 
 ## Corners
 
@@ -82,6 +98,8 @@ Shape and size, the same for every variant:
 
 Floating controls that sit over the page (the report button, the guide bubble, the agent dock) may keep a soft shadow, because they float; buttons in the page never do.
 
+An interactive card, file drop area, or navigation row may grow with its content; it is not a standard action button. Icon-only controls may use the 8px small-control radius. Preserve clear accessible labels, focus visibility, and comfortable hit areas when using compact controls. Disabled controls must not change appearance on hover.
+
 ## Other components
 
 - **Panel.** Surface, 1px Border, 12px corners, no shadow in the app. The public site may lift a product picture with a soft shadow.
@@ -112,3 +130,37 @@ Sizes and weights:
 | Footer | links 14px, headings 15px, fine print 13px | 400 / 600 | 0 |
 
 Keep every piece of text at 11px or larger, and body text at 14px or larger.
+
+## Implementation patterns
+
+Use the shared components for actual actions and fields:
+
+```tsx
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { PANEL, SECTION_TITLE } from "@/lib/ui-style";
+
+<section className={PANEL}>
+  <h2 className={SECTION_TITLE}>Account details</h2>
+  <label className="mt-4 block text-sm font-medium" htmlFor="name">Name</label>
+  <Input id="name" name="name" className="mt-2" />
+  <Button type="submit" className="mt-4">Save changes</Button>
+</section>
+```
+
+Use `PRIMARY_ACTION`, `SECONDARY_ACTION`, or `GHOST_ACTION` from `lib/ui-style.ts` for navigation links styled as buttons. Use `TOOL_BUTTON` for filter and period controls. Use `FIELD_CONTROL` only when a native field cannot use `Input`, `Select`, or `Textarea`. Do not copy these class strings into a new page helper.
+
+Use `var(--radius-panel)`, `var(--radius-control)`, and `var(--radius-chip)` in authored CSS. Public pages may use `--panel-radius` and `--button-radius`, which alias the same tokens. Keep circular geometry for avatars, dots, and permitted pills; do not apply it to every action.
+
+Class overrides on shared components should describe layout (`w-full`, margins, responsive alignment), not replace the component's height, radius, font family, fill, or shadow. Multiline fields keep their natural height. Public hero actions may use the documented 44–48px size.
+
+## Themes, artwork, and review
+
+- Use semantic surface and text pairs so app pages work in both light and dark themes. Do not hardcode a dark panel and light text into a regular app card.
+- Public pages currently opt into a light theme. Their scoped aliases must match the canonical light palette; do not introduce a competing neutral or accent palette.
+- Logos, uploaded images, crop masks, video output, charts, and product illustrations may preserve geometry and colours required by their content. Surrounding controls still follow this guide. Decorative depth on public product pictures is allowed; app panels remain flat.
+- Email transport currently sends plain text. It does not load web fonts. Any future HTML email should use Geist with an email-safe fallback rather than loading fonts from a CDN.
+- The global error page can use system-font fallbacks when the root layout or font loading fails.
+- Review new UI for token use, button variants, focus and disabled states, readable text, and responsive layout. Verify both app themes before release; inspect narrow screens and long labels as well as the default desktop view.
+
+Functional tests should cover behaviour and accessibility. Do not add tests that assert class strings, exact colours, typography, or documentation text.

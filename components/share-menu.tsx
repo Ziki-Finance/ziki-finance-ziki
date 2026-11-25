@@ -66,7 +66,7 @@ export function ShareMenu({ orgSlug, inviteHref }: { orgSlug: string; /** Where 
       </button>
 
       {open ? (
-        <div role="menu" aria-label="Share" className="absolute right-0 z-30 mt-2 w-80 rounded-xl border border-zk-border bg-zk-surface p-1.5 shadow-[0_16px_40px_rgba(11,23,51,0.18)]">
+        <div role="menu" aria-label="Share" className="absolute right-0 z-30 mt-2 w-80 rounded-xl border border-zk-border bg-zk-surface p-1.5 shadow-none">
           {inviteHref ? (
             <Link role="menuitem" href={inviteHref} onClick={() => setOpen(false)} className={item}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="mt-0.5 shrink-0 text-zk-text2">

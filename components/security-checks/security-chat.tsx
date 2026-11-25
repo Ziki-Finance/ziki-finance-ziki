@@ -1,5 +1,7 @@
 "use client";
 
+import { PRIMARY_ACTION } from "@/lib/ui-style";
+
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -346,27 +348,27 @@ export function SecurityChat({
     newChat ? (
       <div className={`flex items-end gap-2 ${mine ? "flex-row-reverse" : ""}`}>
         {mine ? (
-          <Avatar name={me?.name ?? "You"} image={me?.image ?? null} size="sm" className="mb-0.5 !h-6 !w-6 shadow-[0_2px_6px_rgba(16,24,40,0.18)]" />
+          <Avatar name={me?.name ?? "You"} image={me?.image ?? null} size="sm" className="mb-0.5 !h-6 !w-6 shadow-none" />
         ) : (
-          <span aria-hidden="true" className="mb-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zk-text text-zk-surface shadow-[0_2px_6px_rgba(16,24,40,0.22)]">
+          <span aria-hidden="true" className="mb-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zk-text text-zk-surface shadow-none">
             <ZikiMark className="h-3 w-auto" />
           </span>
         )}
         <div
-          className={`relative max-w-[75%] px-3 py-1.5 text-[13px] leading-relaxed shadow-[0_8px_18px_-6px_rgba(16,24,40,0.22),0_2px_4px_-1px_rgba(16,24,40,0.10)] ${mine
+          className={`relative max-w-[75%] px-3 py-1.5 text-[13px] leading-relaxed shadow-none ${mine
             ? "rounded-2xl rounded-br-[4px] bg-zk-text text-zk-surface"
-            : "rounded-2xl rounded-bl-[4px] bg-[#f1f3f6] text-zk-text"}`}
+            : "rounded-2xl rounded-bl-[4px] bg-zk-chip text-zk-text"}`}
         >
           <span
             aria-hidden="true"
-            className={`absolute bottom-0 h-3 w-3 ${mine ? "-right-1.5 bg-zk-text [clip-path:polygon(0_0,0_100%,100%_100%)]" : "-left-1.5 bg-[#f1f3f6] [clip-path:polygon(100%_0,0_100%,100%_100%)]"}`}
+            className={`absolute bottom-0 h-3 w-3 ${mine ? "-right-1.5 bg-zk-text [clip-path:polygon(0_0,0_100%,100%_100%)]" : "-left-1.5 bg-zk-chip [clip-path:polygon(100%_0,0_100%,100%_100%)]"}`}
           />
           <span className="sr-only">{mine ? "You: " : "Ziki: "}</span>
           {!mine && key === lastAssistant ? <Typed text={words} /> : <span className="whitespace-pre-wrap break-words">{words}</span>}
         </div>
       </div>
     ) : mine ? (
-      <p className="m-0 whitespace-pre-wrap break-words rounded-panel rounded-br-md bg-electric-blue-strong px-4 py-2 text-[15px] text-white">
+      <p className={`${PRIMARY_ACTION} m-0`}>
         <span className="sr-only">You: </span>
         {words}
       </p>
@@ -418,7 +420,7 @@ export function SecurityChat({
     <div className={newChat ? "flex flex-col" : "flex flex-col gap-3"}>
       {newChat && conversation ? (
         // Your App's sheet of paper above the box: it scrolls once it is tall; × closes it and starts over.
-        <div className="relative mx-auto mb-4 w-[calc(100%-1rem)] max-w-[820px] rounded-panel bg-white pb-3 shadow-[0_28px_56px_-16px_rgba(16,24,40,0.28),0_10px_20px_-10px_rgba(16,24,40,0.16),0_0_0_1px_rgba(16,24,40,0.04)]">
+        <div className="relative mx-auto mb-4 w-[calc(100%-1rem)] max-w-[820px] rounded-panel bg-white pb-3 shadow-none">
           <button
             type="button"
             onClick={startOver}
@@ -440,7 +442,7 @@ export function SecurityChat({
         }}
         noValidate
       >
-        <div className={`relative rounded-panel bg-zk-surface px-4 pb-2.5 pt-3 focus-within:border-electric-blue-strong/50 ${newChat ? "z-[1] border border-black/[0.06] shadow-[0_14px_34px_rgba(16,24,40,0.10),0_3px_8px_rgba(16,24,40,0.06)]" : "border border-zk-border shadow-[0_2px_10px_rgba(0,0,0,0.06)]"}`}>
+        <div className={`relative rounded-panel bg-zk-surface px-4 pb-2.5 pt-3 focus-within:border-electric-blue-strong/50 ${newChat ? "z-[1] border border-black/[0.06] shadow-none" : "border border-zk-border shadow-none"}`}>
           {/* Close, like the X on Ziki's dialogs (add-confirmation-dialog.tsx). */}
           {onClose ? (
             <button
@@ -498,7 +500,7 @@ export function SecurityChat({
                   type="button"
                   // The conversation stays: coming back from the scan's page finds it open, with anything said there.
                   onClick={() => onSeeProgress(finishedCheckId)}
-                  className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-electric-blue-strong px-4 text-sm font-bold text-white transition hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-electric-blue"
+                  className={`${PRIMARY_ACTION} shrink-0`}
                 >
                   {finished ? "See results" : "See progress"}
                   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
@@ -605,10 +607,10 @@ function AlreadyScanned({ scan, checkId }: { scan: NonNullable<ChatItem["scan"]>
         <>
           <p className="m-0 text-[13px] leading-snug text-zk-text2">{error ?? scan.note}</p>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={replace} className="inline-flex h-8 items-center rounded-full bg-electric-blue-strong px-4 text-[13px] font-bold text-white hover:brightness-105">
+            <button type="button" onClick={replace} className={PRIMARY_ACTION}>
               Replace
             </button>
-            <button type="button" onClick={() => setState("kept")} className="inline-flex h-8 items-center rounded-full border border-zk-border bg-zk-surface px-4 text-[13px] font-semibold text-zk-text hover:border-zk-accent hover:text-zk-accent">
+            <button type="button" onClick={() => setState("kept")} className="inline-flex h-8 items-center rounded-control border border-zk-border bg-zk-surface px-4 text-[13px] font-semibold text-zk-text hover:border-zk-accent hover:text-zk-accent">
               Keep
             </button>
           </div>

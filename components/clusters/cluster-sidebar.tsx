@@ -54,7 +54,7 @@ export function ClusterSidebar({ clusters, currentId, searchPath, query, newHref
               <span className="truncate">{c.project.name}</span>
               <span aria-hidden="true">·</span>
               <span className="shrink-0">{c.members.length} {c.members.length === 1 ? "member" : "members"}</span>
-              {c.myStatus === "invited" ? <span className="shrink-0 rounded-full bg-zk-accent px-1.5 text-[10px] font-bold text-white">Invited</span> : null}
+              {c.myStatus === "invited" ? <span className="shrink-0 rounded-full bg-zk-accent px-1.5 text-[11px] font-bold text-white">Invited</span> : null}
             </span>
           </span>
         </Link>
@@ -66,7 +66,7 @@ export function ClusterSidebar({ clusters, currentId, searchPath, query, newHref
       <div className="flex items-center justify-between gap-2 px-4 pb-2 pt-4">
         <h1 className="text-xl font-extrabold tracking-tight text-zk-text">Clusters</h1>
         {newHref ? (
-          <Link href={newHref} title="Create cluster" aria-label="Create cluster" className="grid h-9 w-9 place-items-center rounded-full bg-electric-blue-strong text-white outline-none hover:bg-[#2552af] focus:outline-none">
+          <Link href={newHref} title="Create cluster" aria-label="Create cluster" className="grid h-9 w-9 place-items-center rounded-full bg-electric-blue-strong text-white outline-none hover:bg-zk-ink focus:outline-none">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
           </Link>
         ) : null}

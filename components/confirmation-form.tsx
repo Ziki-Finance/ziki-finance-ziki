@@ -1,5 +1,7 @@
 "use client";
 
+import { PRIMARY_ACTION } from "@/lib/ui-style";
+
 import { useId, useState, useTransition } from "react";
 import { giveConfirmationAction } from "@/app/actions/confirmations";
 import { evidenceFileLines, parseEvidenceFileLines, type EvidenceFile } from "@/lib/agent-api/evidence-files";
@@ -208,7 +210,7 @@ export function ConfirmationForm({
         <button
           type="submit"
           disabled={pending}
-          className="inline-flex h-9 items-center rounded-full bg-electric-blue-strong px-4 text-[13px] font-bold text-white transition hover:opacity-90 disabled:opacity-50"
+          className={PRIMARY_ACTION}
         >
           {pending ? "Saving…" : replacing ? "Update confirmation" : "Give confirmation"}
         </button>

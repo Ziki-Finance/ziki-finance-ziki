@@ -28,7 +28,7 @@ export function CheckSiteButton({ id = "security-target", variant = "primary" }:
           variant === "inline"
             ? // Like Add Idea at the top of a project's list.
               "inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-zk-border bg-zk-surface px-2.5 text-[13px] font-semibold text-zk-text hover:bg-zk-chip focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue"
-            : `inline-flex shrink-0 items-center gap-2 rounded-full bg-electric-blue-strong font-bold text-white transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2 ${
+            : `inline-flex shrink-0 items-center gap-2 rounded-control bg-electric-blue-strong font-semibold text-white transition hover:bg-zk-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2 ${
                 variant === "large" ? "h-12 px-6 text-base" : "h-10 px-5 text-sm"
               }`
         }
@@ -48,7 +48,7 @@ export function CheckSiteButton({ id = "security-target", variant = "primary" }:
         onClick={(event) => {
           if (event.target === event.currentTarget) setOpen(false);
         }}
-        className="m-auto w-[calc(100%-32px)] max-w-[620px] overflow-hidden rounded-2xl border border-zk-border bg-zk-surface p-0 text-zk-text shadow-2xl backdrop:bg-slate-900/40 backdrop:backdrop-blur-xs"
+        className="m-auto w-[calc(100%-32px)] max-w-[620px] overflow-hidden rounded-2xl border border-zk-border bg-zk-surface p-0 text-zk-text shadow-none backdrop:bg-slate-900/40 backdrop:backdrop-blur-xs"
       >
         {open ? (
           <div className="flex flex-col gap-5 p-6">

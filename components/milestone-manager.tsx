@@ -103,7 +103,7 @@ export function MilestoneManager({ milestones }: { milestones: ManagedMilestone[
   return (
     <div className="space-y-4">
       {editing ? (
-        <form onSubmit={save} className="space-y-4 rounded-panel border border-zk-border bg-zk-surface p-4 shadow-sm sm:p-6">
+        <form onSubmit={save} className="space-y-4 rounded-panel border border-zk-border bg-zk-surface p-4 shadow-none sm:p-6">
           <h2 className="text-lg font-medium text-zk-text">
             {editing === "new" ? "New milestone" : `Edit "${editing.title}"`}
           </h2>

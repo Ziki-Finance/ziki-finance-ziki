@@ -61,7 +61,7 @@ export function AssetPage({ slug, data, project }: { slug: ProjectRef; data: Mar
               <col className="w-[96px]" />
               <col className="w-[128px]" />
             </colgroup>
-            <thead className="bg-[#f7f8fa]">
+            <thead className="bg-zk-chip">
               <tr>
                 <th scope="col" className={HEAD}><span className="sr-only">Number</span></th>
                 <th scope="col" className={HEAD}>Title</th>
@@ -84,11 +84,11 @@ export function AssetPage({ slug, data, project }: { slug: ProjectRef; data: Mar
                   </td>
                   <td className={CELL}>
                     {item.agentName ? (
-                      <span className="inline-block max-w-full truncate rounded bg-[#e8eef9] px-2 py-0.5 text-[13px] text-zk-text">{item.agentName}</span>
+                      <span className="inline-block max-w-full truncate rounded bg-zk-chip px-2 py-0.5 text-[13px] text-zk-text">{item.agentName}</span>
                     ) : <span className="text-zk-muted">—</span>}
                   </td>
                   <td className={`${CELL} text-[12.5px] text-zk-text2`}><RowAge date={item.updatedAt} sort="updated" /></td>
-                  <td className={`${CELL} bg-[#fafafb]`}>
+                  <td className={`${CELL} bg-zk-surface`}>
                     <span className={PILL} style={{ backgroundColor: PILL_TONES[GROUP_TONE[item.groupKey] ?? "grey"].color }}>{item.groupHeading}</span>
                   </td>
                 </tr>

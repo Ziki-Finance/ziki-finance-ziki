@@ -1,3 +1,4 @@
+import { PRIMARY_ACTION } from "@/lib/ui-style";
 import "@/app/(app)/settings/settings-design.css";
 import { checkOptions, loadProofRules } from "@/lib/proof";
 import { ProofRulesEditor } from "@/components/proof-rules-editor";
@@ -265,7 +266,7 @@ export default async function ProjectSettingsPage({
                 </div>
                 <a
                   href={`${base}/github`}
-                  className="inline-flex h-[42px] items-center self-start rounded-full bg-electric-blue-strong px-[18px] text-sm font-bold text-white hover:brightness-105"
+                  className={`${PRIMARY_ACTION} self-start`}
                 >
                   {project.githubInstallationId ? "Change installation" : "Connect GitHub App"}
                 </a>

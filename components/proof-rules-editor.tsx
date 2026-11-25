@@ -1,5 +1,7 @@
 "use client";
 
+import { PRIMARY_ACTION } from "@/lib/ui-style";
+
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -246,7 +248,7 @@ function WriteCheckForm({ ruleId, pending, run, onDone }: { ruleId?: string; pen
         </p>
       ) : null}
       <span className="flex gap-2">
-        <button type="submit" disabled={pending} className="rounded-full bg-electric-blue-strong px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
+        <button type="submit" disabled={pending} className={PRIMARY_ACTION}>
           {ruleId ? "Add the check" : "Write the check"}
         </button>
         {onDone ? (
@@ -271,7 +273,7 @@ function Strictness({ required, disabled, onChange }: { required: boolean; disab
             aria-pressed={required === value}
             disabled={disabled}
             onClick={() => onChange(value)}
-            className={`rounded-full px-3 py-1 text-sm font-semibold ${required === value ? "bg-zk-surface text-zk-text shadow-sm" : "text-zk-text2"}`}
+            className={`rounded-full px-3 py-1 text-sm font-semibold ${required === value ? "bg-zk-surface text-zk-text shadow-none" : "text-zk-text2"}`}
           >
             {value ? "Required" : "Guidance"}
           </button>

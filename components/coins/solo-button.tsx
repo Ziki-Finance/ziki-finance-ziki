@@ -10,7 +10,7 @@ export function SoloButton({ projectId, solo, label, primary = true }: { project
   const [pending, startTransition] = useTransition();
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
   const style = primary
-    ? "bg-electric-blue-strong text-white hover:bg-[#2552af]"
+    ? "bg-electric-blue-strong text-white hover:bg-zk-ink"
     : "border border-zk-border bg-zk-surface text-zk-text hover:bg-zk-chip";
   return (
     <>

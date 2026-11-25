@@ -131,7 +131,7 @@ export function ConnectAgentFlow({ ready, next }: { /** False until you are in a
             event.preventDefault();
             close();
           }}
-          className="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-panel border border-zk-border bg-zk-surface p-6 text-zk-text shadow-xl backdrop:bg-black/50"
+          className="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-panel border border-zk-border bg-zk-surface p-6 text-zk-text shadow-none backdrop:bg-black/50"
         >
           {step === "name" ? (
             <form onSubmit={handleCreate} className="space-y-4">
@@ -179,7 +179,7 @@ export function ConnectAgentFlow({ ready, next }: { /** False until you are in a
                   type="button"
                   onClick={handleCopy}
                   className={`inline-flex h-9 shrink-0 items-center rounded-full px-4 text-xs font-bold text-white ${
-                    copied ? "bg-zk-ok-fg" : "bg-electric-blue-strong hover:bg-[#2552af]"
+                    copied ? "bg-zk-ok-fg" : "bg-electric-blue-strong hover:bg-zk-ink"
                   }`}
                 >
                   {copied ? "Copied" : "Copy"}
