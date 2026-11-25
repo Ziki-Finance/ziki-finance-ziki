@@ -38,7 +38,7 @@ function workerClient(): PrismaClient {
   const connectionString = hyperdrive?.connectionString ?? cleanDbUrl;
   if (!connectionString) throw new Error("No database: bind HYPERDRIVE or set DATABASE_URL.");
   const client = new PrismaClient({
-    adapter: new PrismaPg({ connectionString, maxUses: 1 }),
+    adapter: new PrismaPg({ connectionString, max: 1, maxUses: 1 }),
     log: logLevels,
   });
   workerClients.set(ctx, client);
