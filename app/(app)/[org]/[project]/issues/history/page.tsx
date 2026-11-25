@@ -135,7 +135,7 @@ export default async function MergeHistoryPage({ params: routeParams, searchPara
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2" /><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z" /></svg>
               Inbox
             </Link>
-            <span aria-current="page" className="inline-flex h-10 items-center gap-2 rounded-control bg-electric-blue-strong px-3.5 text-[14px] font-semibold text-white">
+            <span aria-current="page" className="inline-flex h-9 items-center gap-2 rounded-control bg-electric-blue-strong px-3.5 text-[14px] font-semibold text-white">
               <MergeIcon size={16} />
               <span className="max-sm:sr-only">Merge history</span>
             </span>
@@ -172,7 +172,7 @@ export default async function MergeHistoryPage({ params: routeParams, searchPara
                   key={label}
                   href={href({ view })}
                   aria-current={current ? "page" : undefined}
-                  className={`inline-flex h-[30px] items-center rounded-lg px-3 text-[13px] ${current ? "bg-zk-surface font-semibold text-zk-accent shadow-sm" : "font-medium text-zk-text2"}`}
+                  className={`inline-flex h-[30px] items-center rounded-lg px-3 text-[13px] ${current ? "bg-zk-surface font-semibold text-zk-accent shadow-none" : "font-medium text-zk-text2"}`}
                 >
                   {label}
                 </Link>

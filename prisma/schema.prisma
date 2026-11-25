@@ -304,6 +304,10 @@ model User {
   /// Null for Google-only accounts; required for credentials login/signup.
   passwordHash                String?
   emailVerified               DateTime?
+  /// Google's stable account id. Linking never replaces the user's password.
+  googleSubject               String?                       @unique
+  googleSignInChallenges      GoogleSignInChallenge[]
+  googleSecurityProofs        GoogleSecurityProof[]
   image                       String?
   role                        Role                          @default(user)
   /// #277: stored per user so the choice follows them to every device.
@@ -349,6 +353,7 @@ model User {
   forumVotesReceived          ForumVote[]                   @relation("ForumVoteTargetUser")
   forumVerificationsCast      ForumVerification[]           @relation("ForumVerificationVerifierUser")
   forumVerificationsReceived  ForumVerification[]           @relation("ForumVerificationTargetUser")
+  forumBookmarks              ForumBookmark[]
   forumOffers                 ForumOffer[]                  @relation("ForumOfferAskerUser")
   totpCredential              TotpCredential?
   totpBackupCodes             TotpBackupCode[]
@@ -411,7 +416,39 @@ model User {
   timeEntries                 TimeEntry[]
 }
 
-/// Single-use password reset tokens (~30 min TTL). Store only the SHA-256 hash.
+/// Single-use Google re-authentication for a specific 2FA setting and session.
+model GoogleSecurityProof {
+  id             String    @id @default(cuid())
+  tokenHash      String    @unique
+  userId         String
+  sessionId      String
+  sessionVersion Int
+  googleSubject  String
+  operation      String
+  expiresAt      DateTime
+  usedAt         DateTime?
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// Pending Google sign-ins that still need Ziki's authenticator code.
+model GoogleSignInChallenge {
+  id             String    @id @default(cuid())
+  tokenHash      String    @unique
+  userId         String
+  sessionVersion Int
+  callbackUrl    String
+  expiresAt      DateTime
+  usedAt         DateTime?
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// Single-use password setup/reset tokens (~30 min TTL). Store only the SHA-256 hash.
 model PasswordResetToken {
   id        String    @id @default(cuid())
   tokenHash String    @unique
@@ -1354,6 +1391,9 @@ model Membership {
   /// the card; null means it is still to ask.
   strengths      String[]       @default([])
   joinAnsweredAt DateTime?
+  /// Whether this admin pays for the organisation's issues (#payers, lib/coins/payers.ts): an owner turns it on from
+  /// the members page. Owners always pay; members never do. Turned off whenever the role changes.
+  canFundIssues  Boolean        @default(false)
   organisation   Organisation   @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -1521,11 +1561,13 @@ model Agent {
   penaltiesReceived      ConfirmationPenalty[] @relation("PenaltiesReceived")
   assignedSupportThreads SupportThread[]       @relation("SupportThreadAssignee")
   threadMessages         ThreadMessage[]       @relation("ThreadMessageAgent")
-  forumPosts             ForumPost[]
+  forumPosts             ForumPost[]           @relation("ForumPostAuthorAgent")
+  forumPinnedPosts       ForumPost[]           @relation("ForumPostPinnedByAgent")
   forumReplies           ForumReply[]
   forumVotes             ForumVote[]
   forumVerifications     ForumVerification[]
   forumReads             ForumRead[]
+  forumBookmarks         ForumBookmark[]
 
   @@index([ownerUserId])
 }
@@ -4364,25 +4406,31 @@ model ForumPost {
   sourceId       String?
   resolution     ForumResolution         @default(open)
   closeReason    ForumCloseReason?
-  verification   ForumVerificationStatus @default(unverified)
-  expiresAt      DateTime?
-  createdAt      DateTime                @default(now())
-  updatedAt      DateTime                @updatedAt
+  verification    ForumVerificationStatus @default(unverified)
+  isPinned        Boolean                 @default(false)
+  pinnedAt        DateTime?
+  pinnedByAgentId String?
+  expiresAt       DateTime?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
 
-  organisation Organisation? @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  project      Project?      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  authorAgent  Agent?        @relation(fields: [authorAgentId], references: [id], onDelete: SetNull)
-  authorUser   User          @relation("ForumPostAuthorUser", fields: [authorUserId], references: [id], onDelete: Cascade)
-  trackRef     ForumTrack    @relation(fields: [trackSlug], references: [slug])
+  organisation  Organisation? @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  project       Project?      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  authorAgent   Agent?        @relation("ForumPostAuthorAgent", fields: [authorAgentId], references: [id], onDelete: SetNull)
+  pinnedByAgent Agent?        @relation("ForumPostPinnedByAgent", fields: [pinnedByAgentId], references: [id], onDelete: SetNull)
+  authorUser    User          @relation("ForumPostAuthorUser", fields: [authorUserId], references: [id], onDelete: Cascade)
+  trackRef      ForumTrack    @relation(fields: [trackSlug], references: [slug])
 
   replies       ForumReply[]
   votes         ForumVote[]
   verifications ForumVerification[]
   offer         ForumOffer?
   reads         ForumRead[]
+  bookmarks     ForumBookmark[]
 
   @@unique([id, authorUserId])
   @@index([scope, organisationId, projectId])
+  @@index([scope, isPinned, pinnedAt])
   @@index([trackSlug, kind, resolution])
   @@index([createdAt])
   @@index([authorUserId])
@@ -4494,6 +4542,24 @@ model ForumRead {
 
   @@id([postId, agentId])
   @@index([agentId, readAt])
+}
+
+/// An owner-shared forum bookmark saved by one of their agents for quick recall across sessions.
+model ForumBookmark {
+  id                  String   @id @default(cuid())
+  postId              String
+  userId              String
+  bookmarkedByAgentId String?
+  note                String?  @db.VarChar(240)
+  createdAt           DateTime @default(now())
+
+  post              ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookmarkedByAgent Agent?    @relation(fields: [bookmarkedByAgentId], references: [id], onDelete: SetNull)
+
+  @@unique([postId, userId])
+  @@index([userId, createdAt])
+  @@index([bookmarkedByAgentId, createdAt])
 }
 
 /// A marketing asset (#marketing-assets): one thing a marketing type's work is about, such as the About Us page

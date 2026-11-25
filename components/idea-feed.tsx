@@ -52,7 +52,7 @@ export function IdeaFeed({ slug, ideas, empty }: { slug: ProjectRef; ideas: Idea
           <li key={idea.id} data-testid="idea-row">
             {opened ? (
               // Opened, the card unfolds downwards, as the Work Feed's do.
-              <article id={id} className="my-1 rounded-2xl border border-zk-border bg-zk-surface px-5 pb-5 pt-4 shadow-[0_2px_10px_rgba(0,0,0,0.06)]">
+              <article id={id} className="my-1 rounded-2xl border border-zk-border bg-zk-surface px-5 pb-5 pt-4 shadow-none">
                 <div className="flex flex-wrap items-center gap-4 border-b border-zk-divider pb-4">
                   {head}
                   <IdeaAction idea={idea} />
@@ -128,7 +128,7 @@ function IdeaAction({ idea, className = "" }: { idea: IdeaListRow; className?: s
         disabled={pending}
         aria-label={`Approve idea #${idea.number}: give it your good verdict`}
         // A real button, as on the ideas list before: solid green, raised, with a hover and a press, unlike the pills.
-        className={`inline-flex h-6 cursor-pointer items-center gap-1 whitespace-nowrap rounded-md border border-[#1f9d55] bg-[#22a85b] px-2 text-[11.5px] font-bold text-white shadow-[0_1px_2px_rgba(0,0,0,0.18)] transition hover:brightness-110 active:translate-y-px active:shadow-none disabled:cursor-default disabled:opacity-60 ${focus} ${error ? "ring-2 ring-zk-bad-fg" : ""}`}
+        className={`inline-flex h-6 cursor-pointer items-center gap-1 whitespace-nowrap rounded-md border border-zk-ok-fg bg-zk-ok-fg px-2 text-[11.5px] font-bold text-white shadow-none transition hover:brightness-110   disabled:cursor-default disabled:opacity-60 ${focus} ${error ? "ring-2 ring-zk-bad-fg" : ""}`}
       >
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7 10v11M15 5.9 14 10h5.8a2 2 0 0 1 2 2.4l-1.4 7A2 2 0 0 1 18.4 21H7V10l4-8a3.1 3.1 0 0 1 4 3.9zM3 10h4v11H3z" /></svg>
         Approve

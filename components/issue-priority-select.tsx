@@ -74,7 +74,7 @@ export function IssuePrioritySelect({ bugId, priority }: { bugId: string; priori
         </svg>
       </button>
       {open ? (
-        <div id={panelId} className="absolute left-0 top-full z-30 mt-2 flex w-44 flex-col gap-0.5 rounded-2xl border border-zk-border bg-zk-surface p-1.5 shadow-lg">
+        <div id={panelId} className="absolute left-0 top-full z-30 mt-2 flex w-44 flex-col gap-0.5 rounded-2xl border border-zk-border bg-zk-surface p-1.5 shadow-none">
           {ISSUE_PRIORITIES.map((p) => (
             <button
               key={p}

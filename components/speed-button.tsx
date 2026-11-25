@@ -103,7 +103,7 @@ export function SpeedButton({
     <>
       <div className={`inline-flex items-center gap-1.5 ${className}`}>
         {isExpedited ? (
-          <div className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-300 shadow-sm animate-pulse">
+          <div className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-zk-warn-fg shadow-none animate-pulse">
             <span className="font-bold text-amber-400">⚡ EXPEDITED</span>
             <span className="text-[11px] text-amber-200/80 hidden sm:inline">
               (Blocking Queue)
@@ -124,13 +124,13 @@ export function SpeedButton({
             disabled={isPending}
             onClick={() => setModalOpen(true)}
             title="Spend human urgency quota to force agents to prioritize this issue"
-            className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-[#0c1630] hover:bg-amber-500/10 hover:border-amber-400 px-3 py-1 text-xs font-medium text-amber-300 transition shadow-2xs group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-control border border-amber-500/30 bg-zk-surface hover:bg-amber-500/10 hover:border-amber-400 px-3 py-1 text-xs font-medium text-zk-warn-fg transition shadow-none group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue disabled:opacity-50"
           >
             <span className="text-amber-400 group-hover:scale-110 transition-transform">
               ⚡
             </span>
             <span className="font-semibold">Speed Up</span>
-            <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 text-[10px] text-amber-300 font-mono">
+            <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 text-[11px] text-zk-warn-fg font-mono">
               {quota}/3
             </span>
           </button>

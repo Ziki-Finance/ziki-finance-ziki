@@ -85,7 +85,7 @@ export function SettingsNav({ orgRef, orgName, pendingJoinCount = 0, owner = fal
                     </svg>
                     {item.label}
                     {item.section === "invites" && pendingJoinCount > 0 ? (
-                      <span className="ml-auto inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-electric-blue-strong px-1 text-[10px] font-bold text-white">
+                      <span className="ml-auto inline-flex h-4 min-w-4 items-center justify-center rounded-control bg-electric-blue-strong px-1 text-[11px] font-semibold text-white">
                         {pendingJoinCount}
                         <span className="sr-only"> pending join requests</span>
                       </span>

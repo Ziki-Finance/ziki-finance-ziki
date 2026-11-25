@@ -1,5 +1,7 @@
 "use client";
 
+import { PRIMARY_ACTION } from "@/lib/ui-style";
+
 import { useRef, useState, useTransition } from "react";
 import { sendAgentRequestAction } from "@/app/actions/agent-requests";
 import { ConnectAgentFlow } from "@/app/(app)/settings/agents/connect/connect-agent-flow";
@@ -56,7 +58,7 @@ export function AskAgentButton({ label, request, agents, compact = false }: {
       <dialog
         ref={dialogRef}
         aria-label={agents.length ? `Ask your agent: ${label}` : "Connect an agent"}
-        className="m-auto w-[min(32rem,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl border border-zk-border bg-zk-surface p-0 text-zk-text shadow-[0_24px_56px_rgba(11,23,51,0.22)] backdrop:bg-black/40"
+        className="m-auto w-[min(32rem,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl border border-zk-border bg-zk-surface p-0 text-zk-text shadow-none backdrop:bg-black/40"
       >
         {agents.length === 0 ? (
           <div className="space-y-3.5 p-5 sm:p-6">
@@ -136,7 +138,7 @@ export function AskAgentButton({ label, request, agents, compact = false }: {
               <button
                 type="submit"
                 disabled={pending || !agentId || !text.trim()}
-                className="inline-flex h-9 items-center rounded-lg bg-electric-blue-strong px-4 text-[13px] font-semibold text-white hover:brightness-110 disabled:opacity-60"
+                className={PRIMARY_ACTION}
               >
                 {pending ? "Sending…" : "Send to agent"}
               </button>

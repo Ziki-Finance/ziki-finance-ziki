@@ -302,7 +302,7 @@ export function AreaCropper({
                   height: `${norm.height}px`,
                 }}
               >
-                <div className="absolute -top-6 left-0 rounded bg-zk-accent px-1.5 py-0.5 text-[10px] font-bold text-white shadow">
+                <div className="absolute -top-6 left-0 rounded bg-zk-accent px-1.5 py-0.5 text-[11px] font-bold text-white shadow">
                   Selection
                 </div>
               </div>

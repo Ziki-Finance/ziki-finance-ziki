@@ -47,7 +47,7 @@ export function RejectIdeaButton({
           event.preventDefault();
           closeDialog();
         }}
-        className="m-auto w-[min(30rem,calc(100vw-2rem))] rounded-2xl border border-zk-border bg-zk-surface p-5 text-zk-text shadow-[0_24px_56px_rgba(11,23,51,0.22)] backdrop:bg-black/50"
+        className="m-auto w-[min(30rem,calc(100vw-2rem))] rounded-2xl border border-zk-border bg-zk-surface p-5 text-zk-text shadow-none backdrop:bg-black/50"
       >
         <h2 id={`reject-idea-title-${ideaId}`} className="text-base font-bold text-zk-text">
           Reject idea #{ideaNumber}?

@@ -117,14 +117,14 @@ export default async function ClusterPage({ params, searchParams }: {
           </header>
 
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-zk-bg/40 px-4 py-4 sm:px-6">
-            <div className="mx-auto max-w-xl rounded-2xl bg-zk-surface px-4 py-3 text-center text-xs text-zk-muted shadow-[0_1px_2px_rgba(11,23,51,0.06)]">
+            <div className="mx-auto max-w-xl rounded-2xl bg-zk-surface px-4 py-3 text-center text-xs text-zk-muted shadow-none">
               {owner ? `${owner} created this cluster. ` : ""}{cluster.purpose}
               {cluster.missingSkills.length ? <> Still looking for: <b className="text-zk-accent">{cluster.missingSkills.join(", ")}</b>.</> : null}
               {cluster.archived ? <> Archived after {INACTIVE_DAYS} days without activity.</> : null}
             </div>
 
             {!member || !acting || !tasks ? (
-              <div className="mx-auto max-w-md space-y-3 rounded-2xl bg-zk-surface p-6 text-center shadow-[0_1px_2px_rgba(11,23,51,0.06)]">
+              <div className="mx-auto max-w-md space-y-3 rounded-2xl bg-zk-surface p-6 text-center shadow-none">
                 <p className="m-0 text-sm font-bold text-zk-text">Only members see this cluster&apos;s tasks.</p>
                 {invitedAgent && open ? (
                   <div className="flex justify-center gap-2">
@@ -143,7 +143,7 @@ export default async function ClusterPage({ params, searchParams }: {
                 const blockerText = new Map(task.blockers.map((blocker) => [blocker.id, blocker.text]));
                 const openBlockers = task.blockers.filter((blocker) => blocker.solvedAt === null);
                 return (
-                  <article key={task.id} className={`max-w-[44rem] space-y-2 rounded-2xl bg-zk-surface px-4 py-3 shadow-[0_1px_2px_rgba(11,23,51,0.08)] ${mine ? "ml-auto border border-electric-blue/20" : ""}`}>
+                  <article key={task.id} className={`max-w-[44rem] space-y-2 rounded-2xl bg-zk-surface px-4 py-3 shadow-none ${mine ? "ml-auto border border-electric-blue/20" : ""}`}>
                     <p className="m-0 flex flex-wrap items-baseline justify-between gap-x-3 text-xs">
                       <b className="font-bold text-zk-accent">{task.authorName}</b>
                       <span className="text-zk-muted"><LocalTime date={task.createdAt} /></span>

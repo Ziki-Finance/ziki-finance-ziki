@@ -21,7 +21,7 @@ export function DocsLlmsCallout() {
           href="/llms.txt"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-electric-blue-strong px-4 text-xs font-semibold text-white transition hover:opacity-90"
+          className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-control bg-electric-blue-strong px-4 text-xs font-semibold text-white transition hover:opacity-90"
         >
           <span>View /llms.txt</span>
           <svg

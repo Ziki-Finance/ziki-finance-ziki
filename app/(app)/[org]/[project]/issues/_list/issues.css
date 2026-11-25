@@ -2,7 +2,7 @@
 .issues-page {
   --issues-rule: var(--zk-divider);
   /* A white panel on the gray page. */
-  border-radius: 12px;
+  border-radius: var(--radius-panel);
   border: 1px solid var(--zk-border);
   background: var(--zk-surface);
   padding: 0 20px 20px;
@@ -25,13 +25,13 @@
 .issues-heading .issues-active-filters > span:first-child { flex-shrink: 0; margin-right: 4px; }
 .issues-heading .issues-active-filters > span:not(:first-child) { min-height: 28px; }
 .issues-heading .issues-active-filters > button:last-child { min-height: 32px; }
-.issues-new { height: 32px; white-space: nowrap; box-shadow: none; }
+.issues-new { height: 36px; white-space: nowrap; box-shadow: none; }
 .issues-filters { position: relative; min-width: 152px; }
 .issues-filters > div:first-child { flex-wrap: nowrap; gap: 8px; }
 .issues-filters .issues-search { flex: 0 0 32px; width: 32px; }
-.issues-search [data-testid="search-box"] > div:first-child { position: relative; width: 32px; height: 32px; padding: 7px; border-radius: 9px; border-color: var(--zk-border); }
+.issues-search [data-testid="search-box"] > div:first-child { position: relative; width: 32px; height: 32px; padding: 7px; border-radius: var(--radius-control); border-color: var(--zk-border); }
 .issues-search input, .issues-search kbd { visibility: hidden; width: 0; flex: none; padding: 0; }
-.issues-search-trigger { position: absolute; inset: 0; border-radius: 9px; cursor: pointer; }
+.issues-search-trigger { position: absolute; inset: 0; border-radius: var(--radius-control); cursor: pointer; }
 .issues-filters .issues-search-expanded { flex: 0 1 clamp(200px, 24vw, 320px); width: clamp(200px, 24vw, 320px); }
 .issues-search-expanded [data-testid="search-box"] > div:first-child { position: relative; width: 100%; padding: 0 12px 0 0; gap: 0; background: var(--zk-surface); border-color: var(--zk-accent); }
 .issues-search-expanded [data-testid="search-box"] > div:first-child > svg { display: none; }
@@ -52,10 +52,10 @@
 /* Status tabs, after the redesign: a 3px pill track, 34px tabs, a 26px icon disc per status. */
 /* Labels of more than one word take two lines, so the bar stays narrow at the same height. */
 /* Ideas, at the start of the status bar. */
-.issues-table { border: 1px solid var(--zk-border); border-radius: 10px; overflow: hidden; }
+.issues-table { border: 1px solid var(--zk-border); border-radius: var(--radius-panel); overflow: hidden; }
 /* Grouped lists (#work-segments): each kind is a card of its own under the column headings, set apart as Airtable groups records. */
 .issues-table--grouped { border: 0; border-radius: 0; overflow: visible; }
-.issues-table--grouped .issues-table-heading { border: 1px solid var(--zk-border); border-radius: 10px; }
+.issues-table--grouped .issues-table-heading { border: 1px solid var(--zk-border); border-radius: var(--radius-control); }
 .issues-table--grouped li { border-left: 1px solid var(--zk-border); border-right: 1px solid var(--zk-border); background: var(--zk-surface); }
 .issues-table--grouped .work-segment-head { margin-top: 16px; border-top: 1px solid var(--zk-border); border-radius: 10px 10px 0 0; background: var(--zk-bg); }
 .issues-table--grouped li.issues-row { border-bottom: 1px solid var(--zk-divider); }
@@ -85,7 +85,7 @@
   .issues-row, .issues-table-heading { gap: 14px; padding-left: 16px; padding-right: 16px; }
 }
 @media (max-width: 767px) {
-  .issues-page { padding: 0 10px 12px; border-radius: 10px; }
+  .issues-page { padding: 0 10px 12px; border-radius: var(--radius-control); }
   .issues-page .issues-heading { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin-inline: -10px; margin-bottom: 12px; padding: 8px 12px; }
   .issues-heading > div:first-child > div { grid-column: 1; grid-row: 1; }
   .issues-heading > .issues-filters > div:first-child { grid-column: 1 / -1; grid-row: 2; }
@@ -95,13 +95,13 @@
   .issues-heading .issues-active-filters > button:last-child { margin-left: 0; }
   .issues-filters:has(.issues-search-expanded) { width: 100%; min-width: 0; }
   .issues-filters .issues-search-expanded { width: auto; flex: 1 1 0; max-width: none; }
-  .issues-heading .issues-new { height: 32px; padding: 0 10px; }
+  .issues-heading .issues-new { height: 36px; padding: 0 10px; }
   /* Search, filter and sort sit behind the tools icon until it's opened (or a search is open). */
   .issues-heading:not([data-tools-open]):not(:has(.issues-search-expanded)) > .issues-filters > div:first-child { display: none; }
   .issues-heading h1 { font-size: 15px; }
   .issues-heading > div:first-child > p { font-size: 13px; }
   .issues-status-cell { display: none; }
-  .issues-table { border-radius: 8px; }
+  .issues-table { border-radius: var(--radius-panel); }
   .issues-table-heading { padding: 8px 10px; gap: 10px; font-size: 12px; }
   .issues-row { min-height: 0; gap: 10px; padding: 12px 10px; }
   .issues-vote { width: 44px; }

@@ -1,4 +1,5 @@
 import { forwardRef, type TextareaHTMLAttributes } from "react";
+import { FIELD_CONTROL } from "@/lib/ui-style";
 
 export const Textarea = forwardRef<
   HTMLTextAreaElement,
@@ -7,7 +8,7 @@ export const Textarea = forwardRef<
   return (
     <textarea
       ref={ref}
-      className={`w-full rounded-lg border border-slate-300 bg-card px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-600/20 ${className}`}
+      className={`${FIELD_CONTROL} min-h-24 py-2 ${className}`}
       {...props}
     />
   );

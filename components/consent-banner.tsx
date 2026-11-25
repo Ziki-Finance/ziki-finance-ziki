@@ -1,5 +1,7 @@
 "use client";
 
+import { PRIMARY_ACTION } from "@/lib/ui-style";
+
 import { useEffect, useState } from "react";
 import Script from "next/script";
 
@@ -110,7 +112,7 @@ window.dataLayer.push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });`}
             <button
               type="button"
               onClick={() => decide("granted")}
-              className="inline-flex min-h-10 items-center rounded-full bg-electric-blue-strong px-5 text-sm font-bold text-white transition hover:bg-[#2552af] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2"
+              className={PRIMARY_ACTION}
             >
               Accept
             </button>

@@ -167,13 +167,13 @@ export function SkillsDirectory({
               aria-pressed={selectedCategory === cat.id}
               className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
                 selectedCategory === cat.id
-                  ? "bg-blue-600 text-white shadow-xs"
+                  ? "bg-blue-600 text-white shadow-none"
                   : "bg-zk-chip text-zk-muted hover:text-zk-text hover:bg-zk-border/60"
               }`}
             >
               <span>{cat.label}</span>
               <span
-                className={`rounded-full px-1.5 text-[10px] font-bold ${
+                className={`rounded-full px-1.5 text-[11px] font-bold ${
                   selectedCategory === cat.id
                     ? "bg-white/20 text-white"
                     : "bg-zk-surface text-zk-muted"
@@ -238,7 +238,7 @@ export function SkillsDirectory({
                     router.push(`/skills/${skill.slug}`);
                   }
                 }}
-                className="group flex flex-col justify-between rounded-2xl border border-zk-border bg-zk-surface p-6 hover:border-blue-500/40 hover:shadow-lg transition-all space-y-4 cursor-pointer"
+                className="group flex flex-col justify-between rounded-2xl border border-zk-border bg-zk-surface p-6 hover:border-blue-500/40 transition-all space-y-4 cursor-pointer"
               >
                 <div className="space-y-3.5">
                   {/* Top Bar: Icon (links to skill detail) */}
@@ -257,7 +257,7 @@ export function SkillsDirectory({
                     <button
                       type="button"
                       onClick={() => setSelectedCategory(skill.category)}
-                      className="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider hover:underline hover:text-blue-700 dark:hover:text-blue-300 text-left transition cursor-pointer"
+                      className="inline-flex min-h-6 items-center text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider hover:underline hover:text-blue-700 dark:hover:text-blue-300 text-left transition cursor-pointer"
                       title={`Filter by ${skill.categoryLabel}`}
                     >
                       {skill.categoryLabel}
@@ -280,14 +280,14 @@ export function SkillsDirectory({
                           key={tag}
                           type="button"
                           onClick={() => setSearchQuery(tag)}
-                          className="rounded-md bg-zk-chip hover:bg-zk-border px-2 py-0.5 text-[10px] font-medium text-zk-muted hover:text-zk-text transition cursor-pointer"
+                          className="inline-flex min-h-6 items-center rounded-md bg-zk-chip hover:bg-zk-border px-2 py-0.5 text-[11px] font-medium text-zk-muted hover:text-zk-text transition cursor-pointer"
                           title={`Search for #${tag}`}
                         >
                           #{tag}
                         </button>
                       ))}
                       {skill.tags.length > 4 && (
-                        <span className="text-[10px] text-zk-muted self-center">
+                        <span className="text-[11px] text-zk-muted self-center">
                           +{skill.tags.length - 4}
                         </span>
                       )}
@@ -337,7 +337,7 @@ export function SkillsDirectory({
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); e.preventDefault(); copyPrompt(skill, e); }}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-zk-border bg-zk-surface hover:bg-zk-chip py-2.5 text-xs font-bold text-zk-text shadow-xs hover:border-zk-border-hover transition"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-zk-border bg-zk-surface hover:bg-zk-chip py-2.5 text-xs font-bold text-zk-text shadow-none hover:border-zk-border-hover transition"
                   >
                     <svg className="h-3.5 w-3.5 text-zk-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -347,7 +347,7 @@ export function SkillsDirectory({
 
                   <Link
                     href={`/skills/${skill.slug}`}
-                    className="flex w-full items-center justify-center gap-1.5 text-center text-xs font-medium text-zk-muted hover:text-blue-600 transition py-0.5"
+                    className="flex min-h-6 w-full items-center justify-center gap-1.5 text-center text-xs font-medium text-zk-muted hover:text-blue-600 transition py-0.5"
                   >
                     <span>View Details &amp; Spec</span>
                     <span>→</span>

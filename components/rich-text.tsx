@@ -338,7 +338,7 @@ function renderBlocks(
       nodes.push(
         <div
           key={`table-${key++}`}
-          className="my-3 overflow-x-auto rounded-xl border border-zk-border shadow-xs"
+          className="my-3 overflow-x-auto rounded-xl border border-zk-border shadow-none"
         >
           <table className="w-full text-left text-sm">
             <thead className="border-b border-zk-border bg-zk-chip/60 text-xs font-bold text-zk-text">

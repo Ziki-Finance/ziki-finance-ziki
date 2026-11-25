@@ -55,16 +55,16 @@ export function StatusProgress({
 type NodeState = "done" | "now" | "warn" | "todo";
 
 function Node({ state, label, caption, last }: { state: NodeState; label: string; caption: string | null; last: boolean }) {
-  const ring = state === "now" ? "border-[#1f8a4c]" : state === "warn" ? "border-zk-warn-fg" : state === "done" ? "border-[#1f8a4c] bg-[#1f8a4c]" : "border-zk-border";
+  const ring = state === "now" ? "border-zk-ok-fg" : state === "warn" ? "border-zk-warn-fg" : state === "done" ? "border-zk-ok-fg bg-zk-ok-fg" : "border-zk-border";
   return (
     <li className="relative flex gap-3 pb-3 last:pb-0">
       {/* The line down to the step before it: green once this step is reached. */}
-      {last ? null : <span aria-hidden="true" className={`absolute left-[8px] top-[18px] bottom-0 w-[2px] ${state === "todo" ? "bg-zk-border" : "bg-[#1f8a4c]/40"}`} />}
+      {last ? null : <span aria-hidden="true" className={`absolute left-[8px] top-[18px] bottom-0 w-[2px] ${state === "todo" ? "bg-zk-border" : "bg-zk-ok-fg/40"}`} />}
       <span aria-hidden="true" className={`relative mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2 bg-zk-surface ${ring}`}>
         {state === "done" ? (
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 5 5 9-10" /></svg>
         ) : state === "now" ? (
-          <span className="h-2 w-2 rounded-full bg-[#1f8a4c]" />
+          <span className="h-2 w-2 rounded-full bg-zk-ok-fg" />
         ) : state === "warn" ? (
           <span className="h-2 w-2 rounded-full bg-zk-warn-fg" />
         ) : null}
@@ -72,7 +72,7 @@ function Node({ state, label, caption, last }: { state: NodeState; label: string
       <span className="min-w-0">
         <span className={`block text-[13px] leading-5 ${state === "todo" ? "font-medium text-zk-muted" : "font-semibold text-zk-text"}`}>
           {label}
-          {state === "now" ? <span className="font-semibold text-[#176b3b]"> (now)</span> : state === "warn" ? <span className="font-semibold text-zk-warn-fg"> (sent back)</span> : null}
+          {state === "now" ? <span className="font-semibold text-zk-ok-fg"> (now)</span> : state === "warn" ? <span className="font-semibold text-zk-warn-fg"> (sent back)</span> : null}
         </span>
         {caption ? <span className="block text-[12px] leading-4 text-zk-muted">{caption}</span> : null}
       </span>

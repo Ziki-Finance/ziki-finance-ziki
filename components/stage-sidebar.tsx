@@ -37,7 +37,7 @@ export function StageSidebar({ steps }: { steps: SidebarStep[] }) {
                   <span
                     aria-hidden="true"
                     data-testid="stage-count"
-                    className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-md px-1 font-mono text-[10px] font-semibold tabular-nums ${
+                    className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-md px-1 font-mono text-[11px] font-semibold tabular-nums ${
                       step.tone === "earn"
                         ? step.selected
                           ? "bg-zk-ok-fg text-white ring-4 ring-zk-ok-fg/20"
@@ -45,7 +45,7 @@ export function StageSidebar({ steps }: { steps: SidebarStep[] }) {
                         : step.tone === "warn"
                         ? step.selected
                           ? "bg-amber-500 text-white ring-4 ring-amber-500/25"
-                          : "border-2 border-amber-400 bg-amber-50 text-amber-700 shadow-[0_0_8px_1px_rgba(245,158,11,0.35)]"
+                          : "border-2 border-amber-400 bg-amber-50 text-amber-700 shadow-none"
                         : step.selected
                           ? "bg-electric-blue-strong text-white ring-4 ring-electric-blue-strong/20"
                           : "border-2 border-zk-border bg-zk-surface text-zk-muted group-hover:border-electric-blue-strong group-hover:text-zk-accent"

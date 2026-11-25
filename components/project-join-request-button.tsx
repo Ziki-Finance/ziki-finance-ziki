@@ -85,7 +85,7 @@ export function ProjectJoinRequestButton({
           aria-labelledby={`join-request-title-${project.id}`}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
         >
-          <div className="w-full max-w-lg rounded-panel border border-zk-border bg-zk-surface p-6 text-left shadow-2xl">
+          <div className="w-full max-w-lg rounded-panel border border-zk-border bg-zk-surface p-6 text-left shadow-none">
             <div className="flex items-center justify-between border-b border-zk-divider pb-3">
               <h2 id={`join-request-title-${project.id}`} className="text-lg font-bold text-zk-text">
                 Ask to join {project.name}

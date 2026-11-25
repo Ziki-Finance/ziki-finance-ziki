@@ -70,7 +70,7 @@ export function PaginationControls({
                 <span
                   key={item}
                   aria-current="page"
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-electric-blue-strong text-xs font-bold text-white"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-control bg-electric-blue-strong text-xs font-semibold text-white"
                 >
                   {item}
                 </span>

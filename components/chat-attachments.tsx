@@ -120,7 +120,7 @@ export function useChatAttachments({ disabled = false }: { disabled?: boolean } 
       </button>
       <input ref={fileRef} type="file" multiple hidden onChange={(event) => { void attach(event.target.files); event.target.value = ""; }} />
       {menuOpen ? (
-        <div role="menu" aria-label="Add" className="absolute left-0 top-full z-50 mt-2 w-56 rounded-xl border border-zk-border bg-zk-surface p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.12)]">
+        <div role="menu" aria-label="Add" className="absolute left-0 top-full z-50 mt-2 w-56 rounded-xl border border-zk-border bg-zk-surface p-1.5 shadow-none">
           <button type="button" role="menuitem" className={item} onClick={() => {
               setMenuOpen(false);
               fileRef.current?.click();
@@ -172,7 +172,7 @@ export function useChatAttachments({ disabled = false }: { disabled?: boolean } 
 
   const dialog: ReactNode = crop ? (
     <div role="dialog" aria-modal="true" aria-label="Crop the capture" className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="max-h-[calc(100dvh-2rem)] w-[min(60rem,100%)] overflow-y-auto rounded-2xl border border-zk-border bg-zk-surface p-4 shadow-2xl">
+      <div className="max-h-[calc(100dvh-2rem)] w-[min(60rem,100%)] overflow-y-auto rounded-2xl border border-zk-border bg-zk-surface p-4 shadow-none">
         <AreaCropper
           imageSrc={crop.url}
           onCropComplete={(blob, url) => {

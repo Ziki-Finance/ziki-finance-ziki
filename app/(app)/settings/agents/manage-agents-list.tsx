@@ -127,7 +127,7 @@ export function ManageAgentsList({
               // agent's page; the key and controls sit above it and keep their own clicks.
               <li
                 key={agent.id}
-                className={`${agentsSurface} group relative flex flex-col gap-4 p-4 transition hover:border-electric-blue/50 hover:shadow-[0_10px_28px_rgba(11,23,51,0.10)] sm:flex-row sm:items-center sm:gap-5 sm:p-5`}
+                className={`${agentsSurface} group relative flex flex-col gap-4 p-4 transition hover:border-electric-blue/50  sm:flex-row sm:items-center sm:gap-5 sm:p-5`}
               >
                 <div className="flex min-w-0 flex-1 items-center gap-3">
                   <div className="relative shrink-0">

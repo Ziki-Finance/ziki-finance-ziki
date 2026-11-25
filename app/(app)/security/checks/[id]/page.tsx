@@ -1,3 +1,4 @@
+import { PRIMARY_ACTION } from "@/lib/ui-style";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -86,7 +87,7 @@ function DeeperScanNext({ report }: { report: CheckReport }) {
       <p className="m-0 text-sm text-zk-text2">{line}</p>
       <Link
         href={`/security/checks/${encodeURIComponent(report.checkId)}/deeper`}
-        className="inline-flex h-9 shrink-0 items-center justify-center rounded-xl bg-electric-blue-strong px-4 text-sm font-semibold text-white hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zk-accent"
+        className={`${PRIMARY_ACTION} shrink-0`}
       >
         {report.paymentRequired ? "Go to the deeper scan" : "See the deeper scan"} &rarr;
       </Link>

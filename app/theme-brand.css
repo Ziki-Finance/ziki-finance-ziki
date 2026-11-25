@@ -1,36 +1,16 @@
-/*
- * Ziki brand layer (dashboard PRD + HTML exports): platform-wide color
- * re-seed on top of Tailwind's palette and the generated dark mirror.
- *
- * - Accent families (teal — the app's primary accent — plus the
- *   purple/violet family used for "in progress" chips) are re-seeded onto a
- *   single Electric Blue ramp (#0972d5). Everything written with teal, violet
- *   or purple classes keeps its same shading pattern, so any contrast pair
- *   that passed AA before still passes after the swap; no component classes
- *   change. No purple remains anywhere.
- * - Semantic colors (slate neutrals for text, emerald/amber/orange/red for
- *   success/warning/danger, sky for "open") are untouched: they still
- *   communicate success, warning and danger in both themes.
- * - Surfaces: light canvas becomes the export's #F8F9FF; dark canvas becomes
- *   deep-ocean #0B1733 with card surfaces on blue-slate #263B63 (the export's
- *   page < card < chip stacking). Cards use the `card` token (`bg-card`),
- *   not `--color-white`: remapping white also recolors `text-white` and drops
- *   filled-button labels below AA. The navy chrome (#0B1733) itself is painted
- *   by the header/sidebar components, since it is theme-independent in the
- *   exports ("Preserved Deep Blue" in both light and dark).
- *
- * Order matters: this file is imported after theme-dark.css in globals.css,
- * at equal specificity, so these values win wherever both define a token.
- * The dark overrides repeat the two selectors the generated file uses
- * (`prefers-color-scheme` and the pinned data-theme), so both themes get the
- * brand deck even when the user never touches the toggle.
+/* Ziki's brand ramp and semantic theme overrides. docs/style-guide.md is the
+ * source of truth. Legacy teal/violet/purple utilities map to the same blue
+ * ramp. App surfaces are neutral in both themes; status colours keep their
+ * semantic meaning. Keep white literal so filled controls retain white text.
+ * Imported after the generated dark palette; support both system and pinned
+ * themes with the same semantic token values.
  */
 
 /* The Electric Blue ramp. Anchor: #0972d5 (500, identical in both themes). */
 :root {
   /* Light canvas: a neutral #f5f5f5 page (see globals.css). */
   --background: #f5f5f5;
-  --foreground: #15171c;
+  --foreground: #161616;
 
   --color-teal-50: #eef8ff;
   --color-teal-100: #d8eefe;

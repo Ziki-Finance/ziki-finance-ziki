@@ -10,7 +10,7 @@ import { useChatAttachments } from "@/components/chat-attachments";
 import type { ProjectRef } from "@/lib/project-paths";
 
 const focus = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-electric-blue";
-const primary = `inline-flex min-h-11 shrink-0 items-center justify-center rounded-full bg-electric-blue-strong px-5 text-sm font-bold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${focus}`;
+const primary = `inline-flex h-9 shrink-0 items-center justify-center rounded-control bg-electric-blue-strong px-4 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${focus}`;
 
 /**
  * The Marketing agent (#marketing-agent-home), a card of its own above the Marketing list: one chat box, the same as
@@ -200,7 +200,7 @@ function PromptStep({ slug, projectId, siteUrl }: { slug: ProjectRef; projectId:
             event.preventDefault();
             inputRef.current?.focus();
           }}
-          className="cursor-text rounded-panel border border-zk-border bg-zk-surface px-4 pb-2.5 pt-3 shadow-[0_2px_10px_rgba(0,0,0,0.06)] focus-within:border-electric-blue-strong/50"
+          className="cursor-text rounded-panel border border-zk-border bg-zk-surface px-4 pb-2.5 pt-3 shadow-none focus-within:border-electric-blue-strong/50"
         >
           <textarea
             id={inputId}
@@ -290,7 +290,7 @@ function DraftCard({ draft, projectId, attachmentIds }: { draft: MarketingDraft;
   }
 
   return (
-    <article aria-labelledby={titleId} className="w-full rounded-2xl border border-zk-border bg-zk-surface p-4 text-left shadow-sm">
+    <article aria-labelledby={titleId} className="w-full rounded-2xl border border-zk-border bg-zk-surface p-4 text-left shadow-none">
       <p className="text-xs font-bold uppercase tracking-wide text-zk-muted">Draft task · {draft.typeName}</p>
       <h3 id={titleId} className="mt-1 text-base font-extrabold text-zk-text">{draft.title}</h3>
       <p className="mt-1 text-sm text-zk-muted">{draft.rationale}</p>

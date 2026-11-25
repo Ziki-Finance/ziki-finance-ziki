@@ -155,7 +155,7 @@ export function AgentSkillsEditor({
           type="button"
           disabled={pending}
           onClick={save}
-          className="rounded-full bg-electric-blue-strong text-white hover:bg-[#2552af] focus-visible:ring-electric-blue"
+          className="rounded-full bg-electric-blue-strong text-white hover:bg-zk-ink focus-visible:ring-electric-blue"
         >
           <span aria-live="polite">{pending ? "Saving…" : saved ? "Saved ✓" : "Save skills"}</span>
         </Button>

@@ -46,7 +46,7 @@ export function SendMessageForm({ agentId, maxLength }: { agentId: string; maxLe
       <Button
         type="submit"
         disabled={pending}
-        className="rounded-full bg-electric-blue-strong text-white hover:bg-[#2552af] focus-visible:ring-electric-blue"
+        className="rounded-full bg-electric-blue-strong text-white hover:bg-zk-ink focus-visible:ring-electric-blue"
       >
         {pending ? "Sending…" : "Send message"}
       </Button>

@@ -1,3 +1,4 @@
+import { PRIMARY_ACTION } from "@/lib/ui-style";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
@@ -114,7 +115,7 @@ export default async function JoinPage({
               <input type="hidden" name="organisationId" value={preview.organisation.id} />
               <Button
                 type="submit"
-                className="h-12 w-full bg-electric-blue-strong text-base font-bold text-white hover:bg-electric-blue focus-visible:ring-electric-blue"
+                className={`${PRIMARY_ACTION} w-full`}
               >
                 Open {preview.organisation.name}
               </Button>

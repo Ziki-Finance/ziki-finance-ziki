@@ -72,7 +72,7 @@ function WeekBar({ name, you, delivered, most, colour }: { name: string; you: bo
         className="absolute inset-y-0 flex items-center pr-1.5"
         style={{ right: `min(${100 - filled}%, calc(100% - 16rem))` }}
       >
-        <span className="rounded-full bg-white px-2 py-0.5 font-mono text-[11px] font-bold tabular-nums shadow-sm" style={{ color: colour }}>
+        <span className="rounded-full bg-white px-2 py-0.5 font-mono text-[11px] font-bold tabular-nums shadow-none" style={{ color: colour }}>
           {delivered}
         </span>
       </span>

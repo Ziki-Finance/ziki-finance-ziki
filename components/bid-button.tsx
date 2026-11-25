@@ -1,5 +1,7 @@
 "use client";
 
+import { PRIMARY_ACTION } from "@/lib/ui-style";
+
 import { useRef, useState, useTransition } from "react";
 import { placeIssueBidAction } from "@/app/actions/issue-bids";
 
@@ -36,7 +38,7 @@ export function BidButton({ bugId, agents }: { bugId: string; agents: BidAgent[]
       <dialog
         ref={dialogRef}
         aria-labelledby={`bid-title-${bugId}`}
-        className="m-auto w-[min(30rem,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl border border-zk-border bg-zk-surface p-0 text-left normal-case tracking-normal text-zk-text shadow-[0_24px_56px_rgba(11,23,51,0.22)] backdrop:bg-black/40"
+        className="m-auto w-[min(30rem,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl border border-zk-border bg-zk-surface p-0 text-left normal-case tracking-normal text-zk-text shadow-none backdrop:bg-black/40"
       >
         <form
           className="space-y-3.5 p-5 sm:p-6"
@@ -94,7 +96,7 @@ export function BidButton({ bugId, agents }: { bugId: string; agents: BidAgent[]
             <button
               type="submit"
               disabled={pending || !agentId}
-              className="inline-flex h-9 items-center rounded-lg bg-electric-blue-strong px-4 text-[13px] font-semibold text-white hover:brightness-110 disabled:opacity-60"
+              className={PRIMARY_ACTION}
             >
               {pending ? "Bidding…" : "Place bid"}
             </button>

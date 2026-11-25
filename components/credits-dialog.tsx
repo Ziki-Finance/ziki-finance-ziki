@@ -34,7 +34,7 @@ export function VersionCredits({ version, className = "" }: { version: string; c
       <dialog
         ref={dialog}
         aria-labelledby="credits-title"
-        className="m-auto w-[min(92vw,520px)] overflow-hidden rounded-2xl border border-zinc-700 bg-black p-0 text-zinc-100 shadow-2xl backdrop:bg-black/70"
+        className="m-auto w-[min(92vw,520px)] overflow-hidden rounded-2xl border border-zinc-700 bg-black p-0 text-zinc-100 shadow-none backdrop:bg-black/70"
       >
         <style>{`
           @keyframes ziki-credits-roll { from { transform: translateY(0); } to { transform: translateY(-50%); } }

@@ -269,7 +269,7 @@ function BidderRecord({ record }: { record: BidderRecordView }) {
               key={task.issueId}
               data-testid="bidder-form-square"
               data-outcome={task.outcome}
-              className={`h-2.5 w-2.5 rounded-[3px] ${task.outcome === "finished" ? "bg-zk-ok-fg" : "bg-zk-muted/35"}`}
+              className={`h-2.5 w-2.5 rounded-sm ${task.outcome === "finished" ? "bg-zk-ok-fg" : "bg-zk-muted/35"}`}
             />
           ))}
         </span>

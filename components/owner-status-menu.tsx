@@ -104,7 +104,7 @@ export function OwnerStatusMenu({ bugId, substatus, label, chipClassName }: Owne
       {open ? (
         <div
           id={panelId}
-          className="absolute left-0 top-full z-30 mt-2 w-[min(300px,calc(100vw-48px))] rounded-2xl border border-zk-border bg-zk-surface p-1.5 text-sm font-normal shadow-lg"
+          className="absolute left-0 top-full z-30 mt-2 w-[min(300px,calc(100vw-48px))] rounded-2xl border border-zk-border bg-zk-surface p-1.5 text-sm font-normal shadow-none"
         >
           {chosen ? (
             <div className="flex flex-col gap-2.5 p-2.5">

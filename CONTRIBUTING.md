@@ -180,6 +180,8 @@ Demo accounts and more detail: see [README.md](./README.md).
 
 ## Code hygiene
 
+- Follow [the style guide](./docs/style-guide.md) for every UI change, including authentication and marketing. Reuse `components/ui/` and `lib/ui-style.ts`; keep page CSS focused on layout. [The brand guide](./docs/brand-guide.md) covers identity and language, not a separate palette or button system.
+
 - Prefer small, focused PRs
 - Match existing TypeScript / Next.js App Router patterns in this repo
 - Do not commit `.env`, `.pem`, or credential files

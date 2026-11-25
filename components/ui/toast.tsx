@@ -35,9 +35,9 @@ export function useToast(): Notify {
 }
 
 const tones: Record<ToastTone, string> = {
-  success: "border-emerald-200 bg-emerald-50 text-emerald-900",
-  error: "border-red-200 bg-red-50 text-red-900",
-  info: "border-slate-200 bg-card text-slate-900",
+  success: "border-zk-ok-fg/20 bg-zk-ok-bg text-zk-ok-fg",
+  error: "border-zk-bad-bd bg-zk-bad-bg text-zk-bad-fg",
+  info: "border-zk-border bg-zk-tint text-zk-accent",
 };
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {

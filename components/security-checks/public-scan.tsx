@@ -1,5 +1,7 @@
 "use client";
 
+import { PRIMARY_ACTION } from "@/lib/ui-style";
+
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
@@ -122,11 +124,11 @@ export function PublicScan({ signedIn }: { signedIn: boolean }) {
         {signedIn ? (
           // Signed in: Try now adds the site and opens its progress page, where the agents are already at work
           // (asking which workspace first if they have more than one), the same as after signing up.
-          <Link href={tryNowPath(site)} className="inline-flex h-10 shrink-0 items-center rounded-full bg-electric-blue-strong px-6 text-sm font-bold text-white hover:brightness-105">
+          <Link href={tryNowPath(site)} className={`${PRIMARY_ACTION} shrink-0`}>
             Try now
           </Link>
         ) : (
-          <Link href={`/signup?callbackUrl=${encodeURIComponent(tryNowPath(site))}`} className="inline-flex h-10 shrink-0 items-center rounded-full bg-electric-blue-strong px-6 text-sm font-bold text-white hover:brightness-105">
+          <Link href={`/signup?callbackUrl=${encodeURIComponent(tryNowPath(site))}`} className={`${PRIMARY_ACTION} shrink-0`}>
             Try now
           </Link>
         )}
@@ -136,7 +138,7 @@ export function PublicScan({ signedIn }: { signedIn: boolean }) {
 
   return (
     <div className="w-full max-w-[620px]">
-      <form onSubmit={scan} noValidate className="flex items-center gap-2 rounded-panel bg-white p-2 shadow-[0_12px_40px_rgba(0,20,50,0.28)]">
+      <form onSubmit={scan} noValidate className="flex items-center gap-2 rounded-panel bg-white p-2 shadow-none">
         <label htmlFor="security-check-url" className="sr-only">Your URL</label>
         <input
           id="security-check-url"
@@ -147,13 +149,13 @@ export function PublicScan({ signedIn }: { signedIn: boolean }) {
           inputMode="url"
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? "security-check-error" : undefined}
-          className="h-12 min-w-0 flex-1 border-0 bg-transparent px-3 text-[17px] text-[#0b1733] outline-none placeholder:text-[#8a94a6]"
+          className="h-12 min-w-0 flex-1 border-0 bg-transparent px-3 text-[17px] text-zk-text outline-none placeholder:text-zk-muted"
         />
-        <button type="submit" disabled={pending} className="h-12 shrink-0 rounded-panel bg-[#2e6fef] px-7 text-[16px] font-bold text-white disabled:opacity-70">
+        <button type="submit" disabled={pending} className="h-12 shrink-0 rounded-panel bg-zk-blue px-7 text-[16px] font-bold text-white disabled:opacity-70">
           {pending ? "Scanning…" : "Scan"}
         </button>
       </form>
-      {error ? <p id="security-check-error" role="alert" className="m-0 mt-3 text-sm font-semibold text-[#ffd7d7]">{error}</p> : null}
+      {error ? <p id="security-check-error" role="alert" className="m-0 mt-3 text-sm font-semibold text-zk-bad-fg">{error}</p> : null}
       <p className="m-0 mt-3 text-[13px] text-white/85">
         A quick check only sees what a browser sees, so it can&apos;t promise your site is safe. For a full check, sign up and Ziki&apos;s agents look properly.
       </p>

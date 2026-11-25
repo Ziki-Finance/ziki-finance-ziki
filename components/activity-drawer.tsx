@@ -39,7 +39,7 @@ export function ActivityDrawer({ children }: { children: ReactNode }) {
         role="dialog"
         aria-modal="true"
         aria-label="Activity"
-        className="zk-drawer absolute inset-y-0 right-0 flex w-[min(440px,100vw)] flex-col border-l border-zk-border bg-zk-bg shadow-2xl"
+        className="zk-drawer absolute inset-y-0 right-0 flex w-[min(440px,100vw)] flex-col border-l border-zk-border bg-zk-bg shadow-none"
       >
         <style>{`@keyframes zk-drawer-in{from{transform:translateX(100%)}to{transform:none}}.zk-drawer{animation:zk-drawer-in .22s ease-out}@media (prefers-reduced-motion:reduce){.zk-drawer{animation:none}}`}</style>
         <div className="flex items-center justify-between gap-3 border-b border-zk-border bg-zk-surface px-5 py-3">

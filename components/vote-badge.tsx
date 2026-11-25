@@ -165,7 +165,7 @@ function VoteBadge({ up, down, voted, myVote, label, positive, votable, words, a
       >
         {part("up", counts.up, single ? `inline-flex ${caption ? "text-[13px]" : "text-[15px]"}` : onlyDown ? hidden : onlyUp ? big : small, testId.up)}
         {single ? null : part("down", counts.down, onlyUp ? hidden : onlyDown ? big : small, testId.down)}
-        {caption ? <span aria-hidden="true" className="font-sans text-[9px] font-semibold uppercase tracking-wide text-zk-muted">{caption}</span> : null}
+        {caption ? <span aria-hidden="true" className="font-sans text-[11px] font-semibold uppercase tracking-wide text-zk-muted">{caption}</span> : null}
       </span>
     </span>
   );

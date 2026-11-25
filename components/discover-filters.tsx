@@ -1,5 +1,7 @@
 "use client";
 
+import { PRIMARY_ACTION } from "@/lib/ui-style";
+
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
@@ -91,7 +93,7 @@ export function DiscoverFilters({
         type="submit"
         disabled={isPending}
         aria-label={isPending ? "Searching" : "Search"}
-        className="inline-flex min-h-[38px] min-w-[80px] cursor-pointer items-center justify-center rounded-control bg-electric-blue-strong px-5 py-2 text-sm font-bold text-white transition hover:bg-zk-ink focus:outline-none disabled:cursor-not-allowed disabled:opacity-75"
+        className={`${PRIMARY_ACTION} min-w-[80px]`}
       >
         {isPending ? (
           <svg

@@ -1,5 +1,7 @@
 "use client";
 
+import { PRIMARY_ACTION } from "@/lib/ui-style";
+
 import { useRef, useState, useTransition } from "react";
 import { answerYourCallAction } from "@/app/actions/your-call";
 import { PLAIN, plainTitle, type YourCallAnswer, type YourCallItem, type YourCallVote } from "@/lib/your-call-shared";
@@ -66,7 +68,7 @@ export function YourCallAnswerButton({ item, answer, onSent }: { item: YourCallI
         ref={dialogRef}
         aria-label={label}
         onClose={() => setOpen(false)}
-        className="m-auto w-[min(34rem,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl border border-zk-border bg-zk-surface p-0 text-zk-text shadow-[0_24px_56px_rgba(11,23,51,0.22)] backdrop:bg-black/40"
+        className="m-auto w-[min(34rem,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl border border-zk-border bg-zk-surface p-0 text-zk-text shadow-none backdrop:bg-black/40"
       >
         {open ? (
           <div className="relative flex flex-col gap-3 p-5 sm:p-6">
@@ -101,7 +103,7 @@ export function YourCallAnswerButton({ item, answer, onSent }: { item: YourCallI
                 type="button"
                 onClick={send}
                 disabled={pending}
-                className="inline-flex h-9 items-center rounded-full bg-electric-blue-strong px-4 text-[13px] font-bold text-white transition hover:opacity-90 disabled:opacity-50"
+                className={PRIMARY_ACTION}
               >
                 {pending ? "Sending…" : "Send my answer"}
               </button>

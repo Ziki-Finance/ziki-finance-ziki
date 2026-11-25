@@ -1,3 +1,4 @@
+import { PRIMARY_ACTION } from "@/lib/ui-style";
 import "@/app/(app)/settings/settings-design.css";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth-helpers";
@@ -24,7 +25,7 @@ export const dynamic = "force-dynamic";
 const card = "rounded-panel border border-zk-border bg-zk-surface p-6 flex flex-col gap-4";
 const notice = "m-0 rounded-xl px-4 py-3 text-sm font-semibold";
 const quick =
-  "inline-flex min-h-10 items-center justify-center rounded-full border border-zk-border bg-zk-surface px-4 text-sm font-bold text-zk-text transition hover:bg-zk-chip focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue";
+  "inline-flex min-h-10 items-center justify-center rounded-control border border-zk-border bg-zk-surface px-4 text-sm font-semibold text-zk-text transition hover:bg-zk-chip focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue";
 
 /** What a ledger row says happened, for the activity list. */
 const KIND_LABEL = {
@@ -215,7 +216,7 @@ export default async function CoinsPage({ searchParams }: { searchParams?: Promi
                         <button
                           type="submit"
                           disabled={!configured}
-                          className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center whitespace-nowrap rounded-full bg-electric-blue-strong px-4 text-sm font-bold text-white transition hover:bg-[#2552af] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                          className={`${PRIMARY_ACTION} w-full whitespace-nowrap`}
                         >
                           Buy for {formatUsd(price)}
                           {discountPercent > 0 ? <s className="ml-1.5 font-medium opacity-70">{formatUsd(full)}</s> : null}

@@ -1,5 +1,7 @@
 "use client";
 
+import { PRIMARY_ACTION } from "@/lib/ui-style";
+
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { setWatchingAction } from "@/app/actions/watch";
@@ -103,7 +105,7 @@ export function HeartbeatReopenAlert({
           onClick={toggleWatching}
           disabled={pending}
           aria-pressed={isWatching}
-          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-electric-blue-strong px-4 text-sm font-semibold text-white transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zk-accent focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
+          className={PRIMARY_ACTION}
         >
           {isWatching ? "Alerts on" : "Notify me"}
         </button>
