@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireFinanceOwner } from "@/lib/finance/owner";
 import { listFinanceCriteria } from "@/lib/finance/criteria";
 import { decisionsForOwner } from "@/lib/finance/decisions";
 import { portfolioForOwner } from "@/lib/finance/portfolio";
 import { describeFinanceChange } from "@/lib/finance/change-description";
-import { FinanceCriteriaManager } from "@/components/finance/finance-criteria-manager";
+import {
+  FinanceResearchBoard,
+  type ResearchStockItem,
+} from "@/components/finance/finance-research-board";
 import { PortfolioCard } from "@/components/finance/portfolio-card";
 import { FinanceLiveRefresh } from "@/components/finance/live-refresh";
 
@@ -21,8 +23,9 @@ export default async function FinancePage() {
   const user = await requireFinanceOwner();
   let data: [
     Awaited<ReturnType<typeof listFinanceCriteria>>,
-    {
+    Array<{
       id: string;
+      criteriaId: string | null;
       criteriaLabel: string;
       criteriaVersion: number;
       candidates: Array<{
@@ -35,18 +38,27 @@ export default async function FinancePage() {
         evaluations: Array<{ reasons: string[] }>;
         _count: { evidence: number; reviews: number };
       }>;
-    } | null,
+    }>,
     Awaited<ReturnType<typeof decisionsForOwner>>,
     Awaited<ReturnType<typeof portfolioForOwner>>,
-    Array<{ id: string; tickerId: string; kind: string; actorLabel: string; createdAt: Date; detail: unknown }>,
+    Array<{
+      id: string;
+      tickerId: string;
+      kind: string;
+      actorLabel: string;
+      createdAt: Date;
+      detail: unknown;
+    }>,
   ];
   try {
     data = await Promise.all([
       listFinanceCriteria(user.id),
-      prisma.financeRun.findFirst({
+      prisma.financeRun.findMany({
         orderBy: { createdAt: "desc" },
+        take: 10,
         select: {
           id: true,
+          criteriaId: true,
           criteriaLabel: true,
           criteriaVersion: true,
           candidates: {
@@ -73,157 +85,103 @@ export default async function FinancePage() {
       }),
     ]);
   } catch (err) {
-    const message = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    const message =
+      err instanceof Error ? `${err.name}: ${err.message}` : String(err);
     console.error("[finance:page]", message, err);
     return (
       <div className="mx-auto max-w-2xl rounded-xl border border-zk-bad-fg/30 bg-zk-surface p-6">
-        <h1 className="text-lg font-bold text-zk-text">Finance failed to load</h1>
-        <pre className="mt-3 whitespace-pre-wrap text-xs text-zk-bad-fg">{message}</pre>
+        <h1 className="text-lg font-bold text-zk-text">
+          Finance failed to load
+        </h1>
+        <pre className="mt-3 whitespace-pre-wrap text-xs text-zk-bad-fg">
+          {message}
+        </pre>
       </div>
     );
   }
-  const [criteria, run, decisions, portfolio, changes] = data;
-  const researching = run?.candidates.filter((c) => !c.decision) ?? [];
-  const groups = [
-    { title: "Needs you", entries: decisions.needsYou, actionable: true },
-    { title: "Not now", entries: decisions.notNow, actionable: false },
+
+  const [criteria, runs, decisions, portfolio, changes] = data;
+  const heldSymbols = new Set(portfolio.positions.map((p) => p.symbol));
+
+  const researching = runs.flatMap((r) =>
+    r.candidates
+      .filter((c) => !c.decision)
+      .map((c) => ({ ...c, criteriaId: r.criteriaId })),
+  );
+
+  const items: ResearchStockItem[] = [
+    ...decisions.needsYou.map((d) => ({
+      id: `dec-${d.id}`,
+      symbol: d.ticker.symbol,
+      name: d.ticker.name,
+      bucket: "needs_you" as const,
+      call: d.call,
+      stage: "decide",
+      summary: d.sentence,
+      reviewGo: d.origin === "monitor" ? null : d.reviewGo,
+      reviewTotal: d.origin === "monitor" ? null : d.reviewTotal,
+      origin: d.origin,
+      criteriaId: null,
+      isHeld: heldSymbols.has(d.ticker.symbol),
+    })),
+    ...researching.map((c) => {
+      const symbol = c.ticker?.symbol ?? c.tickerSymbol ?? "—";
+      const name = c.ticker?.name ?? c.companyName ?? symbol;
+      return {
+        id: `cand-${c.id}`,
+        symbol,
+        name,
+        bucket: "in_progress" as const,
+        call: null,
+        stage: c.stage,
+        summary:
+          c.evaluations[0]?.reasons[0] ??
+          `${c._count.evidence} research sources gathered`,
+        reviewGo: null,
+        reviewTotal: null,
+        origin: null,
+        criteriaId: c.criteriaId,
+        isHeld: heldSymbols.has(symbol),
+      };
+    }),
+    ...decisions.notNow.map((d) => ({
+      id: `dec-${d.id}`,
+      symbol: d.ticker.symbol,
+      name: d.ticker.name,
+      bucket: "not_now" as const,
+      call: d.call,
+      stage: "done",
+      summary: d.sentence,
+      reviewGo: d.origin === "monitor" ? null : d.reviewGo,
+      reviewTotal: d.origin === "monitor" ? null : d.reviewTotal,
+      origin: d.origin,
+      criteriaId: null,
+      isHeld: heldSymbols.has(d.ticker.symbol),
+    })),
   ];
+
+  const serializedChanges = changes.map((c) => ({
+    id: c.id,
+    tickerId: c.tickerId,
+    kind: c.kind,
+    actorLabel: c.actorLabel,
+    createdAt: c.createdAt.toISOString(),
+    description: describeFinanceChange(c.kind, c.detail),
+  }));
+
   return (
-    <div className="mx-auto max-w-4xl space-y-6 pb-8">
+    <div className="mx-auto max-w-7xl space-y-6 pb-10">
       {researching.length > 0 && <FinanceLiveRefresh />}
-      <header className="space-y-2">
-        <h1 className="text-2xl font-extrabold tracking-tight text-zk-text">Finance</h1>
-        <p className="max-w-2xl text-sm text-zk-muted">
-          Tell Ziki what kind of companies you are looking for. Saving criteria starts a research run and creates a screening job for your agents.
-        </p>
-      </header>
 
-      <FinanceCriteriaManager initialCriteria={criteria} />
-
-      <section
-        className={`rounded-xl border bg-zk-surface p-5 sm:p-6 ${decisions.needsYou.length ? "border-zk-accent" : "border-zk-border"}`}
-        aria-label="Stock research and decisions"
-      >
-        <h2 className="text-lg font-bold text-zk-text">Stock Research and Analysis</h2>
-        <p className="mt-1 text-[10px] uppercase tracking-wider text-zk-muted">
-          Screen · enrich · evaluate · decide
-        </p>
-        {run && (
-          <p className="mt-4 text-xs text-zk-text2">
-            {run.criteriaLabel} · criteria v{run.criteriaVersion}
-          </p>
-        )}
-        {researching.length > 0 && (
-          <section className="mt-5" aria-label="Research in progress">
-            <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-wide text-zk-muted">
-              Stocks found · {researching.length}
-            </h3>
-            <ul className="divide-y divide-zk-divider">
-              {researching.map((c) => {
-                const symbol = c.ticker?.symbol ?? c.tickerSymbol ?? "—";
-                const name = c.ticker?.name ?? c.companyName ?? symbol;
-                return (
-                  <li key={c.id} className="flex items-center justify-between gap-3 py-3">
-                    <Link href={`/finance/${encodeURIComponent(symbol)}`} className="min-w-0">
-                      <span className="text-xs font-semibold text-zk-text">{name}</span>
-                      <span className="ml-2 text-[10px] text-zk-muted">{symbol}</span>
-                      <span className="mt-1 block truncate text-[11px] text-zk-text2">
-                        {c.evaluations[0]?.reasons[0] ?? `${c._count.evidence} research sources gathered`}
-                      </span>
-                    </Link>
-                    <div
-                      role="status"
-                      className="flex shrink-0 items-center gap-2 text-[10px] text-zk-muted"
-                    >
-                      <span aria-hidden="true" className="flex gap-0.5 motion-safe:animate-pulse">
-                        {[1, 2, 3, 4].map((n) => (
-                          <span key={n} className="h-1 w-1 bg-zk-accent" />
-                        ))}
-                      </span>
-                      {
-                        {
-                          screen: "Waiting for agents",
-                          enrich: "Enriching",
-                          evaluate: "Evaluating",
-                          review: "Reviewing",
-                          decide: "Deciding",
-                          done: "Complete",
-                        }[c.stage]
-                      }
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        )}
-        {groups.map(
-          (group) =>
-            group.entries.length > 0 && (
-              <section key={group.title} className="mt-6" aria-label={group.title}>
-                <h3 className="mb-3 text-[10px] font-semibold uppercase tracking-wide text-zk-muted">
-                  {group.title} · {group.entries.length}
-                </h3>
-                <ul className="space-y-2">
-                  {group.entries.map((d) => (
-                    <li key={d.id}>
-                      <Link
-                        href={`/finance/${encodeURIComponent(d.ticker.symbol)}`}
-                        className="flex items-center justify-between gap-3 rounded-md bg-zk-bg px-3 py-3 hover:bg-zk-tint"
-                      >
-                        <span className="flex min-w-0 items-center gap-2">
-                          <span
-                            className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${d.call === "no_go" ? "bg-zk-bad-bg text-zk-bad-fg" : "bg-zk-ok-bg text-zk-ok-fg"}`}
-                          >
-                            {
-                              (
-                                {
-                                  go: "Go",
-                                  no_go: "No-go",
-                                  keep: "Keep",
-                                  trim: "Trim",
-                                  sell: "Sell",
-                                } as Record<string, string>
-                              )[d.call]
-                            }
-                          </span>
-                          <span className="truncate text-xs font-semibold text-zk-text">
-                            {d.ticker.name}
-                            <span className="ml-2 text-[10px] font-normal text-zk-muted">
-                              {d.ticker.symbol}
-                            </span>
-                          </span>
-                        </span>
-                        <span className="flex shrink-0 items-center gap-4">
-                          <span className="hidden text-[10px] text-zk-muted sm:inline">
-                            {d.origin === "monitor"
-                              ? "Reason check complete"
-                              : `Reviewers ${d.reviewGo} of ${d.reviewTotal}`}
-                          </span>
-                          <span className="text-[10px] font-semibold text-zk-accent">Open →</span>
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ),
-        )}
-        {!researching.length && !decisions.needsYou.length && (
-          <p className="mt-6 text-sm text-zk-text2">Nothing needs you today.</p>
-        )}
-      </section>
-      <PortfolioCard
-        portfolio={portfolio}
-        changes={changes.map((c) => ({
-          id: c.id,
-          tickerId: c.tickerId,
-          kind: c.kind,
-          actorLabel: c.actorLabel,
-          createdAt: c.createdAt.toISOString(),
-          description: describeFinanceChange(c.kind, c.detail),
-        }))}
+      <FinanceResearchBoard
+        initialCriteria={criteria}
+        items={items}
+        portfolioTotalValue={portfolio.totalValue}
+        holdingsCount={portfolio.positions.length}
+        recentChanges={serializedChanges}
       />
+
+      <PortfolioCard portfolio={portfolio} changes={serializedChanges} />
     </div>
   );
 }

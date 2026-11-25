@@ -34,3 +34,14 @@
 
 ## FNC-D-001 — Stream B is the foundation
 Date: 2026-11-23. CONFIRMED. User: 'Use PR #1 (Stream B) as the foundation'. Build on d63bbaa, reuse FinanceCandidate, FinanceEvaluation, FinanceTicker, FinanceHolding and FinanceSettings. PR #2 has incompatible overlapping models and is not merged here. Target repository is Ziki-Finance/ziki-finance-ziki, never a new fork. Final main-target review must identify the dependency.
+
+
+## FIN-D-046 — Redesign `/finance` as a research-first command center and `/finance/[ticker]` with position-first & clickable pipeline
+- **Date:** 2026-11-25
+- **Status:** confirmed (user approved high-fidelity wireframe and requested implementation: "yh dgo ahead").
+- **Context:** The original `/finance` page led with a full-width criteria form, exposed raw `GET`/`POST` API paths inline, used conflicting status badge colors (`Not checked yet` in green, `Pending` in solid CTA blue), and hid research/portfolio context on narrow containers.
+- **Options considered:** (A) Incremental CSS tweaks to the existing form-first layout; (B) Research-first command center on `/finance` (KPI strip, Stock Research & Analysis at top, Criteria in a side rail + text-first modal with prefilled chips, Portfolio below) and position/recommendation-first `/finance/[ticker]` with clickable 4-stage pipeline (`Screen → Enrich → Evaluate → Decide`) and inline `+ Log a trade`.
+- **Decision:** Adopt Option B. Hide raw Agent API endpoints from the investor UI; keep `Log a trade` primarily on the stock detail view (with a subtle fallback in Portfolio for unresearched tickers); use neutral slate for `Not checked yet` and soft/outlined pills for `Next check`.
+- **Reason:** Surfaces the highest-value investor output (researched stocks and portfolio thesis health) immediately while keeping criteria authoring lightweight and non-intrusive.
+- **Consequences:** Portfolio rows link directly to `/finance/[ticker]`; `/finance/[ticker]` queries the owner's holding so it can display `Your Position` (or `Recommendation` if not held) above the clickable research pipeline.
+- **Related:** FIN-CR-015, FIN-CR-014, FIN-D-011.

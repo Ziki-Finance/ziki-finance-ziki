@@ -70,3 +70,33 @@ Date: 2026-11-23. BEFORE: PR #1 has enrichment/evaluation and read-only Finance 
 
 
 FNC-CR-001 ACTUAL AFTER: decision/portfolio/audit/monitor vertical implemented on PR #1; owner-only actions and noindex UI; three migrations deployed to isolated local DB. Implementation COMPLETED. Full run 715a5fa88ed7: lint/typecheck pass, 2435/2437 tests; repaired two regressions. Targeted 2026-11-23T15-30-58-779Z: all phases pass, 72/72 tests. Separate PostgreSQL smoke passed. Final recheck/CLI/PR publication pending; no CI/build claim.
+
+
+## FIN-CR-015 — Finance UI/UX redesign: research-first command center & stock detail pipeline
+- **Date:** 2026-11-25
+- **Status:** COMPLETED (ESLint clean on modified files; 10/10 Finance test files / 96 tests passed).
+
+**Problem.** `/finance` buried researched stocks below a multi-field criteria form, leaked raw API paths inline, used misleading badge colors (`Not checked yet` in green, `Pending` in primary CTA blue), and `/finance/[ticker]` lacked the owner's position/thesis health and a clickable stage-by-stage view of the research pipeline.
+
+**BEFORE.**
+- `/finance`: `max-w-4xl` centered column; `FinanceCriteriaManager` form + saved list at top; raw `GET`/`POST` endpoints inline; `Stock Research and Analysis` below; `PortfolioCard` with `border-zk-accent`, inline sub-view for holdings, green `Not checked yet` pill, and solid-blue `Pending` pill.
+- `/finance/[ticker]`: `DecisionCard` / header followed by flat `Evaluations`, `Evidence`, and `Evaluation history` sections, without `Your Position` or clickable pipeline stages.
+
+**PROPOSED AFTER.**
+- `/finance`: `max-w-7xl` command center with 4-card KPI strip; `Stock Research & Analysis` at the top with verdict filter tabs, search, and ticker monograms; right-hand `Saved Criteria` & `Recent Agent Activity` rail; text-first `New / Edit criteria` modal with clickable prefilled chips; `Portfolio` below with neutral border, allocation bars, separated `Value` / `Gain / S&P 500`, neutral slate `Not checked yet`, soft `Next check` pills, and links to `/finance/[ticker]`. Raw `Agent API` paths hidden from the page.
+- `/finance/[ticker]`: Stock header with `+ Log a trade (SYMBOL)` and Watch/Not-for-me actions; priority `Your Position` card (if held, showing value, shares, gain, thesis health, and `Ask for fresh check`) or `Recommendation` card (if not held); clickable 4-stage pipeline (`1. Screen → 2. Enrich → 3. Evaluate → 4. Decide`) displaying each stage's real data.
+
+**Approval.** Approved by user on 2026-11-25 ("yh dgo ahead").
+
+**Files affected.**
+- `app/(app)/finance/page.tsx`
+- `app/(app)/finance/[ticker]/page.tsx`
+- `components/finance/finance-criteria-manager.tsx`
+- `components/finance/finance-research-board.tsx` (new client component for filterable research list + criteria modal/rail)
+- `components/finance/finance-ticker-pipeline.tsx` (new client component for clickable 4-stage pipeline on `[ticker]`)
+- `components/finance/portfolio-card.tsx`
+
+**Statuses.**
+- Approval: APPROVED (user, 2026-11-25).
+- Implementation: COMPLETED (2026-11-25).
+- Verification: `vitest run tests/finance` passed (10 files, 96/96 tests); ESLint passed on all 6 modified/created Finance UI files (0 errors, 0 warnings).

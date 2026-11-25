@@ -43,3 +43,16 @@ _Updated 2026-11-23_
 - The v1 briefing/holdings page and its libs (`briefing.ts`, `holdings.ts`,
   `prices.ts`, `ideas.ts`) were **not** ported; only the spine Stream B needs.
 - `FinanceSettingsChange` still audits only the three agreement numbers.
+
+
+## Archived 2026-11-25 (before FIN-CR-015)
+
+# Current state
+
+_Updated 2026-11-23_
+
+## FIN — Ziki Finance (PRD v3, Stream B)
+
+**Exists now (written this session, unverified):**
+- Finance foundations ported into this checkout: schema + migrations (`20270206000000_finance_foundations` … `20270210100000_finance_holding_cost`), `lib/finance.ts` and `lib/finance/{calendar,directory,finnhub,market-data,agreement,research,settings,clearance,agent-api}.ts`, the v1 agent routes under `app/api/v1/finance/`, the staff page `/superadmin/finance`, `docs/finance.md`, and the v1 finance tests.
+- Stream B (FIN-CR-014): `lib/finance/pipeline.ts`, `lib/finance/pipeline-settings.ts`, schema for `FinanceRun`, `FinanceCandidate`, `FinanceEvidence`, `FinanceEvaluation`, `FinancePipelineJob`, migration `20270221000000_finance_stream_b`, `/finance` and `/finance/<ticker>` pages, and `tests/finance/finance-pipeline.test.ts`.
