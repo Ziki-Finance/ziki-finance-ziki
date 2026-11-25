@@ -28,8 +28,11 @@ export function holdingFromTrades(trades: readonly LedgerTrade[]) {
   let benchmarkKnown = true;
   for (const trade of trades) {
     const amount = new Prisma.Decimal(trade.shares);
-    if (!amount.isFinite() || amount.lte(0)) throw new Error("Shares must be positive.");
-    if (trade.price !== null && (!new Prisma.Decimal(trade.price).isFinite() || new Prisma.Decimal(trade.price).lte(0))) throw new Error("Price must be positive.");
+    if (!Number.isFinite(amount.toNumber()) || amount.lte(0)) throw new Error("Shares must be positive.");
+    if (trade.price !== null) {
+      const unitPrice = new Prisma.Decimal(trade.price);
+      if (!Number.isFinite(unitPrice.toNumber()) || unitPrice.lte(0)) throw new Error("Price must be positive.");
+    }
     if (trade.side === "bought") {
       if (trade.price === null) costKnown = false;
       else cost = cost.add(amount.mul(trade.price));
