@@ -13,6 +13,7 @@ import { readAgentProfile, updateAgentProfile } from "@/lib/agents/profile";
 import { profileErrorResponse } from "@/lib/agent-api/agent-profiles";
 import { agentIssueRequest } from "@/lib/agent-api/issues";
 import { agentWorkStatus } from "@/lib/agents/work-gate";
+import { livePostingBlock } from "@/lib/agents/posting-block";
 import { WORK_ROW_SELECT, workCapUsage, workModeView } from "@/lib/agents/work-mode";
 import { getAgentForumBootSummary } from "@/lib/forum";
 
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest) {
       "read",
     );
     if (!budget.allowed) return agentBudgetExceededResponse(budget.retryAfterSeconds, budget);
-    const [projects, instructions, profile, orgSlug, activations, workRow, workUsage, forumBoot] = await Promise.all([
+    const [projects, instructions, profile, orgSlug, activations, workRow, workUsage, forumBoot, postingBlock] = await Promise.all([
       listAgentProjectSummaries(agent.organisationId),
       readAgentInstructions(agent.agentId),
       readAgentProfile(agent.agentId),
@@ -48,6 +49,8 @@ export async function GET(req: NextRequest) {
       prisma.agent.findUnique({ where: { id: agent.agentId }, select: WORK_ROW_SELECT }),
       workCapUsage(prisma, agent.agentId),
       getAgentForumBootSummary({ ownerId: agent.ownerId, organisationId: agent.organisationId }),
+      // #agent-posting-block: whether a manager agent stopped it from posting here.
+      livePostingBlock(prisma, agent.agentId, agent.organisationId),
     ]);
     // On-call guests (12 Nov plan, D2): the workspaces it is a guest in, each with its projects'
     // work feeds. This same key works there: pass ?projectId= on every call.
@@ -74,6 +77,8 @@ export async function GET(req: NextRequest) {
         org_slug: orgSlug,
         level: agent.level,
         paused: agent.pausedAt !== null,
+        // #agent-posting-block: null, or why it may read but not write here, and until when (null: until a person lifts it).
+        posting_block: postingBlock ? { reason: postingBlock.reason, until: postingBlock.until?.toISOString() ?? null, since: postingBlock.createdAt.toISOString() } : null,
         // #user-agents: where it is active. A key works in its own organisation, in every project there.
         activations: activations.map((row) => ({
           organisation_id: row.organisation.id,

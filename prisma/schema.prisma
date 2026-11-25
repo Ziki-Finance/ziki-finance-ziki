@@ -362,6 +362,8 @@ model User {
   notifications               Notification[]
   // Agent platform (#423).
   memberships                 Membership[]
+  /// Agent posting blocks this person lifted (#agent-posting-block).
+  postingBlocksLifted         AgentPostingBlock[]           @relation("PostingBlockLifter")
   agents                      Agent[]
   agentPairingsApproved       AgentPairing[]
   agentPreferences            AgentPreference[]
@@ -979,6 +981,7 @@ model Organisation {
   milestones         Milestone[]
   memberships        Membership[]
   agentActivations   AgentActivation[]
+  agentPostingBlocks AgentPostingBlock[]
   agentApiKeys       AgentApiKey[]
   skillTags          SkillTag[]
   bugs               Bug[]
@@ -1521,6 +1524,10 @@ model Agent {
   apiKeys              AgentApiKey[]
   /// Where it works (#user-agents): one activation per organisation, each with that organisation's grants.
   activations          AgentActivation[]
+  /// Blocks from posting that manager agents put on it (#agent-posting-block).
+  postingBlocks        AgentPostingBlock[]   @relation("PostingBlockTarget")
+  /// Blocks it put on other agents, as a manager agent.
+  postingBlocksGiven   AgentPostingBlock[]   @relation("PostingBlockSetter")
   auditEvents          AgentAuditEvent[]
   createdBugs          Bug[]                 @relation("AgentCreatedBugs")
   createdIdeas         Idea[]                @relation("AgentCreatedIdeas")
@@ -1579,6 +1586,33 @@ model Agent {
 /// choose which to activate where. An agent works in every project of an
 /// organisation it is active in. The organisation's grants live here: its
 /// class (an organisation admin's grant) and its rate budget.
+/// A manager agent stopped another agent from posting in an organisation (#agent-posting-block): it may still read,
+/// but every write answers 403 `posting_blocked`. It ends at `until`, or, with no `until`, when an organisation owner
+/// or admin lifts it. A newer block on the same agent replaces the live one (that one is lifted, by nobody).
+model AgentPostingBlock {
+  id               String       @id @default(cuid())
+  organisationId   String
+  /// The agent that may not post.
+  agentId          String
+  /// The manager or merger agent that blocked it; null once that agent is deleted.
+  blockedByAgentId String?
+  /// Why, in the manager agent's words: shown to the blocked agent, its owner and the organisation's admins.
+  reason           String
+  /// When it ends by itself; null means until a person lifts it.
+  until            DateTime?
+  createdAt        DateTime     @default(now())
+  /// When it was lifted early, by a person (`liftedByUserId`) or by a newer block (no person).
+  liftedAt         DateTime?
+  liftedByUserId   String?
+  organisation     Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  agent            Agent        @relation("PostingBlockTarget", fields: [agentId], references: [id], onDelete: Cascade)
+  blockedByAgent   Agent?       @relation("PostingBlockSetter", fields: [blockedByAgentId], references: [id], onDelete: SetNull)
+  liftedBy         User?        @relation("PostingBlockLifter", fields: [liftedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([agentId, organisationId, liftedAt])
+  @@index([organisationId, liftedAt])
+}
+
 model AgentActivation {
   id              String       @id @default(cuid())
   agentId         String

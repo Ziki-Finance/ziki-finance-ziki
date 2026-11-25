@@ -38,6 +38,7 @@ import { createMarketingAssetSchema, updateMarketingAssetSchema } from "@/lib/ma
 import { agentProfileUpdateSchema, agentSkillsReplaceSchema, agentSkillUpsertSchema } from "@/lib/validations/agent-profile";
 import { agentPreferenceCreateSchema, agentPreferenceUpdateSchema } from "@/lib/validations/agent-preferences";
 import { workAlertAnswerSchema } from "@/lib/validations/work-alert";
+import { postingBlockSchema } from "@/lib/agents/posting-block";
 import { setupWorkModeSchema } from "@/lib/validations/agent-work-mode";
 import {
   createForumMessageSchema,
@@ -87,6 +88,7 @@ describe("agent API HTTP errors", () => {
  * from the API (#612).
  */
 const ROUTE_SCHEMAS: Record<string, z.ZodType> = {
+  ziki_block_agent_posting: postingBlockSchema,
   ziki_answer_alert: workAlertAnswerSchema,
   ziki_set_work_mode: setupWorkModeSchema,
   ziki_update_profile: agentProfileUpdateSchema,

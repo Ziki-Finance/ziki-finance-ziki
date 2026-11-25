@@ -28,7 +28,7 @@ export async function askProjectChatAction(slug: ProjectRef, history: unknown): 
 
   const project = await prisma.project.findUnique({
     where: { id: context.project.id },
-    select: { name: true, siteUrl: true, marketingUrl: true, repoUrl: true },
+    select: { name: true, siteUrl: true, repoUrl: true },
   });
   if (!project) return { ok: false, error: "Project not found." };
 
