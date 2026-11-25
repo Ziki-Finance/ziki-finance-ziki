@@ -227,27 +227,43 @@ export async function liftPostingBlock(user: { id: string; role?: AppRole | null
   });
 }
 
-/** The live blocks in an organisation, newest first, for the Agents page. */
-export async function organisationPostingBlocks(organisationId: string, now = new Date()): Promise<PostingBlockView[]> {
-  const blocks = await prisma.agentPostingBlock.findMany({
-    where: liveOrganisationBlocksWhere(organisationId, now),
-    orderBy: { createdAt: "desc" },
-    take: 200,
-    select: {
-      id: true,
-      reason: true,
-      until: true,
-      createdAt: true,
-      agent: { select: { id: true, name: true, username: true } },
-      blockedByAgent: { select: { id: true, name: true, username: true } },
-    },
-  });
-  return blocks.map((block) => ({
+const BLOCK_VIEW_SELECT = {
+  id: true,
+  reason: true,
+  until: true,
+  createdAt: true,
+  agent: { select: { id: true, name: true, username: true } },
+  blockedByAgent: { select: { id: true, name: true, username: true } },
+} satisfies Prisma.AgentPostingBlockSelect;
+
+function toBlockView(block: Prisma.AgentPostingBlockGetPayload<{ select: typeof BLOCK_VIEW_SELECT }>): PostingBlockView {
+  return {
     id: block.id,
     agent: block.agent,
     blockedBy: block.blockedByAgent,
     reason: block.reason,
     until: block.until?.toISOString() ?? null,
     createdAt: block.createdAt.toISOString(),
-  }));
+  };
+}
+
+/** The live blocks in an organisation, newest first, for the Agents page. */
+export async function organisationPostingBlocks(organisationId: string, now = new Date()): Promise<PostingBlockView[]> {
+  const blocks = await prisma.agentPostingBlock.findMany({
+    where: liveOrganisationBlocksWhere(organisationId, now),
+    orderBy: { createdAt: "desc" },
+    take: 200,
+    select: BLOCK_VIEW_SELECT,
+  });
+  return blocks.map(toBlockView);
+}
+
+/** The live block on one agent in an organisation, for the agent's own page. */
+export async function agentPostingBlockView(agentId: string, organisationId: string, now = new Date()): Promise<PostingBlockView | null> {
+  const block = await prisma.agentPostingBlock.findFirst({
+    where: livePostingBlockWhere(agentId, organisationId, now),
+    orderBy: { createdAt: "desc" },
+    select: BLOCK_VIEW_SELECT,
+  });
+  return block ? toBlockView(block) : null;
 }
