@@ -938,7 +938,7 @@ describe("project chat basics (#project-chat)", () => {
   const tool = (name: string) => PROJECT_CHAT_TOOLS.find((candidate) => candidate.name === name)!;
   const context = (canEdit: boolean): ProjectChatContext => ({
     organisationId: "org-1", projectId: "p-1", userId: "u-1", canEdit,
-    project: { name: "New product", siteUrl: null, marketingUrl: null, repoUrl: null },
+    project: { name: "New product", siteUrl: null, repoUrl: null },
   });
   const run = () => ({ activity: [], changed: [], idea: null });
 
@@ -959,8 +959,8 @@ describe("project chat basics (#project-chat)", () => {
     await expect(tool("set_github_url").run({ url: "https://gitlab.com/acme/app" }, context(true), run())).rejects.toThrow();
   });
 
-  it("asks for the marketing site until it is set, and 'same as the app' needs the app's address first", async () => {
-    expect(missingBasics(context(true).project)).toEqual(["the app's address", "the marketing site (or that it is the app's address)", "the GitHub repository"]);
-    await expect(tool("set_marketing_url").run({ sameAsApp: true }, context(true), run())).rejects.toThrow(/app's address/);
+  it("asks only for the product's basics, never the marketing site (#product-chat-scope)", () => {
+    expect(missingBasics(context(true).project)).toEqual(["the app's address", "the GitHub repository"]);
+    expect(PROJECT_CHAT_TOOLS.map((candidate) => candidate.name)).not.toContain("set_marketing_url");
   });
 });

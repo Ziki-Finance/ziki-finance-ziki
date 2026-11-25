@@ -10,15 +10,16 @@ import { prisma } from "@/lib/prisma";
 /**
  * The project chat (#project-chat): the box at the top of Your App. A person talks to Ziki there. It explains how
  * Ziki builds their product, keeps the project's basics in its context on every turn (the product's name, the app's
- * address, the marketing site and the GitHub repository), nudges for whichever are missing, and sets each one with a
- * tool the moment the person gives it. When they describe work, it files it as an idea for the agents.
+ * address and the GitHub repository), nudges for whichever are missing, and sets each one with a tool the moment the
+ * person gives it. When they describe work, it files it as an idea for the agents. It is about the product only: the
+ * marketing site is the Marketing section's to ask about (#product-chat-scope).
  *
  * The tools act on the project the signed-in person opened, never one the model names. Changing the basics takes an
  * organisation owner or admin, as the pencils in the project's card do.
  */
 
 /** The project's basics as the chat knows them, kept up to date as its tools set them. */
-export type ProjectBasics = { name: string; siteUrl: string | null; marketingUrl: string | null; repoUrl: string | null };
+export type ProjectBasics = { name: string; siteUrl: string | null; repoUrl: string | null };
 
 export type ProjectChatContext = {
   organisationId: string;
@@ -115,29 +116,6 @@ const setAppUrl = tool({
   },
 });
 
-const setMarketingUrl = tool({
-  name: "set_marketing_url",
-  description:
-    "Set the marketing site: where people first hear about the product (the landing page). Ask the person whether it is the same as the app's address before calling it. If it is the same, call it with sameAsApp true and no url.",
-  input: z.object({
-    sameAsApp: z.boolean().describe("True when the marketing site is the app's own address."),
-    url: z.string().optional().describe("The marketing site's https address, when it differs from the app's."),
-  }),
-  async run({ sameAsApp, url }, context, run) {
-    if (sameAsApp) {
-      if (!context.project.siteUrl) throw new Error("The app's address isn't set yet: ask for it and set it first.");
-      await save(context, run, "marketingUrl", context.project.siteUrl);
-      run.activity.push("Set the marketing site to the app's address");
-      return `Saved: the marketing site is the app's address, ${context.project.siteUrl}.`;
-    }
-    const parsed = siteUrlSchema.safeParse(url ? asAddress(url) : "");
-    if (!parsed.success || !parsed.data) throw new Error(parsed.success ? "Give the marketing site's address, or sameAsApp true." : problem(parsed.error));
-    await save(context, run, "marketingUrl", parsed.data);
-    run.activity.push(`Set the marketing site to ${parsed.data}`);
-    return `Saved the marketing site: ${parsed.data}.`;
-  },
-});
-
 const setGithubUrl = tool({
   name: "set_github_url",
   description: "Set the product's GitHub repository (https://github.com/owner/repo), where the agents send their pull requests. Call it as soon as the person gives it.",
@@ -166,17 +144,13 @@ const fileIdea = tool({
 });
 
 /** Every tool the project chat offers, in the order the model sees them. */
-export const PROJECT_CHAT_TOOLS = [setName, setAppUrl, setMarketingUrl, setGithubUrl, fileIdea];
+export const PROJECT_CHAT_TOOLS = [setName, setAppUrl, setGithubUrl, fileIdea];
 
 /** The basics, said for the system prompt: each value, or that it is missing. */
 function basicsBlock(project: ProjectBasics): string {
-  const marketing = project.marketingUrl === null
-    ? "NOT SET (ask whether it is the same as the app's address)"
-    : project.marketingUrl === project.siteUrl ? `${project.marketingUrl} (the same as the app)` : project.marketingUrl;
   return [
     `- Product name: ${project.name}`,
     `- App address (where the product runs): ${project.siteUrl ?? "NOT SET"}`,
-    `- Marketing site (where people first hear of it): ${marketing}`,
     `- GitHub repository: ${project.repoUrl ?? "NOT SET"}`,
   ].join("\n");
 }
@@ -185,7 +159,6 @@ function basicsBlock(project: ProjectBasics): string {
 export function missingBasics(project: ProjectBasics): string[] {
   const missing: string[] = [];
   if (!project.siteUrl) missing.push("the app's address");
-  if (project.marketingUrl === null) missing.push("the marketing site (or that it is the app's address)");
   if (!project.repoUrl) missing.push("the GitHub repository");
   return missing;
 }
@@ -194,20 +167,20 @@ export function projectChatPrompt(context: ProjectChatContext): string {
   const missing = missingBasics(context.project);
   return `You are Ziki, talking with someone in the project "${context.project.name}" from the chat box at the top of its page.
 
-What Ziki is: a team of AI agents that builds and runs the person's product with them. The person says what they want (a bug fixed, a change made, a feature added) and it becomes an idea. Agents confirm it, bid for the work, build it, test it and send a pull request to the product's GitHub repository; it is reviewed, merged and goes live, and the person watches it all in the Work Feed and approves what is delivered. Marketing agents work on the marketing site the same way.
+What Ziki is: a team of AI agents that builds and runs the person's product with them. The person says what they want (a bug fixed, a change made, a feature added) and it becomes an idea. Agents confirm it, bid for the work, build it, test it and send a pull request to the product's GitHub repository; it is reviewed, merged and goes live, and the person watches it all in the Work Feed and approves what is delivered.
 
 The project's basics right now (always current; trust this over anything said earlier):
 ${basicsBlock(context.project)}
 
 ${missing.length
-    ? `Still missing: ${missing.join("; ")}. The agents need these to work on the product: nudge the person for them, one at a time, in that order, until they are all set. Ask in a friendly, short way and say why it helps (the agents test on the app, market the marketing site, and send their work to the repository).`
+    ? `Still missing: ${missing.join("; ")}. The agents need these to work on the product: nudge the person for them, one at a time, in that order, until they are all set. Ask in a friendly, short way and say why it helps (the agents test on the app and send their work to the repository).`
     : "All the basics are set. Help the person get work done."}
 
 ${context.canEdit ? "" : "This person isn't an owner or admin of the organisation, so they can't change the basics: if something is missing, say an owner or admin can add it.\n\n"}How to talk:
 - When someone greets you or starts out, say hello, explain in two or three sentences how Ziki can help them build their product, then ask for the first missing basic.
 - Act, don't check. The moment the person gives a basic, call its tool in that same reply, then say it is saved. Never ask them to confirm a value or to explain what kind of address it is.
-- Any address they give for their "site", "website", "app", "product" or "domain" is the app's address while that isn't set: save it with set_app_url (a bare domain like hotels.ng is fine). Only a site they call their marketing site, landing page or homepage for marketing goes to set_marketing_url.
-- The app's address and the marketing site can differ: right after saving the app's address, if the marketing site isn't set, ask whether it is the same address. If they say yes, set it with sameAsApp true.
+- Any address they give for their "site", "website", "app", "product" or "domain" is the app's address while that isn't set: save it with set_app_url (a bare domain like hotels.ng is fine).
+- This chat is about the product. Never ask about a marketing site, landing page or marketing: that is the Marketing section's. If they bring up marketing, say it lives in Marketing, at the top of the page.
 - Never make up or guess an address. If a tool says a value isn't valid, tell them why in one sentence and ask again.
 - When they describe work they want done, file it with file_idea, then tell them it is filed and the agents will pick it up.
 - Keep replies short: a few sentences. Write plainly, in the language they use, with no Markdown headings, bold, tables or code blocks.

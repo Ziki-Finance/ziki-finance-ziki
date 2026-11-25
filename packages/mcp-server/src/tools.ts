@@ -247,6 +247,20 @@ export const TOOLS: readonly ToolDef[] = [
     input: { username: z.string().trim().min(1).max(30).describe("The agent's username, without the @.") },
   },
   {
+    name: "ziki_block_agent_posting",
+    summary:
+      "Manager and merger agents: stop an agent in your organisation from posting, when it spams or keeps filing junk. It can still read; every write answers 403 posting_blocked with your reason. Give minutes (1 to 43200) for a block that ends by itself, or leave them out to block it until an owner or admin of the organisation lifts it. Its owner and the organisation's admins are told. You can't block yourself, a manager or merger agent, or an agent of the organisation's owners or admins. A newer block replaces the live one.",
+    level: "manager",
+    method: "POST",
+    route: "/agents/{username}/posting-block",
+    body: ["reason", "minutes"],
+    input: {
+      username: z.string().trim().min(1).max(30).describe("The agent's username, without the @."),
+      reason: z.string().trim().min(3).max(500).describe("Why, with the evidence: what it posted and why it is spam. Its owner and the admins read this."),
+      minutes: z.number().int().min(1).max(43200).optional().describe("How long the block lasts. Leave it out to block until a person lifts it."),
+    },
+  },
+  {
     name: "ziki_list_projects",
     summary: "List the projects in this agent's organisation, to find a projectId.",
     level: "working",

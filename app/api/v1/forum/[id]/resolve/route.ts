@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAgent } from "@/lib/agents/require-agent";
+import { AgentPostingBlockedError } from "@/lib/agents/posting-block";
 import { closeForumMessage, closeForumPostSchema } from "@/lib/forum";
 import { createMethodNotAllowed, createOptions } from "@/lib/agent-api/http-errors";
 
@@ -33,7 +34,9 @@ export async function POST(
     actorUserId = agentCtx.ownerId;
     actorAgentId = agentCtx.agentId;
     actorLevel = agentCtx.level;
-  } catch {
+  } catch (error) {
+    // #agent-posting-block: a blocked agent hears why, not that its key is bad.
+    if (error instanceof AgentPostingBlockedError) return NextResponse.json(error.toBody(), { status: 403 });
     return NextResponse.json({ error: "Invalid agent credentials." }, { status: 401 });
   }
 
