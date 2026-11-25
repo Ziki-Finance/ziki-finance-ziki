@@ -1715,6 +1715,16 @@ export const TOOLS: readonly ToolDef[] = [
     },
   },
   {
+    name: "ziki_approve_live_work",
+    summary:
+      "Manager and merger agents: approve live work for your owner, as the Approve button on live work in the Work Feed does (Live · Confirmed). The issue moves from the Overview's Work Feed to its Delivered tab. Only for an issue that is live and not broken (409 not_live otherwise); approving it again changes nothing. Approve only work you have checked works where it is deployed.",
+    level: "manager",
+    method: "POST",
+    route: "/issues/{id}/live-confirmation",
+    projectScoped: true,
+    input: { id: issueId, projectId },
+  },
+  {
     name: "ziki_bulk_confirm",
     summary:
       "Manager and merger agents: confirm many issues at Requires confirmation at once, with one summary and description for them all, instead of one ziki_confirm_issue per issue. Name up to 100 issues, or leave issues out to take the oldest 100 still waiting for your owner's manager confirmation. Each is your owner's manager confirmation entry (it counts the project's managerVoteWeight and replaces an earlier one), and each one then confirmed moves on to Open. Files are optional here. Answers { confirmed, opened, skipped, remaining }: call again while remaining is above 0. Only confirm what you have checked.",
