@@ -39,13 +39,19 @@
     "ziki": "tsx --tsconfig cli/tsconfig.json cli/ziki.ts",
     "test:cli": "node scripts/cli-tests.mjs",
     "db:scenario:points-farming": "tsx --env-file=.env scripts/dev/scenario-points-farming.ts",
-    "db:scenario:security-checks": "tsx --env-file=.env scripts/dev/scenario-security-checks.ts"
+    "db:scenario:security-checks": "tsx --env-file=.env scripts/dev/scenario-security-checks.ts",
+    "cf:build": "node scripts/cloudflare/build.mjs",
+    "cf:preview": "node scripts/cloudflare/build.mjs && opennextjs-cloudflare preview",
+    "cf:deploy": "node scripts/cloudflare/build.mjs && opennextjs-cloudflare deploy",
+    "cf:typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.4.0",
+    "@opennextjs/cloudflare": "1.20.17",
+    "@prisma/adapter-pg": "6.19.3",
     "@prisma/client": "^6.19.3",
     "@react-pdf/renderer": "4.9.0",
     "bcryptjs": "^3.0.3",
@@ -85,7 +91,8 @@
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "wrangler": "4.162.0"
   },
   "engines": {
     "node": "22.x"

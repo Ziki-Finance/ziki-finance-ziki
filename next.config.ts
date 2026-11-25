@@ -1,7 +1,12 @@
 import { execFileSync } from "node:child_process";
+import path from "node:path";
 import type { NextConfig } from "next";
 import packageJson from "./package.json";
 import { BASE_PATH } from "./lib/base-path";
+
+// Ops preview: set by `pnpm cf:build`. Swaps out code that can't run on Cloudflare
+// Workers. See docs/cloudflare-preview.md.
+const isCloudflareBuild = process.env.CLOUDFLARE_BUILD === "1";
 
 function resolveBuildVersion(): string {
   const explicit = process.env.NEXT_PUBLIC_APP_VERSION?.trim() || process.env.APP_VERSION?.trim();
@@ -29,6 +34,12 @@ function resolveBuildVersion(): string {
 const nextConfig: NextConfig = {
   // #585: the production image ships only the traced standalone server.
   output: "standalone",
+  // OpenNext for Cloudflare patches the generated Prisma client; keep it out of the
+  // server bundle. @prisma/adapter-pg stays out of webpack so the Cloudflare bundler
+  // resolves its `pg` with the `workerd` condition. Bundled by webpack, pg-cloudflare
+  // resolves to an empty module and every query fails on Workers with
+  // "is not a constructor".
+  serverExternalPackages: ["@prisma/client", ".prisma/client", "@prisma/adapter-pg"],
   // CI type-checks every commit (`tsc --noEmit`) before it can deploy, so the
   // image build and the end-to-end job set SKIP_BUILD_TYPECHECK=1 to skip
   // next build's second, identical check. Every other build still runs it.
@@ -59,7 +70,10 @@ const nextConfig: NextConfig = {
     // The security report PDF embeds its own font (components/security-checks/report-pdf.tsx).
     // pdfkit loads its built-in font files (Helvetica.cjs and the like) by a path the tracer can't follow, so
     // the production image left them out and every download failed with "Cannot find module .../standard-fonts/Helvetica.cjs".
-    "/security/checks/[id]/report.pdf": ["./assets/fonts/**", "./node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/**"],
+    // The Cloudflare preview has no PDF route at all (see cloudflare/stubs/report-pdf.ts).
+    ...(isCloudflareBuild
+      ? {}
+      : { "/security/checks/[id]/report.pdf": ["./assets/fonts/**", "./node_modules/.pnpm/pdfkit@*/node_modules/pdfkit/js/**"] }),
   },
   async headers() {
     // #222: the app previously sent no security headers at all, which left
@@ -186,6 +200,17 @@ const nextConfig: NextConfig = {
         "@/lib/points/backfill-on-start": false,
         "@/lib/cron/scheduler": false,
         "@/lib/error-capture": false,
+      };
+    }
+    if (isCloudflareBuild) {
+      // The security report PDF is not offered on Cloudflare (pdfkit can't be bundled for Workers).
+      const stub = path.join(process.cwd(), "cloudflare/stubs/report-pdf.ts");
+      config.resolve.alias = {
+        ...(typeof config.resolve.alias === "object" && !Array.isArray(config.resolve.alias)
+          ? config.resolve.alias
+          : {}),
+        "@/components/security-checks/report-pdf": stub,
+        [path.join(process.cwd(), "components/security-checks/report-pdf")]: stub,
       };
     }
     return config;

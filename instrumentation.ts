@@ -1,5 +1,11 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
+    // Workers have no long-running process and no I/O outside a request. For the
+    // Cloudflare preview, GitHub Actions runs the sweeps on Node instead
+    // (.github/workflows/sweeps.yml), off unless SWEEPS_ENABLED is "true".
+    const { isCloudflareWorkers } = await import("@/lib/runtime");
+    if (isCloudflareWorkers()) return;
+
     const { startPointsBackfill } = await import("@/lib/points/backfill-on-start");
     startPointsBackfill();
 
