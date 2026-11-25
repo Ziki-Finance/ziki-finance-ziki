@@ -3,7 +3,7 @@
   // Ops only: a preview deployment of this checkout on Cloudflare Workers (Free plan)
   // through OpenNext, so the Finance work can be looked at before anything goes upstream.
   // This branch is not meant to be merged; see docs/cloudflare-preview.md.
-  "name": "ziki-finance-preview",
+  "name": "ziki-finance",
   "main": "cloudflare/worker.ts",
   "compatibility_date": "2025-10-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
@@ -12,7 +12,7 @@
     "binding": "ASSETS"
   },
   "services": [
-    { "binding": "WORKER_SELF_REFERENCE", "service": "ziki-finance-preview" }
+    { "binding": "WORKER_SELF_REFERENCE", "service": "ziki-finance" }
   ],
   // No Cron Trigger. A sweeps run needs far more than the 10 ms of CPU Workers Free
   // allows per invocation, and the Finance pages need no scheduled work at all:
@@ -23,16 +23,13 @@
     "crons": []
   },
   "observability": { "enabled": true },
-  // Optional. Hyperdrive pools Postgres connections in front of Supabase and is the
-  // fast path on Workers. Without it the app uses DATABASE_URL from the Worker's
-  // secrets (Supabase session pooler), which is enough for a preview. Create one with
-  // scripts/cloudflare/create-hyperdrive.mjs and uncomment this block:
-  //
-  // "hyperdrive": [
-  //   { "binding": "HYPERDRIVE", "id": "<id printed by create-hyperdrive.mjs>" }
-  // ],
+  // Hyperdrive pools Postgres connections in front of Supabase (session pooler).
+  "hyperdrive": [
+    { "binding": "HYPERDRIVE", "id": "af185b3bb2ba4be39bd8cfcb886bd042" }
+  ],
   "vars": {
     "NODE_ENV": "production",
+    "AUTH_URL": "https://ziki-finance.ibuild-ai.workers.dev",
     // No long-running process on Workers; the sweeps run on GitHub Actions instead.
     "ENABLE_IN_PROCESS_CRON": "0"
   }
