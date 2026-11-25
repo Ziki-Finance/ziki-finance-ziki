@@ -91,6 +91,7 @@ export function FinanceTickerPipeline({
   overallVerdictLabel,
   overallVerdictKey,
   decision,
+  isDemo = false,
 }: {
   symbol: string;
   currentStage: string;
@@ -111,6 +112,7 @@ export function FinanceTickerPipeline({
   overallVerdictLabel: string;
   overallVerdictKey: "buy" | "hold" | "dont_buy";
   decision: SerializedDecision | null;
+  isDemo?: boolean;
 }) {
   const stageNum = STAGE_ORDER[currentStage] ?? 1;
   const defaultTab: PipelineStageKey = decision
@@ -457,11 +459,18 @@ export function FinanceTickerPipeline({
                   </ul>
                 </div>
               )}
-              <DecisionActions
-                decisionId={decision.id}
-                symbol={symbol}
-                call={decision.call}
-              />
+              {isDemo ? (
+                <p className="border-t border-zk-border pt-3 text-xs text-zk-muted">
+                  Demo mode: owner decision actions are disabled for sample
+                  data.
+                </p>
+              ) : (
+                <DecisionActions
+                  decisionId={decision.id}
+                  symbol={symbol}
+                  call={decision.call}
+                />
+              )}
             </div>
           )}
         </div>

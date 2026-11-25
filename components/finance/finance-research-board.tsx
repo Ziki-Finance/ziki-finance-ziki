@@ -23,6 +23,24 @@ export type ResearchStockItem = {
   origin: string | null;
   criteriaId: string | null;
   isHeld: boolean;
+  isDemo?: boolean;
+};
+
+const DEMO_STOCK_ITEM: ResearchStockItem = {
+  id: "demo-msft",
+  symbol: "MSFT",
+  name: "Microsoft",
+  bucket: "needs_you",
+  call: "go",
+  stage: "decide",
+  summary:
+    "Durable enterprise cloud moat, 35% ROIC, and disciplined capital return.",
+  reviewGo: 4,
+  reviewTotal: 5,
+  origin: "review",
+  criteriaId: null,
+  isHeld: false,
+  isDemo: true,
 };
 
 type FilterKey = "all" | "needs_you" | "go" | "in_progress" | "not_now";
@@ -82,6 +100,7 @@ export function FinanceResearchBoard({
   );
   const [filter, setFilter] = useState<FilterKey>("all");
   const [search, setSearch] = useState("");
+  const [showDemo, setShowDemo] = useState(items.length === 0);
   const [criteriaOpen, setCriteriaOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCriteria, setEditingCriteria] =
@@ -92,20 +111,27 @@ export function FinanceResearchBoard({
     initialCriteria[0] ??
     null;
 
+  const displayItems = useMemo(
+    () => (showDemo ? [DEMO_STOCK_ITEM, ...items] : items),
+    [showDemo, items],
+  );
+
   const counts = useMemo(
     () => ({
-      all: items.length,
-      needs_you: items.filter((i) => i.bucket === "needs_you").length,
-      go: items.filter((i) => i.call === "go" || i.call === "keep").length,
-      in_progress: items.filter((i) => i.bucket === "in_progress").length,
-      not_now: items.filter((i) => i.bucket === "not_now").length,
+      all: displayItems.length,
+      needs_you: displayItems.filter((i) => i.bucket === "needs_you").length,
+      go: displayItems.filter((i) => i.call === "go" || i.call === "keep")
+        .length,
+      in_progress: displayItems.filter((i) => i.bucket === "in_progress")
+        .length,
+      not_now: displayItems.filter((i) => i.bucket === "not_now").length,
     }),
-    [items],
+    [displayItems],
   );
 
   const filteredItems = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return items.filter((item) => {
+    return displayItems.filter((item) => {
       const matchesFilter =
         filter === "all" ||
         (filter === "needs_you" && item.bucket === "needs_you") ||
@@ -119,7 +145,7 @@ export function FinanceResearchBoard({
         item.summary.toLowerCase().includes(q);
       return matchesFilter && matchesSearch;
     });
-  }, [items, filter, search]);
+  }, [displayItems, filter, search]);
 
   function openNewModal() {
     setEditingCriteria(null);
@@ -256,13 +282,26 @@ export function FinanceResearchBoard({
                 thesis, and log a trade.
               </p>
             </div>
-            <input
-              type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Filter ticker or thesis…"
-              className="w-full rounded-lg border border-zk-border bg-zk-bg px-3 py-1.5 text-xs text-zk-text placeholder:text-zk-muted focus:border-zk-accent focus:outline-none sm:w-52"
-            />
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowDemo((prev) => !prev)}
+                className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
+                  showDemo
+                    ? "border-zk-accent/60 bg-zk-tint text-zk-accent"
+                    : "border-zk-border bg-zk-bg text-zk-muted hover:text-zk-text"
+                }`}
+              >
+                {showDemo ? "Hide demo" : "Show demo"}
+              </button>
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Filter ticker or thesis…"
+                className="w-full rounded-lg border border-zk-border bg-zk-bg px-3 py-1.5 text-xs text-zk-text placeholder:text-zk-muted focus:border-zk-accent focus:outline-none sm:w-52"
+              />
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-1.5 border-b border-zk-divider pb-3">
@@ -312,7 +351,11 @@ export function FinanceResearchBoard({
                 return (
                   <li key={item.id}>
                     <Link
-                      href={`/finance/${encodeURIComponent(item.symbol)}`}
+                      href={
+                        item.isDemo
+                          ? `/finance/${encodeURIComponent(item.symbol)}?demo=1`
+                          : `/finance/${encodeURIComponent(item.symbol)}`
+                      }
                       className="group -mx-2 flex flex-col justify-between gap-3 rounded-xl px-2 py-3.5 transition hover:bg-zk-tint/50 sm:flex-row sm:items-center"
                     >
                       <div className="flex min-w-0 items-start gap-3">
@@ -332,6 +375,11 @@ export function FinanceResearchBoard({
                             >
                               {badgeText}
                             </span>
+                            {item.isDemo ? (
+                              <span className="rounded-full border border-zk-accent/40 bg-zk-tint px-2 py-0.5 text-[11px] font-medium text-zk-accent">
+                                Demo
+                              </span>
+                            ) : null}
                             {item.isHeld ? (
                               <span className="rounded-full border border-zk-border bg-zk-chip px-2 py-0.5 text-[11px] text-zk-text2">
                                 Held
