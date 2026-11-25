@@ -10,8 +10,8 @@ import { OrgPageHeader, ReadOnlyNote } from "../org-ui";
 import { AgentActivationButton } from "@/app/(app)/settings/agents/agent-activation-button";
 import { AgentRowKey } from "@/app/(app)/settings/agents/agent-row-key";
 import { agentsLink, agentsMutedClass, agentsPrimaryBtn, agentsSecondaryBtn, agentsSurface } from "@/app/(app)/settings/agents/agents-ui";
-import { LocalTime } from "@/components/local-time";
-import { organisationPostingBlocks, type PostingBlockView } from "@/lib/agents/posting-block";
+import { organisationPostingBlocks } from "@/lib/agents/posting-block";
+import { BlockNote } from "@/app/(app)/settings/agents/posting-block-note";
 import { liftPostingBlockAction } from "@/app/actions/agent-posting-block";
 
 export const metadata: Metadata = { title: "Agents" };
@@ -209,15 +209,5 @@ export default async function OrgAgentsPage() {
         )}
       </section>
     </div>
-  );
-}
-
-/** Who blocked the agent, why, and until when (#agent-posting-block). */
-function BlockNote({ block }: { block: PostingBlockView }) {
-  return (
-    <p className="text-xs text-zk-bad-fg">
-      Blocked from posting by {block.blockedBy?.name ?? "a manager agent"},{" "}
-      {block.until ? <>until <LocalTime date={new Date(block.until)} absolute /></> : <>until an owner or admin lifts it</>}: {block.reason}
-    </p>
   );
 }

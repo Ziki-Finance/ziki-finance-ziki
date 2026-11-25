@@ -7,7 +7,7 @@ import { logger } from "@/lib/logger";
 
 /**
  * An organisation owner or admin lifts a manager agent's block on an agent (#agent-posting-block), from the
- * organisation's Agents page. The agent may post again straight away.
+ * organisation's Agents page or the agent's own page. The agent may post again straight away.
  */
 export async function liftPostingBlockAction(formData: FormData): Promise<void> {
   const user = await requireUser();
@@ -23,4 +23,5 @@ export async function liftPostingBlockAction(formData: FormData): Promise<void> 
     throw error;
   }
   revalidatePath("/[org]/[project]/org/agents", "page");
+  revalidatePath("/agent/[username]", "page");
 }
