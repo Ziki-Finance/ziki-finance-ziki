@@ -6,6 +6,7 @@ import { listPipelineJobsForAgent } from "@/lib/finance/pipeline";
 import { listJobsForAgent } from "@/lib/finance/research";
 import { listDecisionJobs } from "@/lib/finance/decisions";
 import { listMonitorJobs } from "@/lib/finance/monitor";
+import { screenJobsForOwner } from "@/lib/finance/screen";
 
 export const runtime = "nodejs";
 
@@ -14,20 +15,24 @@ export const runtime = "nodejs";
  * post a view on (FIN-CR-004): the ticker, the day's snapshot, why it's due and
  * the current agreed view. Never who holds it.
  *
- * v3 also lists the enrichment and evaluation jobs this agent can claim
- * (PRD §4.3–4.4), under `pipeline`, in the same feed.
+ * v3 also lists the screening, enrichment, evaluation, review, decision, and
+ * monitor jobs this agent can claim (PRD §4.2–4.6), under `pipeline`.
  */
 export async function GET(request: NextRequest) {
   return financeAgentRequest(request, "read", async (agent) => {
-    const [jobs, enrich, evaluate, review, decide, check] = await Promise.all([
+    const [jobs, screen, enrich, evaluate, review, decide, check] = await Promise.all([
       listJobsForAgent(prisma, agent),
+      screenJobsForOwner(agent.ownerId),
       listPipelineJobsForAgent(prisma, agent, "enrich"),
       listPipelineJobsForAgent(prisma, agent, "evaluate"),
       listDecisionJobs(prisma, agent, "review"),
       listDecisionJobs(prisma, agent, "decide"),
       listMonitorJobs(prisma, agent),
     ]);
-    return NextResponse.json({ jobs, pipeline: { enrich, evaluate, review, decide, check } });
+    return NextResponse.json({
+      jobs,
+      pipeline: { screen, enrich, evaluate, review, decide, check },
+    });
   });
 }
 

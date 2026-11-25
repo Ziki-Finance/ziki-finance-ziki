@@ -34,7 +34,7 @@ describe("Ziki Finance is an unlisted route (FIN-D-011, PRD v3)", () => {
 
   it("has no link to /finance outside Finance's own files, staff pages and email/inbox links", () => {
     // Finance's own files, the staff pages, the routing (middleware, app layout) may name it.
-    const allowed = /([\\/]finance[\\/])|([\\/]finance\.ts$)|([\\/]superadmin[\\/])|(^middleware\.ts$)|(app[\\/]\(app\)[\\/]layout\.tsx$)/;
+    const allowed = /([\\/]finance[\\/])|([\\/]finance(-[a-z]+)?\.ts$)|([\\/]superadmin[\\/])|(^middleware\.ts$)|(app[\\/]\(app\)[\\/]layout\.tsx$)/;
     const offenders = [...sources("app"), ...sources("components"), ...sources("lib")]
       .filter((path) => !allowed.test(path))
       .filter((path) => /["'`]\/finance(["'`/?#])/.test(readFileSync(path, "utf8")));

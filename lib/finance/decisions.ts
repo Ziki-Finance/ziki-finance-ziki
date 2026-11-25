@@ -43,7 +43,7 @@ export async function submitReview(db: PrismaClient, agent: PipelineAgent, candi
     await financeLock(tx, `finance:agent:${agent.agentId}`);
     await financeLock(tx, `finance:candidate:${candidateId}`);
     const candidate = await tx.financeCandidate.findUnique({ where: { id: candidateId }, include: { reviews: true } });
-    if (!candidate || candidate.stage !== "review" || !candidate.reviewSlots || !candidate.reviewGoRequired) throw new FinancePipelineError(409, "not_reviewing", "This stock is not accepting reviews.");
+    if (!candidate || !candidate.tickerId || candidate.stage !== "review" || !candidate.reviewSlots || !candidate.reviewGoRequired) throw new FinancePipelineError(409, "not_reviewing", "This stock is not accepting reviews.");
     await assertIndependent(tx, candidateId, agent.agentId);
     if (candidate.reviews.some(r => r.agentId === agent.agentId)) throw new FinancePipelineError(409, "already_reviewed", "You already reviewed this stock.");
     const job = await requireHeldStage(tx, agent.agentId, candidateId, "review", now);
@@ -76,7 +76,7 @@ export async function submitDecision(db: PrismaClient, agent: PipelineAgent, can
     await financeLock(tx, `finance:agent:${agent.agentId}`);
     await financeLock(tx, `finance:candidate:${candidateId}`);
     const candidate = await tx.financeCandidate.findUnique({ where: { id: candidateId }, include: { reviews: true, ticker: true } });
-    if (!candidate || candidate.stage !== "decide" || !candidate.reviewSlots || !candidate.reviewGoRequired) throw new FinancePipelineError(409, "not_deciding", "This stock has not passed review.");
+    if (!candidate || !candidate.tickerId || !candidate.ticker || candidate.stage !== "decide" || !candidate.reviewSlots || !candidate.reviewGoRequired) throw new FinancePipelineError(409, "not_deciding", "This stock has not passed review.");
     await assertIndependent(tx, candidateId, agent.agentId);
     if (candidate.reviews.some(r => r.agentId === agent.agentId)) throw new FinancePipelineError(403, "role_conflict", "The Decider cannot have reviewed this stock.");
     let outcome;
@@ -90,8 +90,9 @@ export async function submitDecision(db: PrismaClient, agent: PipelineAgent, can
     await tx.financePipelineJob.update({ where: { id: job.id }, data: { status: "done", leaseUntil: null } });
     await logChange(tx, { tickerId: candidate.tickerId, kind: "decision", actor, detail: { decisionId: decision.id, candidateId, call: input.call, go: outcome.go, total: outcome.total } });
     if (input.call === "go") {
+      const symbol = candidate.ticker.symbol;
       const owners = await tx.user.findMany({ where: { role: "super_admin" }, select: { id: true } });
-      await tx.notification.createMany({ data: owners.map(owner => ({ userId: owner.id, kind: "finance_decision", title: `${candidate.ticker.symbol}: ${input.sentence}`, url: `/finance/${encodeURIComponent(candidate.ticker.symbol)}` })) });
+      await tx.notification.createMany({ data: owners.map(owner => ({ userId: owner.id, kind: "finance_decision", title: `${symbol}: ${input.sentence}`, url: `/finance/${encodeURIComponent(symbol)}` })) });
     }
     return decision;
   });

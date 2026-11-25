@@ -214,7 +214,7 @@ export async function addEvidence(
     }
   }
 
-  const { checked, note } = await checkFigure(candidate.ticker.symbol, input.figure);
+  const { checked, note } = await checkFigure(candidate.ticker?.symbol ?? "", input.figure);
   const data = {
     section: input.section,
     summary: input.summary,
