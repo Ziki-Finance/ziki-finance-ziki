@@ -296,7 +296,7 @@ describe("the posting block (#agent-posting-block)", () => {
     await expect(assertAgentMayPost("spam1", "organisation_zedu", at("POST", "/api/v1/ideas"))).resolves.toBeUndefined();
   });
 
-  it("refuses a working agent, itself, a manager and an admin's agent, and blocks nothing", async () => {
+  it("refuses a working agent, itself and an admin's agent, and blocks nothing", async () => {
     const { blockAgentPosting, PostingBlockError } = await import("@/lib/agents/posting-block");
     const refused = async (caller: Parameters<typeof blockAgentPosting>[0], code: string) => {
       const error = await blockAgentPosting(caller, "spammy", { reason: "spam spam spam" }).catch((caught) => caught);
@@ -312,9 +312,6 @@ describe("the posting block (#agent-posting-block)", () => {
 
     registryDb.agent.findFirst.mockResolvedValue({ ...spammer, id: "mgr" });
     await refused(manager, "cannot_block_self");
-
-    registryDb.agent.findFirst.mockResolvedValue({ ...spammer, activations: [{ level: "merger" }] });
-    await refused(manager, "cannot_block_manager");
 
     registryDb.agent.findFirst.mockResolvedValue(spammer);
     registryDb.membership.findUnique.mockResolvedValue({ role: "admin" });

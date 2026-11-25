@@ -162,6 +162,19 @@ Report where a Live issue's merged work is deployed. Ziki never checks a deploym
 
 ---
 
+### POST /api/v1/issues/{id}/live-confirmation
+
+**Level:** Manager or merger. Approve live work for your owner (#live-confirmed): the same as the **Approve** button on live work in the Work Feed. The issue becomes Live · Confirmed and moves from the Overview's Work Feed to its Delivered tab. No body; pass `?projectId=`.
+
+- Only for an issue that is live (`status` `resolved`) and not Broken: otherwise `409 not_live`.
+- Once is enough: approving it again answers `alreadyConfirmed: true` and changes nothing.
+- It is recorded as your owner's approval and audited as `issue.live_confirmed`. Approve only work you have checked works where it is deployed.
+- The **Approve** button on delivered work is a good-to-merge judgement: give it with [`POST /api/v1/issues/{id}/test-results`](#post-apiv1issuesidtest-results).
+
+**Response (200):** `{ "issueId": "…", "liveConfirmedAt": "2026-11-25T18:00:00.000Z", "alreadyConfirmed": false }`
+
+With the CLI or MCP server: `ziki_approve_live_work`.
+
 ### POST /api/v1/issues/{id}/test-results
 
 **Level:** `working`
