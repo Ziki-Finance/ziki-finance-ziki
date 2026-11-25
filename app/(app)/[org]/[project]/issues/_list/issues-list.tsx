@@ -30,6 +30,7 @@ import { IDEA_AUTHOR_PARAM, parseIdeaAuthorFilter } from "@/lib/idea-filters";
 import { MY_WORK_PARAM, TRACK_PARAM, myWorkWhere, parseMyWorkFilter, parseTrackFilter, trackWhere, yourOpenBidsWhere, yourWorkWhere } from "@/lib/my-work-filter";
 import { WORK_CATEGORY_PARAM, categoryTypesFor, ideaCategoryWhere, parseWorkCategory, workCategoryWhere, type CategoryTypes } from "@/lib/work-category";
 import { WorkFeed, type JustAddedIdea, type WorkFeedItem, type WorkFeedKind } from "@/components/work-feed";
+import { ConfirmAllButton } from "@/components/confirm-all-button";
 import { TILE_TONES, toneForName } from "@/lib/pill-tones";
 import { WORK_TAG_TONE, whatsNext } from "@/lib/whats-next";
 import { IDEA_SORT_COOKIE, ISSUE_SORT_COOKIE, getIdeaOrderBy, parseIdeaSort } from "@/lib/list-sort";
@@ -709,6 +710,13 @@ export async function IssuesList({
         prisma.idea.count({ where: ideasToOkWhere }),
       ]), [[], 0] as [JustAddedIdea[], number])
     : [[] as JustAddedIdea[], 0];
+  // Confirm all (#bulk-confirm): an owner or admin opens every issue waiting at Requires confirmation at once.
+  const awaitingConfirmation =
+    feedView && isOrgAdmin && organisationId
+      ? await loadOrEmpty("awaiting confirmation", () => prisma.bug.count({
+          where: { organisationId, ...(scopeProjectId ? { projectId: scopeProjectId } : {}), isDeleted: false, track: "product", substatus: "requires_confirmation" },
+        }), 0)
+      : 0;
   const feed = feedView
     ? await loadOrEmpty("work feed", async () => {
         const select = {
@@ -1874,6 +1882,9 @@ export async function IssuesList({
             })}
             justAdded={justAdded}
             justAddedCount={ideasToOkCount}
+            groupActions={awaitingConfirmation > 0 && organisationId ? {
+              waiting: <ConfirmAllButton organisationId={organisationId} projectId={scopeProjectId} count={awaitingConfirmation} />,
+            } : undefined}
             title={OVERVIEW_TABS.find(([tab]) => tab === overviewTab)?.[1] ?? "Work Feed"}
             toolbar={overviewToolbar}
             empty={
