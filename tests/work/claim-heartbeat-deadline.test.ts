@@ -3,6 +3,8 @@ import { NextRequest } from "next/server";
 
 /** Active work (#556, #593): the holder heartbeats its claim, a silent or overdue claim is released and its issue reopened for bids, and delivered work is never taken back. */
 const db = vi.hoisted(() => ({
+  // #agent-posting-block: requireAgent asks on every write; no agent here is blocked.
+  agentPostingBlock: { findFirst: vi.fn(async () => null) },
   agentApiKey: { findUnique: vi.fn() }, agentActivation: { findUnique: vi.fn() }, agentAuditEvent: { create: vi.fn() },
   agentEvent: { create: vi.fn(), groupBy: vi.fn() }, webhookSubscription: { findMany: vi.fn() },
   webhookDelivery: { createMany: vi.fn() },

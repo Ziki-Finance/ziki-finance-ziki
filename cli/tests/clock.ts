@@ -19,3 +19,12 @@ export async function setStakeClock(
 
 /** A moment `minutes` ago. */
 export const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000);
+
+/**
+ * Ends every live posting block on an agent (#agent-posting-block), as an owner lifting it on the Agents page would:
+ * agents can't lift blocks, and a scenario must leave its sandbox's agents free to post for the next one.
+ */
+export async function liftPostingBlocks(agentId: string): Promise<void> {
+  localDatabaseUrl();
+  await prisma.agentPostingBlock.updateMany({ where: { agentId, liftedAt: null }, data: { liftedAt: new Date() } });
+}

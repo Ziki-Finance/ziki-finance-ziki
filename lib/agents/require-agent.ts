@@ -9,6 +9,7 @@ import { isAgentPlatformEnabled } from "@/lib/feature-flags";
 import { logger } from "@/lib/logger";
 import type { AppRole } from "@/lib/roles";
 import { AgentWorkBlockedError, assertAgentMayWork } from "@/lib/agents/work-gate";
+import { AgentPostingBlockedError, assertAgentMayPost } from "@/lib/agents/posting-block";
 
 export { AgentPlatformDisabledError, agentPlatformDisabledResponse };
 
@@ -151,6 +152,8 @@ export async function requireAgent(request: HeaderSource): Promise<AgentContext>
   }
 
   assertAgentMayWork(gateAgent, request);
+  // #agent-posting-block: a manager agent may have stopped this agent from writing in the organisation it calls.
+  await assertAgentMayPost(agent.id, guestStay ? guestStay.organisationId : key.organisationId, request);
 
   return {
     agentId: agent.id,
@@ -179,6 +182,10 @@ export function agentErrorResponse(error: unknown): NextResponse {
       { error: error.code, message: error.message },
       { status: 401, headers: { "WWW-Authenticate": 'Bearer realm="ziki"' } },
     );
+  }
+  if (error instanceof AgentPostingBlockedError) {
+    // #agent-posting-block: it may read, not write, until the block ends or a person lifts it.
+    return NextResponse.json(error.toBody(), { status: 403 });
   }
   if (error instanceof AgentWorkBlockedError) {
     // #agent-work-gate: the agent may not work until its profile is set up.

@@ -4,10 +4,16 @@ const findUnique = vi.hoisted(() => vi.fn());
 const update = vi.hoisted(() => vi.fn());
 const findActivation = vi.hoisted(() => vi.fn());
 const registryDb = vi.hoisted(() => ({
-  agent: { findUnique: vi.fn() },
-  membership: { findUnique: vi.fn() },
+  agent: { findUnique: vi.fn(), findFirst: vi.fn() },
+  membership: { findUnique: vi.fn(), findMany: vi.fn() },
+  organisation: { findUnique: vi.fn() },
+  notification: { createMany: vi.fn() },
+  // #agent-posting-block
+  agentPostingBlock: { findFirst: vi.fn(), findUnique: vi.fn(), updateMany: vi.fn(), create: vi.fn(), update: vi.fn() },
+  agentAuditEvent: { create: vi.fn() },
   $transaction: vi.fn(),
 }));
+vi.mock("@/lib/cache-tags", () => ({ expireUnreadCounts: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({
   prisma: { agentApiKey: { findUnique, update }, agentActivation: { findUnique: findActivation }, ...registryDb },
 }));
@@ -249,5 +255,106 @@ describe("agentCapSummary", () => {
     const over = agentCapSummary(Array.from({ length: 10 }, (_, i) => agent(i >= 6)), 5);
     expect(over).toMatchObject({ live: 10, paused: 4, running: 6, over: 5 });
     expect(over.note).toContain("5 over the limit");
+  });
+});
+
+/**
+ * #agent-posting-block: a manager agent stops a spamming agent from writing in its organisation, for a while or until
+ * a person lifts it. The blocked agent still reads; only an owner or admin of the organisation lifts a block early.
+ */
+describe("the posting block (#agent-posting-block)", () => {
+  const at = (method: string, path: string) => ({ method, url: `http://localhost${path}` });
+  const manager = { agentId: "mgr", organisationId: "organisation_zedu", level: "manager" as const };
+  const spammer = { id: "spam1", name: "Spammy", username: "spammy", ownerUserId: "bob", activations: [{ level: "working" }] };
+
+  beforeEach(() => {
+    registryDb.agentPostingBlock.findFirst.mockResolvedValue(null);
+    registryDb.$transaction.mockImplementation(async (run: (tx: typeof registryDb) => unknown) => run(registryDb));
+    registryDb.membership.findMany.mockResolvedValue([{ userId: "owner1" }]);
+    registryDb.organisation.findUnique.mockResolvedValue({ slug: "zedu", projects: [{ slug: "web" }] });
+  });
+
+  it("lets a blocked agent read and rotate its key, and refuses every write with the reason and end", async () => {
+    const { assertAgentMayPost, AgentPostingBlockedError } = await import("@/lib/agents/posting-block");
+    const until = new Date("2026-11-25T18:00:00Z");
+    registryDb.agentPostingBlock.findFirst.mockResolvedValue({ id: "b1", reason: "40 duplicate ideas", until, createdAt: new Date() });
+
+    for (const [method, path] of [["GET", "/api/v1/ideas"], ["HEAD", "/api/v1/agents/me"], ["POST", "/api/v1/agents/me/key"]]) {
+      await expect(assertAgentMayPost("spam1", "organisation_zedu", at(method, path)), `${method} ${path}`).resolves.toBeUndefined();
+    }
+    for (const [method, path] of [["POST", "/api/v1/ideas"], ["POST", "/api/v1/issues/abc/comments"], ["PATCH", "/api/v1/agents/me"], ["DELETE", "/api/v1/agents/me/skills/x"]]) {
+      await expect(assertAgentMayPost("spam1", "organisation_zedu", at(method, path)), `${method} ${path}`).rejects.toBeInstanceOf(AgentPostingBlockedError);
+    }
+
+    const response = agentErrorResponse(new AgentPostingBlockedError("40 duplicate ideas", until));
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ error: "posting_blocked", reason: "40 duplicate ideas", until: until.toISOString() });
+  });
+
+  it("lets an agent with no live block write", async () => {
+    const { assertAgentMayPost } = await import("@/lib/agents/posting-block");
+    await expect(assertAgentMayPost("spam1", "organisation_zedu", at("POST", "/api/v1/ideas"))).resolves.toBeUndefined();
+  });
+
+  it("refuses a working agent, itself, a manager and an admin's agent, and blocks nothing", async () => {
+    const { blockAgentPosting, PostingBlockError } = await import("@/lib/agents/posting-block");
+    const refused = async (caller: Parameters<typeof blockAgentPosting>[0], code: string) => {
+      const error = await blockAgentPosting(caller, "spammy", { reason: "spam spam spam" }).catch((caught) => caught);
+      expect(error, code).toBeInstanceOf(PostingBlockError);
+      expect(error.code).toBe(code);
+    };
+
+    await refused({ ...manager, level: "working" }, "insufficient_level");
+    await refused({ ...manager, guest: true }, "insufficient_level");
+
+    registryDb.agent.findFirst.mockResolvedValue(null);
+    await refused(manager, "not_found");
+
+    registryDb.agent.findFirst.mockResolvedValue({ ...spammer, id: "mgr" });
+    await refused(manager, "cannot_block_self");
+
+    registryDb.agent.findFirst.mockResolvedValue({ ...spammer, activations: [{ level: "merger" }] });
+    await refused(manager, "cannot_block_manager");
+
+    registryDb.agent.findFirst.mockResolvedValue(spammer);
+    registryDb.membership.findUnique.mockResolvedValue({ role: "admin" });
+    await refused(manager, "cannot_block_admin_agent");
+
+    expect(registryDb.agentPostingBlock.create).not.toHaveBeenCalled();
+  });
+
+  it("blocks a member's agent for the minutes given, or until a person lifts it, replacing the live block", async () => {
+    const { blockAgentPosting } = await import("@/lib/agents/posting-block");
+    const now = new Date("2026-11-25T12:00:00Z");
+    registryDb.agent.findFirst.mockResolvedValue(spammer);
+    registryDb.membership.findUnique.mockResolvedValue({ role: "member" });
+    registryDb.agentPostingBlock.create.mockImplementation(async ({ data }: { data: { reason: string; until: Date | null } }) => ({
+      id: "b2", reason: data.reason, until: data.until, createdAt: now, blockedByAgent: { id: "mgr", name: "Manager", username: "manager" },
+    }));
+
+    const timed = await blockAgentPosting(manager, "spammy", { reason: "40 duplicate ideas", minutes: 120 }, now);
+    expect(timed.until).toBe("2026-11-25T14:00:00.000Z");
+    expect(timed.agent.username).toBe("spammy");
+    // The live block it replaces is lifted first, in the same transaction.
+    expect(registryDb.agentPostingBlock.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { liftedAt: now } }));
+    // Its owner and the organisation's admins hear about it.
+    const told = registryDb.notification.createMany.mock.calls.at(-1)![0].data.map((row: { userId: string }) => row.userId);
+    expect(told.sort()).toEqual(["bob", "owner1"]);
+
+    const forever = await blockAgentPosting(manager, "spammy", { reason: "Still spamming" }, now);
+    expect(forever.until).toBeNull();
+  });
+
+  it("is lifted early only by an owner or admin of the organisation", async () => {
+    const { liftPostingBlock, PostingBlockError } = await import("@/lib/agents/posting-block");
+    registryDb.agentPostingBlock.findUnique.mockResolvedValue({ id: "b1", organisationId: "organisation_zedu", agentId: "spam1", liftedAt: null, until: null });
+
+    registryDb.membership.findUnique.mockResolvedValue({ role: "member" });
+    await expect(liftPostingBlock({ id: "member1", role: "user" }, "b1")).rejects.toBeInstanceOf(PostingBlockError);
+    expect(registryDb.agentPostingBlock.update).not.toHaveBeenCalled();
+
+    registryDb.membership.findUnique.mockResolvedValue({ role: "owner" });
+    await liftPostingBlock({ id: "owner1", role: "user" }, "b1");
+    expect(registryDb.agentPostingBlock.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ liftedByUserId: "owner1" }) }));
   });
 });
