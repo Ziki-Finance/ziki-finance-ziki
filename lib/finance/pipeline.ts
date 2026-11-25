@@ -26,7 +26,7 @@ export class FinancePipelineError extends Error {
   }
 }
 
-export type PipelineAgent = { agentId: string; ownerId: string };
+export type PipelineAgent = { agentId: string; ownerId: string; level?: "working" | "manager" | "merger" };
 
 export const SOURCE_TIER_LABEL: Record<number, string> = {
   1: "Filings & official",
@@ -197,9 +197,10 @@ export async function addEvidence(
 ): Promise<{ id: string; merged: boolean; codeChecked: boolean; codeCheckNote: string | null }> {
   const candidate = await db.financeCandidate.findUnique({
     where: { id: candidateId },
-    select: { id: true, ticker: { select: { symbol: true } } },
+    select: { id: true, stage: true, ticker: { select: { symbol: true } } },
   });
   if (!candidate) throw new FinancePipelineError(404, "not_found", "No such candidate.");
+  if (candidate.stage !== "enrich") throw new FinancePipelineError(409, "stage_changed", "This stock is not accepting enrichment.");
 
   const existing = await db.financeEvidence.findUnique({
     where: { candidateId_url: { candidateId, url: input.url } },
@@ -252,8 +253,9 @@ export async function submitEvaluation(
   input: EvaluationInput,
   now = new Date(),
 ) {
-  const candidate = await db.financeCandidate.findUnique({ where: { id: candidateId }, select: { id: true } });
+  const candidate = await db.financeCandidate.findUnique({ where: { id: candidateId }, select: { id: true, stage: true } });
   if (!candidate) throw new FinancePipelineError(404, "not_found", "No such candidate.");
+  if (candidate.stage !== "evaluate") throw new FinancePipelineError(409, "stage_changed", "This stock is not accepting evaluations.");
 
   const enriched = await db.financeEvidence.count({ where: { candidateId, agentId: agent.agentId } });
   if (enriched > 0) {
@@ -381,7 +383,28 @@ export async function listPipelineJobsForAgent(
 
 /** Atomically claim a job for this agent. A lapsed lease lets another agent retry. */
 export async function claimPipelineJob(db: Db, agent: PipelineAgent, jobId: string, leaseMinutes: number, now = new Date()) {
-  const claimed = await db.financePipelineJob.updateMany({
+  const result = await db.$transaction(async (tx) => {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`finance:agent:${agent.agentId}`}, 0))`;
+  const target = await tx.financePipelineJob.findUnique({ where: { id: jobId } });
+  if (!target) throw new FinancePipelineError(404, "not_found", "No such job.");
+  if (target.kind === "review" && agent.level !== "manager" && agent.level !== "merger") throw new FinancePipelineError(403, "manager_required", "Review needs a manager-class agent.");
+  if (target.kind === "decide" && agent.level !== "merger") throw new FinancePipelineError(403, "merger_required", "Deciding needs a merger-class agent.");
+  const [busy, monitorBusy] = await Promise.all([
+    tx.financePipelineJob.count({ where: { status: "running", claimedByAgentId: agent.agentId, leaseUntil: { gt: now } } }),
+    tx.financeCheck.count({ where: { claimedByAgentId: agent.agentId, leaseUntil: { gt: now } } }),
+  ]);
+  if (busy || monitorBusy) throw new FinancePipelineError(409, "agent_busy", "Finish your current Finance task first.");
+  const [enriched, evaluated, reviewed] = await Promise.all([
+    tx.financeEvidence.count({ where: { candidateId: target.candidateId, agentId: agent.agentId } }),
+    tx.financeEvaluation.count({ where: { candidateId: target.candidateId, agentId: agent.agentId } }),
+    tx.financeReview.count({ where: { candidateId: target.candidateId, agentId: agent.agentId } }),
+  ]);
+  if ((target.kind === "evaluate" && (enriched || evaluated)) || (["review", "decide"].includes(target.kind) && (enriched || evaluated || reviewed))) {
+    throw new FinancePipelineError(403, "role_conflict", "An agent cannot do two roles on the same stock and run.");
+  }
+  const candidate = await tx.financeCandidate.findUniqueOrThrow({ where: { id: target.candidateId }, select: { stage: true } });
+  if (candidate.stage !== target.kind) throw new FinancePipelineError(409, "stage_changed", "This stock has moved to another stage.");
+  const claimed = await tx.financePipelineJob.updateMany({
     where: {
       id: jobId,
       OR: [
@@ -397,22 +420,25 @@ export async function claimPipelineJob(db: Db, agent: PipelineAgent, jobId: stri
     },
   });
   if (claimed.count === 0) throw new FinancePipelineError(409, "not_available", "This job is held by another agent or not due yet.");
-  const job = await db.financePipelineJob.findUniqueOrThrow({ where: { id: jobId } });
+  const job = await tx.financePipelineJob.findUniqueOrThrow({ where: { id: jobId } });
   if (job.attempts > job.maxAttempts) {
     // The lease kept lapsing, so the job never reported a failure. Give up now.
-    await db.financePipelineJob.update({
+    await tx.financePipelineJob.update({
       where: { id: job.id },
       data: { status: "failed", lastError: job.lastError ?? "Gave up after the attempt limit.", leaseUntil: null },
     });
-    throw new FinancePipelineError(409, "attempts_exhausted", "This job has reached its attempt limit.");
+    return { exhausted: true as const };
   }
   return job;
+  });
+  if ("exhausted" in result) throw new FinancePipelineError(409, "attempts_exhausted", "This job has reached its attempt limit.");
+  return result;
 }
 
 /** Mark a claimed job done. Only the agent holding it may. */
 export async function completePipelineJob(db: Db, agent: PipelineAgent, jobId: string): Promise<void> {
   const done = await db.financePipelineJob.updateMany({
-    where: { id: jobId, claimedByAgentId: agent.agentId, status: "running" },
+    where: { id: jobId, kind: { in: ["enrich", "evaluate"] }, claimedByAgentId: agent.agentId, status: "running", leaseUntil: { gt: new Date() } },
     data: { status: "done", leaseUntil: null },
   });
   if (done.count === 0) throw new FinancePipelineError(409, "not_holder", "You don't hold this job.");
@@ -450,11 +476,11 @@ export async function failPipelineJob(
 // ---------------------------------------------------------------------------
 
 /** The latest candidate for a ticker, with its dossier and evaluations. */
-export async function candidateForTicker(db: Db, symbol: string) {
+export async function candidateForTicker(db: Db, symbol: string, candidateId?: string) {
   const ticker = await db.financeTicker.findUnique({ where: { symbol }, select: { id: true, symbol: true, name: true, exchange: true, type: true } });
   if (!ticker) return null;
   const candidate = await db.financeCandidate.findFirst({
-    where: { tickerId: ticker.id },
+    where: { tickerId: ticker.id, ...(candidateId ? { id: candidateId } : {}) },
     orderBy: { createdAt: "desc" },
     select: {
       id: true,

@@ -21,6 +21,7 @@ import { sweepFallback } from "@/lib/security-checks/fallback";
 import { sweepTesting } from "@/lib/agent-api/testing-sweep";
 import { sweepProactiveOffers } from "@/lib/agents/proactive-offers";
 import { sweepWorkAlerts, type WorkAlertSweepResult } from "@/lib/agents/work-alerts-sweep";
+import { sweepFinance } from "@/lib/finance/sweep";
 
 export const FAILURE_ALERT_THRESHOLD = 3;
 const consecutiveFailures = new Map<string, number>();
@@ -56,6 +57,7 @@ export type PlatformSweepsResult = {
   timestamp: string;
   sweeps: {
     offers: { status: "ok" | "error"; expired?: number; error?: string };
+    finance: { status: "ok" | "error"; advanced?: number; queued?: number; error?: string };
     proactiveOffers: { status: "ok" | "error"; offered?: number; error?: string };
     workAlerts: { status: "ok" | "error"; error?: string } & Partial<WorkAlertSweepResult>;
     plans: { status: "ok" | "error"; expired?: number; error?: string };
@@ -125,6 +127,7 @@ export async function runPlatformSweeps(): Promise<PlatformSweepsResult | { skip
       timestamp,
       sweeps: {
         offers: { status: "ok" },
+        finance: { status: "ok" },
         proactiveOffers: { status: "ok" },
         workAlerts: { status: "ok" },
         plans: { status: "ok" },
@@ -364,6 +367,14 @@ export async function runPlatformSweeps(): Promise<PlatformSweepsResult | { skip
     } catch (err) {
       recordSweepFailure("searchIndex", err);
       result.sweeps.searchIndex = { status: "error", error: err instanceof Error ? err.message : String(err) };
+    }
+
+    try {
+      result.sweeps.finance = { status: "ok", ...await sweepFinance(prisma) };
+      recordSweepSuccess("finance");
+    } catch (err) {
+      recordSweepFailure("finance", err);
+      result.sweeps.finance = { status: "error", error: err instanceof Error ? err.message : String(err) };
     }
 
     logger.info("[cron] Platform sweeps finished", {

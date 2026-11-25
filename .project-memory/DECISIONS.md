@@ -31,3 +31,6 @@
 - **Status:** confirmed (user: "No, code only for now").
 - **Consequence:** the first real verification is `pnpm verify:ready` in CI or on
   a machine with `node_modules`. See FIN-I-001.
+
+## FNC-D-001 — Stream B is the foundation
+Date: 2026-11-23. CONFIRMED. User: 'Use PR #1 (Stream B) as the foundation'. Build on d63bbaa, reuse FinanceCandidate, FinanceEvaluation, FinanceTicker, FinanceHolding and FinanceSettings. PR #2 has incompatible overlapping models and is not merged here. Target repository is Ziki-Finance/ziki-finance-ziki, never a new fork. Final main-target review must identify the dependency.

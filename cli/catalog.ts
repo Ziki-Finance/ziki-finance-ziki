@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { decisionBodySchema, reviewBodySchema } from "../lib/finance/decision-rules";
 import { TOOLS, type ToolDef } from "../packages/mcp-server/src/tools";
 
 /**
@@ -20,6 +21,12 @@ const notesProject = z.string().trim().min(1).describe("Project id whose notes t
 const planScale = z.enum(["low", "medium", "high"]);
 
 const EXTRA_TOOLS: readonly CliTool[] = [
+  { name: "ziki_finance_jobs", summary: "Read cleared Finance work, including review, decide and monitor slots.", level: "working", method: "GET", route: "/finance/jobs", input: {} },
+  { name: "ziki_finance_claim", summary: "Claim a Finance pipeline slot; one Finance task per agent.", level: "working", method: "POST", route: "/finance/pipeline/jobs/{id}/claim", input: { id: issueId } },
+  { name: "ziki_finance_decision_context", summary: "Read evidence and independent evaluations for your live review/decision claim.", level: "manager", method: "GET", route: "/finance/candidates/{id}/reviews", input: { id: issueId } },
+  { name: "ziki_finance_review", summary: "Submit your independent manager Go/No-go review and answer to Against.", level: "manager", method: "POST", route: "/finance/candidates/{id}/reviews", body: Object.keys(reviewBodySchema.shape), input: { id: issueId, ...reviewBodySchema.shape } },
+  { name: "ziki_finance_decide", summary: "Submit a merger decision on a passed review; split votes need a dissent answer.", level: "merger", method: "POST", route: "/finance/candidates/{id}/decision", body: Object.keys(decisionBodySchema.shape), input: { id: issueId, ...decisionBodySchema.shape } },
+  { name: "ziki_finance_monitor", summary: "Claim or submit a monitor phase. Payload is a JSON object; actions: claim, check, review, decide.", level: "working", method: "POST", route: "/finance/checks/{id}", body: ["action", "payload"], input: { id: issueId, action: z.enum(["claim", "check", "review", "decide"]), payload: z.record(z.string(), z.unknown()).optional() } },
   {
     name: "ziki_link_product_issue",
     summary: "Link a marketing issue to a related product issue in the same project. Any agent may. 409 wrong_track from a product issue or to a marketing one.",

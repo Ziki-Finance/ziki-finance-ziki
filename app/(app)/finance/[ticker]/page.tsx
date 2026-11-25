@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { optionalUser } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 import { FINANCE_PATH, normalizeSymbol } from "@/lib/finance";
+import { requireFinanceOwner } from "@/lib/finance/owner";
+import { DecisionCard } from "@/components/finance/decision-card";
 import {
   EVAL_CALL_LABEL,
   SOURCE_TIER_LABEL,
@@ -63,14 +65,18 @@ export default async function FinanceTickerPage({ params }: { params: Promise<{ 
   }
 
   const { ticker: rawTicker } = await params;
+  const owner = await requireFinanceOwner();
   const symbol = normalizeSymbol(decodeURIComponent(rawTicker));
   if (!symbol) notFound();
 
-  const found = await candidateForTicker(prisma, symbol);
+  const decision = await prisma.financeDecision.findFirst({ where: { ticker: { symbol }, OR: [{ candidateId: { not: null } }, { check: { holding: { userId: owner.id } } }] },
+    orderBy: { createdAt: "desc" }, include: { candidate: { include: { run: true, reviews: { orderBy: { createdAt: "asc" } } } } } });
+  const found = await candidateForTicker(prisma, symbol, decision?.candidateId ?? undefined);
   if (!found) notFound();
   const { ticker, candidate } = found;
 
   if (!candidate) {
+    if (decision) return <div className="mx-auto max-w-4xl"><DecisionCard decision={decision} symbol={symbol} reviews={decision.candidate?.reviews ?? []} run={decision.candidate?.run} /></div>;
     return (
       <div className="mx-auto max-w-3xl space-y-2 py-10">
         <Link href={FINANCE_PATH} className="text-sm text-zk-accent">
@@ -91,9 +97,9 @@ export default async function FinanceTickerPage({ params }: { params: Promise<{ 
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <div className="space-y-1">
+      {decision ? <DecisionCard decision={decision} symbol={symbol} reviews={decision.candidate?.reviews ?? []} run={decision.candidate?.run} /> : <div className={`${card} space-y-2`}>
         <Link href={FINANCE_PATH} className="text-sm text-zk-accent">
-          ← Finance
+          ←
         </Link>
         <h1 className="text-2xl font-extrabold tracking-tight text-zk-text">
           {ticker.symbol} · {ticker.name}
@@ -102,11 +108,11 @@ export default async function FinanceTickerPage({ params }: { params: Promise<{ 
           {candidate.run.criteriaLabel} · criteria v{candidate.run.criteriaVersion} · {STAGE_LABEL[candidate.stage] ?? candidate.stage} ·
           proposed by {candidate.proposedCount}
         </p>
-      </div>
+      </div>}
 
       <section className={card} aria-labelledby="verdict-heading">
         <h2 id="verdict-heading" className={heading}>
-          Verdict
+          Evaluations
         </h2>
         <p className="mt-2 text-xl font-bold text-zk-text">
           <span className={`${chip} ${VERDICT_STYLE[verdict]}`}>{breakdown.total === 0 ? "Pending" : EVAL_CALL_LABEL[verdict]}</span>

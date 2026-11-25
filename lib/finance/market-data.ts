@@ -12,7 +12,7 @@ import { finnhubApiKey, finnhubMarketData } from "./finnhub";
  * `MarketData` for it and returning it from `marketData()`.
  */
 
-export type TickerMatch = { symbol: string; name: string; exchange: string | null; type: FinanceTickerType };
+export type TickerMatch = { symbol: string; name: string; exchange: string | null; type: FinanceTickerType; industry?: string | null };
 
 export type DailyBar = {
   /** The trading day, "YYYY-MM-DD" (US Eastern). */
