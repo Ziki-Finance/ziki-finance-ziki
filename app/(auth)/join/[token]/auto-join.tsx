@@ -1,5 +1,7 @@
 "use client";
 
+import { PRIMARY_ACTION } from "@/lib/ui-style";
+
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { acceptShareLinkAction } from "@/app/(app)/organisations/actions";
@@ -36,7 +38,7 @@ export function AutoJoin({
       </p>
       <Button
         type="submit"
-        className="h-12 w-full bg-electric-blue-strong text-base font-bold text-white hover:bg-electric-blue focus-visible:ring-electric-blue"
+        className={`${PRIMARY_ACTION} w-full`}
       >
         Join {organisationName}
       </Button>

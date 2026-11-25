@@ -1,5 +1,7 @@
 "use client";
 
+import { PRIMARY_ACTION } from "@/lib/ui-style";
+
 import { useId, useState, useTransition } from "react";
 import { addCommentAction } from "@/app/actions/issues";
 import { COMMENT_MAX_CHARS } from "@/lib/validations/issue";
@@ -127,7 +129,7 @@ export function EntryReplyForm({ bugId, target, label, icon = false, variant = "
         <button
           type="submit"
           disabled={pending}
-          className="inline-flex h-8 items-center rounded-full bg-electric-blue-strong px-3.5 text-[13px] font-bold text-white transition hover:opacity-90 disabled:opacity-50"
+          className={PRIMARY_ACTION}
         >
           {pending ? "Sending…" : "Reply"}
         </button>

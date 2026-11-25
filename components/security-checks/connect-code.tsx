@@ -105,7 +105,7 @@ export function ConnectCodeForm({ checkId, projects }: { checkId: string; projec
         <button
           type="submit"
           disabled={!ready || connecting}
-          className={`inline-flex h-9 items-center rounded-xl bg-electric-blue-strong px-4 text-sm font-semibold text-white hover:brightness-105 disabled:opacity-60 ${FOCUS}`}
+          className={`inline-flex h-9 items-center rounded-xl bg-electric-blue-strong px-4 text-sm font-semibold text-white hover:bg-zk-ink disabled:opacity-60 ${FOCUS}`}
         >
           {connecting ? "Reading your code…" : "Connect and check for free"}
         </button>

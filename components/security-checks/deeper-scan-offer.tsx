@@ -97,7 +97,7 @@ function DeeperScanCheckout({ checkId, site, name, price, covers, deeper }: { ch
       onClick={(event) => {
         if (event.target === event.currentTarget) close();
       }}
-      className="m-auto max-h-[calc(100dvh-32px)] w-[calc(100%-32px)] max-w-[600px] overflow-y-auto rounded-2xl border border-zk-border bg-zk-surface p-0 text-zk-text shadow-2xl backdrop:bg-slate-900/40 backdrop:backdrop-blur-sm"
+      className="m-auto max-h-[calc(100dvh-32px)] w-[calc(100%-32px)] max-w-[600px] overflow-y-auto rounded-2xl border border-zk-border bg-zk-surface p-0 text-zk-text shadow-none backdrop:bg-slate-900/40 backdrop:backdrop-blur-sm"
     >
       {open ? (
         <div className="flex flex-col gap-5 p-5 sm:p-6">
@@ -149,7 +149,7 @@ function DeeperScanCheckout({ checkId, site, name, price, covers, deeper }: { ch
                 type="button"
                 onClick={close}
                 disabled={paying}
-                className="inline-flex min-h-11 items-center justify-center rounded-full border border-zk-border bg-zk-surface px-5 text-sm font-semibold text-zk-text hover:bg-zk-chip disabled:opacity-40"
+                className="inline-flex h-9 items-center justify-center rounded-control border border-zk-border bg-zk-surface px-5 text-sm font-semibold text-zk-text hover:bg-zk-chip disabled:opacity-40"
               >
                 Cancel
               </button>
@@ -162,7 +162,7 @@ function DeeperScanCheckout({ checkId, site, name, price, covers, deeper }: { ch
   );
 }
 
-const PRIMARY = "inline-flex min-h-11 items-center justify-center gap-1 whitespace-nowrap rounded-full bg-electric-blue-strong px-5 text-sm font-bold text-white hover:brightness-105 disabled:opacity-60";
+const PRIMARY = "inline-flex h-9 items-center justify-center gap-1 whitespace-nowrap rounded-control bg-electric-blue-strong px-4 text-sm font-semibold text-white hover:bg-zk-ink disabled:opacity-60";
 
 /** Picked the deeper scan: the price and the wallet, and the one-time loan when the wallet is short. */
 function Wallet({ checkout, loading, name, price }: { checkout: Checkout | null; loading: boolean; name: string; price: number }) {

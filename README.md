@@ -143,6 +143,8 @@ Google redirect URI: `{AUTH_URL}/api/auth/callback/google`
 
 ## Contributing
 
+For UI work, follow the [style guide](docs/style-guide.md) and reuse `components/ui/` and `lib/ui-style.ts`. The [brand guide](docs/brand-guide.md) covers identity and product language.
+
 See [`CONTRIBUTING.md`](./CONTRIBUTING.md) and [`AGENTS.md`](./AGENTS.md).
 
 PRs for the Ziki codebase target **`main`** on `emerjent/ziki`.

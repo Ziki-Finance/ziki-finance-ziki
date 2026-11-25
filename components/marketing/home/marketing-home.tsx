@@ -59,7 +59,7 @@ function newLabel(name: string): string {
 function TypePills({ slug, data }: { slug: ProjectRef; data: MarketingHomeData }) {
   const total = data.types.reduce((sum, type) => sum + type.count, 0);
   const pill = (selected: boolean) =>
-    `${chip} ${selected ? "bg-zk-surface text-zk-text shadow-[0_1px_3px_rgba(16,24,40,0.12)] ring-1 ring-black/[0.04]" : "bg-zk-bg text-zk-text2 hover:bg-zk-chip"}`;
+    `${chip} ${selected ? "bg-zk-surface text-zk-text shadow-none ring-1 ring-black/[0.04]" : "bg-zk-bg text-zk-text2 hover:bg-zk-chip"}`;
   return (
     <nav aria-label="Task types" className="flex flex-wrap items-center gap-1.5">
       {/* First, and where Marketing opens: the Feed, what needs you across every type. */}
@@ -114,7 +114,7 @@ function StatusFilter({ scope, groups, picked }: { scope: Scope; groups: HomeTas
         <svg {...smallIcon}><path d="M3 5h18l-7 8v6l-4 2v-8L3 5z" /></svg>
         {picked ? picked.heading : null}
       </summary>
-      <div role="menu" aria-label="Filter by status" className="absolute right-0 z-20 mt-1.5 w-56 rounded-xl border border-zk-border bg-zk-surface p-1.5 shadow-[0_4px_16px_-4px_rgba(16,24,40,0.12)]">
+      <div role="menu" aria-label="Filter by status" className="absolute right-0 z-20 mt-1.5 w-56 rounded-xl border border-zk-border bg-zk-surface p-1.5 shadow-none">
         <p className="m-0 px-2.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-zk-muted">Status</p>
         {options.map((option) => {
           const current = (picked?.key ?? null) === option.key;
@@ -214,7 +214,7 @@ function WorkFeed({ slug, scope, groups, assets, status }: { slug: ProjectRef; s
               <col className="w-[96px]" />
               <col className="w-[128px]" />
             </colgroup>
-            <thead className="bg-[#f7f8fa]">
+            <thead className="bg-zk-chip">
               <tr>
                 <th scope="col" className={HEAD}>Name</th>
                 {scope.type ? null : <th scope="col" className={HEAD}>Category</th>}
@@ -254,7 +254,7 @@ function WorkFeed({ slug, scope, groups, assets, status }: { slug: ProjectRef; s
                     {/* How good it is now (#asset-score). */}
                     <td className={CELL}><ScoreBar score={row.asset.score} note={row.asset.scoreNote} /></td>
                     <td className={`${CELL} text-[12.5px] text-zk-text2`}><RowAge date={row.updatedAt} sort="updated" /></td>
-                    <td className={`${CELL} bg-[#fafafb]`}>
+                    <td className={`${CELL} bg-zk-surface`}>
                       {current ? (
                         <span className={PILL} style={{ backgroundColor: PILL_TONES[GROUP_TONE[current.group.key] ?? "grey"].color }}>{current.group.heading}</span>
                       ) : <span className="text-[12.5px] text-zk-muted">—</span>}
@@ -297,7 +297,7 @@ function AttentionFeed({ slug, groups, assets }: { slug: ProjectRef; groups: Hom
             return (
               <li key={item.id}>
                 <Link href={asset ? marketingPath(slug, `assets/${encodeURIComponent(asset.id)}`) : item.href} className={`flex items-center gap-4 rounded-2xl border border-zk-border bg-zk-surface px-5 py-4 transition hover:bg-zk-chip ${focus}`}>
-                  <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] text-[15px] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.25)]" style={TILE_TONES[toneForName(name)]}>
+                  <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-control text-[15px] font-semibold shadow-none" style={TILE_TONES[toneForName(name)]}>
                     {name.charAt(0).toUpperCase()}
                   </span>
                   <span className="min-w-0 flex-1">

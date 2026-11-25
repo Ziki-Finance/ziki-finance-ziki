@@ -138,7 +138,7 @@ export function KeyboardShortcuts({ enabled }: { enabled: boolean }) {
       onClick={(event) => {
         if (event.target === event.currentTarget) setHelpOpen(false);
       }}
-      className="m-auto max-h-[85vh] w-[min(28rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-slate-200 bg-card p-0 text-slate-900 shadow-xl backdrop:bg-black/50"
+      className="m-auto max-h-[85vh] w-[min(28rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-slate-200 bg-card p-0 text-slate-900 shadow-none backdrop:bg-black/50"
     >
       <div className="p-5">
         <div className="flex items-start justify-between gap-3">
@@ -175,7 +175,7 @@ export function KeyboardShortcuts({ enabled }: { enabled: boolean }) {
                         {i > 0 ? (
                           <span className="text-xs text-slate-500">{item.joiner === "or" ? "or" : "then"}</span>
                         ) : null}
-                        <kbd className="min-w-[1.75rem] rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 text-center font-mono text-xs text-slate-800 shadow-[inset_0_-1px_0_rgb(203_213_225)]">
+                        <kbd className="min-w-[1.75rem] rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 text-center font-mono text-xs text-slate-800 shadow-none">
                           {k}
                         </kbd>
                       </span>

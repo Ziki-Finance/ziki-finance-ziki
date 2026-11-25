@@ -25,7 +25,7 @@ export function CopyProjectIdButton({ projectId }: { projectId: string }) {
       onClick={handleCopy}
       aria-label="Copy Project ID"
       title="Copy Project ID for API and agent configuration"
-      className="inline-flex items-center gap-1 rounded-xl border border-zk-border bg-zk-surface px-2 py-0.5 text-xs font-medium text-zk-text2 shadow-2xs transition hover:border-zk-border hover:bg-zk-chip hover:text-zk-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue"
+      className="inline-flex items-center gap-1 rounded-xl border border-zk-border bg-zk-surface px-2 py-0.5 text-xs font-medium text-zk-text2 shadow-none transition hover:border-zk-border hover:bg-zk-chip hover:text-zk-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue"
     >
       {copied ? (
         <>

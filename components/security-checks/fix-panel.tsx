@@ -1,5 +1,7 @@
 "use client";
 
+import { PRIMARY_ACTION } from "@/lib/ui-style";
+
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -169,7 +171,7 @@ export function FixPanel({ checkId, findings, onDone }: { checkId: string; findi
         type="button"
         onClick={send}
         disabled={pending || !ready}
-        className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-electric-blue-strong px-5 py-2 text-sm font-semibold text-white transition hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zk-accent disabled:cursor-not-allowed disabled:opacity-45"
+        className={`${PRIMARY_ACTION} w-full`}
       >
         {pending ? "Sending…" : destination ? `Pay and send to ${destination}` : "Pay and send"}
       </button>

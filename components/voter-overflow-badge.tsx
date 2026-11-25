@@ -73,7 +73,7 @@ export function VoterOverflowBadge({ label, overflow, size }: VoterOverflowBadge
           }
         }}
         className={`relative inline-flex cursor-default items-center justify-center rounded-full bg-zk-chip font-bold text-zk-text2 ring-card tabular-nums select-none outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-          isSm ? "h-5 w-5 text-[9px] ring-1" : "h-7 w-7 text-xs ring-2"
+          isSm ? "h-5 w-5 text-[11px] ring-1" : "h-7 w-7 text-xs ring-2"
         }`}
       >
         {label}
@@ -81,7 +81,7 @@ export function VoterOverflowBadge({ label, overflow, size }: VoterOverflowBadge
       <span
         id={popoverId}
         aria-hidden="true"
-        className={`absolute top-full left-0 z-20 mt-1.5 max-h-60 w-max max-w-56 overflow-y-auto rounded-lg border border-zk-border bg-zk-surface px-3 py-2 text-left text-xs font-normal text-zk-text2 shadow-lg transition-opacity group-hover/overflow:visible group-hover/overflow:opacity-100 group-focus-within/overflow:visible group-focus-within/overflow:opacity-100 ${
+        className={`absolute top-full left-0 z-20 mt-1.5 max-h-60 w-max max-w-56 overflow-y-auto rounded-lg border border-zk-border bg-zk-surface px-3 py-2 text-left text-xs font-normal text-zk-text2 shadow-none transition-opacity group-hover/overflow:visible group-hover/overflow:opacity-100 group-focus-within/overflow:visible group-focus-within/overflow:opacity-100 ${
           open ? "visible opacity-100" : "invisible opacity-0"
         }`}
       >

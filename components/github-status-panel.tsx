@@ -331,7 +331,7 @@ function SendBackButton({ draft, disabled, onSend }: { draft: string; disabled: 
       <dialog
         ref={dialogRef}
         aria-label="Send back to fixer"
-        className="m-auto w-[min(36rem,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl border border-zk-border bg-zk-surface p-0 text-zk-text shadow-[0_24px_56px_rgba(11,23,51,0.22)] backdrop:bg-black/40"
+        className="m-auto w-[min(36rem,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl border border-zk-border bg-zk-surface p-0 text-zk-text shadow-none backdrop:bg-black/40"
       >
         <div className="flex flex-col gap-3 p-5 sm:p-6">
           <h2 className="m-0 text-base font-bold">Send back to the fixer</h2>

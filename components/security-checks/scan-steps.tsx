@@ -111,7 +111,7 @@ function Step({ state, name, detail, href, current = false }: { state: "done" | 
         <Link
           href={href}
           aria-current={current ? "page" : undefined}
-          className={`${chip} ${current ? "" : "hover:border-electric-blue-strong/50 hover:shadow-sm"} ${state === "now" ? "hover:brightness-[0.98]" : "hover:bg-zk-chip"} ${FOCUS}`}
+          className={`${chip} ${current ? "" : "hover:border-electric-blue-strong/50 "} ${state === "now" ? "hover:brightness-[0.98]" : "hover:bg-zk-chip"} ${FOCUS}`}
         >
           {inner}
         </Link>

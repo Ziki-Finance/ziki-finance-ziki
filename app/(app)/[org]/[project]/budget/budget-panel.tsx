@@ -8,7 +8,7 @@ import { fundBudgetAction, setBudgetPausedAction, takeBackBudgetAction } from "@
 type Result = { ok: true; message: string } | { ok: false; error: string };
 
 const primary =
-  "inline-flex min-h-11 cursor-pointer items-center justify-center rounded-full bg-electric-blue-strong px-6 text-sm font-bold whitespace-nowrap text-white transition hover:bg-[#2552af] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex h-9 cursor-pointer items-center justify-center rounded-control bg-electric-blue-strong px-4 text-sm font-semibold whitespace-nowrap text-white transition hover:bg-zk-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
 
 /** Runs one budget action and shows what it said; refreshes the page when it worked. */
 function useAction() {

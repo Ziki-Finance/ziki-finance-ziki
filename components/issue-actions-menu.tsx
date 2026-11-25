@@ -71,7 +71,7 @@ export function IssueActionsMenu({ children }: { children: ReactNode }) {
       {open ? (
         <div
           id={panelId}
-          className={`absolute ${alignLeft ? "left-0" : "right-0"} top-full z-30 mt-2 flex min-w-[220px] max-w-[calc(100vw-2rem)] flex-col items-stretch gap-2 rounded-2xl border border-zk-border bg-zk-surface p-3 shadow-lg`}
+          className={`absolute ${alignLeft ? "left-0" : "right-0"} top-full z-30 mt-2 flex min-w-[220px] max-w-[calc(100vw-2rem)] flex-col items-stretch gap-2 rounded-2xl border border-zk-border bg-zk-surface p-3 shadow-none`}
         >
           {children}
         </div>

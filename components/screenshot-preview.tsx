@@ -60,7 +60,7 @@ export function ScreenshotPreview({
       {/* A click outside the picture closes it: this button fills the screen behind it. */}
       {shot ? <button type="button" tabIndex={-1} aria-label="Close preview" onClick={onClose} className="fixed inset-0 cursor-default bg-transparent" /> : null}
       {shot ? (
-        <figure className="relative m-0 flex max-h-[92vh] w-[min(1100px,94vw)] flex-col overflow-hidden rounded-2xl bg-zk-surface shadow-2xl">
+        <figure className="relative m-0 flex max-h-[92vh] w-[min(1100px,94vw)] flex-col overflow-hidden rounded-2xl bg-zk-surface shadow-none">
           <div className="flex items-center justify-between gap-3 border-b border-zk-border px-4 py-2.5">
             <figcaption className="min-w-0 truncate text-[13.5px] font-semibold text-zk-text">
               {shot.label}

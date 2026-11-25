@@ -1,3 +1,4 @@
+import { PRIMARY_ACTION } from "@/lib/ui-style";
 import { IssuePriorityBadge } from "@/components/issue-priority-badge";
 import { PRODUCT_TRACK } from "@/lib/marketing/track";
 import { IdeasWelcome } from "@/components/ideas-welcome";
@@ -917,7 +918,7 @@ export async function IssuesList({
   const withOverviewLook = isYourWorkView || isNewIdeasView;
   const tabClass = (current: boolean) =>
     `inline-flex h-8 items-center gap-1.5 rounded-full px-3.5 text-[13px] transition ${
-      current ? "bg-white font-semibold text-[#1848b8] shadow-[0_1px_2px_rgba(16,24,40,0.08)]" : "font-medium text-zk-muted hover:text-zk-text"
+      current ? "bg-white font-semibold text-zk-accent shadow-none" : "font-medium text-zk-muted hover:text-zk-text"
     }`;
   // How much has been delivered (#live-confirmed), shown on the Delivered tab: live work someone confirmed.
   const deliveredCount = withOverviewLook
@@ -947,7 +948,7 @@ export async function IssuesList({
                       href={projectPath(ref, "/features/new")}
                       aria-label="Add a new feature"
                       title="Add a new feature"
-                      className="-ml-1 inline-flex h-8 w-8 items-center justify-center self-center rounded-full text-zk-muted transition hover:bg-zk-surface hover:text-zk-accent hover:shadow-[0_1px_2px_rgba(16,24,40,0.08)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-electric-blue"
+                      className="-ml-1 inline-flex h-8 w-8 items-center justify-center self-center rounded-full text-zk-muted transition hover:bg-zk-surface hover:text-zk-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-electric-blue"
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
                     </Link>,
@@ -2203,7 +2204,7 @@ export async function IssuesList({
       // where it runs and where its code is, with the project's icons (feedback, settings) at the right.
       <section aria-label="Your app" className="mx-auto mb-4 flex w-full max-w-[920px] flex-wrap items-center justify-between gap-3 rounded-xl border border-zk-border bg-zk-text/[0.045] px-5 py-4">
         <div className="flex min-w-0 items-center gap-3.5">
-          <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] text-[16px] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.25)]" style={TILE_TONES[toneForName(project.name)]}>
+          <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-control text-[16px] font-semibold shadow-none" style={TILE_TONES[toneForName(project.name)]}>
             {project.name.charAt(0).toUpperCase()}
           </span>
           <div className="min-w-0">
@@ -2331,7 +2332,7 @@ function FirstRunWelcome({ hasOrganisation = true }: { hasOrganisation?: boolean
         <div className="mt-6">
           <Link
             href="/organisations"
-            className="inline-flex min-h-12 max-w-full items-center justify-center rounded-full bg-electric-blue-strong px-6 py-3 text-sm font-bold leading-5 text-white transition-colors hover:bg-blue-slate focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-zk-accent"
+            className={`${PRIMARY_ACTION} max-w-full`}
           >
             Create or join an organisation
           </Link>

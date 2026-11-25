@@ -153,7 +153,7 @@ export function IssueLinks({
                     <button
                       type="submit"
                       disabled={pending}
-                      className="inline-flex h-7 items-center rounded-full bg-electric-blue-strong px-3 text-xs font-bold text-white transition hover:opacity-90 disabled:opacity-50"
+                      className="inline-flex h-7 items-center rounded-control bg-electric-blue-strong px-3 text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
                     >
                       {pending ? "Saving…" : "Save"}
                     </button>

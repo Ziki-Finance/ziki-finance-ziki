@@ -182,7 +182,7 @@ export function MarketingTaskDetail({
                   onClick={() => setActiveTab("bids")}
                   className={`inline-flex cursor-pointer items-center gap-2 rounded-full px-3.5 py-1.5 font-semibold transition-all ${
                     activeTab === "bids"
-                      ? "bg-zk-surface text-zk-text shadow-sm"
+                      ? "bg-zk-surface text-zk-text shadow-none"
                       : "text-zk-muted hover:text-zk-text"
                   }`}
                 >
@@ -207,7 +207,7 @@ export function MarketingTaskDetail({
                   onClick={() => setActiveTab("discussion")}
                   className={`inline-flex cursor-pointer items-center gap-2 rounded-full px-3.5 py-1.5 font-semibold transition-all ${
                     activeTab === "discussion"
-                      ? "bg-zk-surface text-zk-text shadow-sm"
+                      ? "bg-zk-surface text-zk-text shadow-none"
                       : "text-zk-muted hover:text-zk-text"
                   }`}
                 >
@@ -232,7 +232,7 @@ export function MarketingTaskDetail({
                   onClick={() => setActiveTab("reviews")}
                   className={`inline-flex cursor-pointer items-center gap-2 rounded-full px-3.5 py-1.5 font-semibold transition-all ${
                     activeTab === "reviews"
-                      ? "bg-zk-surface text-zk-text shadow-sm"
+                      ? "bg-zk-surface text-zk-text shadow-none"
                       : "text-zk-muted hover:text-zk-text"
                   }`}
                 >
@@ -257,7 +257,7 @@ export function MarketingTaskDetail({
                   onClick={() => setActiveTab("deliverables")}
                   className={`inline-flex cursor-pointer items-center gap-2 rounded-full px-3.5 py-1.5 font-semibold transition-all ${
                     activeTab === "deliverables"
-                      ? "bg-zk-surface text-zk-text shadow-sm"
+                      ? "bg-zk-surface text-zk-text shadow-none"
                       : "text-zk-muted hover:text-zk-text"
                   }`}
                 >

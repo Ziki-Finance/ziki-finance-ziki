@@ -110,18 +110,18 @@ export function SecurityPublicPage({ signedIn }: { signedIn: boolean }) {
 
       <section className="section" aria-labelledby="faq-heading">
         <div className="mx-auto w-full max-w-[760px]">
-          <h2 id="faq-heading" className="m-0 mb-5 text-center text-[clamp(28px,3.6vw,40px)] font-medium tracking-[-0.04em] text-[#0b1733]">
+          <h2 id="faq-heading" className="m-0 mb-5 text-center text-[clamp(28px,3.6vw,40px)] font-medium tracking-[-0.04em] text-zk-text">
             Frequently asked questions
           </h2>
-          <div className="border-t border-[#e6e9f0]">
+          <div className="border-t border-zk-border">
             {FAQ.map(({ q, a }, index) => (
-              <details key={q} open={index === 0} className="group border-b border-[#e6e9f0]">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-1 py-[18px] text-[17px] font-semibold text-[#0b1733] [&::-webkit-details-marker]:hidden">
+              <details key={q} open={index === 0} className="group border-b border-zk-border">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-1 py-[18px] text-[17px] font-semibold text-zk-text [&::-webkit-details-marker]:hidden">
                   {q}
-                  <span aria-hidden="true" className="shrink-0 text-[22px] font-normal text-[#5b6577] group-open:hidden">+</span>
-                  <span aria-hidden="true" className="hidden shrink-0 text-[22px] font-normal text-[#5b6577] group-open:inline">−</span>
+                  <span aria-hidden="true" className="shrink-0 text-[22px] font-normal text-zk-muted group-open:hidden">+</span>
+                  <span aria-hidden="true" className="hidden shrink-0 text-[22px] font-normal text-zk-muted group-open:inline">−</span>
                 </summary>
-                <p className="m-0 mx-1 mb-[18px] text-[15px] leading-relaxed text-[#3d475c]">{a}</p>
+                <p className="m-0 mx-1 mb-[18px] text-[15px] leading-relaxed text-zk-text2">{a}</p>
               </details>
             ))}
           </div>

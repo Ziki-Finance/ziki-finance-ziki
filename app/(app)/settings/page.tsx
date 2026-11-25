@@ -1,3 +1,4 @@
+import { PRIMARY_ACTION } from "@/lib/ui-style";
 import "./settings-design.css";
 import { Suspense } from "react";
 import { headers } from "next/headers";
@@ -201,7 +202,7 @@ export default async function SettingsPage(props: {
                 </div>
                 <Link
                   href="/settings/security"
-                  className="inline-flex h-[42px] items-center rounded-full bg-electric-blue-strong px-[18px] text-sm font-bold text-white hover:brightness-105"
+                  className={PRIMARY_ACTION}
                 >
                   Manage
                 </Link>

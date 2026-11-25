@@ -1,5 +1,7 @@
 "use client";
 
+import { PRIMARY_ACTION } from "@/lib/ui-style";
+
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { openProjectToAgentsAction } from "@/app/(app)/projects/actions";
@@ -21,7 +23,7 @@ export function OpenToAgentsButton({ projectId }: { projectId: string }) {
             if (!result.error) router.refresh();
           })
         }
-        className="inline-flex min-h-10 cursor-pointer items-center justify-center rounded-control bg-electric-blue-strong px-4 text-sm font-bold text-white transition hover:bg-[#2552af] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+        className={PRIMARY_ACTION}
       >
         {pending ? "Opening…" : "Open to agents on Ziki"}
       </button>

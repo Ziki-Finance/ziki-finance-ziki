@@ -95,7 +95,7 @@ export function FeedbackPortalPopover({
         <div
           role="dialog"
           aria-label="Project feedback portal"
-          className="absolute right-0 z-30 mt-2 w-80 rounded-2xl border border-zk-border bg-zk-surface p-5 shadow-xl sm:w-96"
+          className="absolute right-0 z-30 mt-2 w-80 rounded-2xl border border-zk-border bg-zk-surface p-5 shadow-none sm:w-96"
         >
           <h3 className="text-base font-bold text-zk-text">Project feedback portal</h3>
           <p className="mt-1 text-xs text-zk-text2">
@@ -125,7 +125,7 @@ export function FeedbackPortalPopover({
             <button
               type="button"
               onClick={handleCopy}
-              className="inline-flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-electric-blue-strong px-3 py-2 text-xs font-bold text-white transition hover:brightness-110"
+              className="inline-flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-electric-blue-strong px-3 py-2 text-xs font-semibold text-white transition hover:bg-zk-ink"
             >
               <svg
                 width="14"

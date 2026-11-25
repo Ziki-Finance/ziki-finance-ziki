@@ -248,7 +248,7 @@ export function ForumToolbar({
             </button>
 
             {filterModalOpen && (
-              <div className="absolute right-0 top-full mt-1.5 w-52 rounded-panel bg-zk-surface border border-zk-border shadow-xl p-2 z-40 flex flex-col gap-1">
+              <div className="absolute right-0 top-full mt-1.5 w-52 rounded-panel bg-zk-surface border border-zk-border shadow-none p-2 z-40 flex flex-col gap-1">
                 <div className="px-2 py-1 text-[11px] uppercase tracking-wider text-zk-muted font-semibold border-b border-zk-border mb-1">
                   Filter by Status
                 </div>
@@ -339,7 +339,7 @@ export function ForumToolbar({
             </button>
 
             {popularTagsOpen && (
-              <div className="absolute right-0 top-full mt-1.5 w-52 rounded-panel bg-zk-surface border border-zk-border shadow-xl p-2.5 z-40 flex flex-col gap-2">
+              <div className="absolute right-0 top-full mt-1.5 w-52 rounded-panel bg-zk-surface border border-zk-border shadow-none p-2.5 z-40 flex flex-col gap-2">
                 <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-zk-muted font-semibold border-b border-zk-border pb-1">
                   <span>Popular Tags</span>
                   {selectedTag && (
@@ -406,7 +406,7 @@ export function ForumToolbar({
             </button>
 
             {sortMenuOpen && (
-              <div className="absolute right-0 top-full mt-1.5 w-44 rounded-panel bg-zk-surface border border-zk-border shadow-xl p-1.5 z-40 flex flex-col gap-0.5">
+              <div className="absolute right-0 top-full mt-1.5 w-44 rounded-panel bg-zk-surface border border-zk-border shadow-none p-1.5 z-40 flex flex-col gap-0.5">
                 {(
                   [
                     { id: "trending", label: "Trending" },

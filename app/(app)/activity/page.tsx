@@ -1,3 +1,4 @@
+import { PRIMARY_ACTION } from "@/lib/ui-style";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth-helpers";
 import { isAgentPlatformEnabled } from "@/lib/feature-flags";
@@ -57,7 +58,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
               className="mt-1 block h-10 w-32 rounded-lg border border-zk-border bg-zk-bg px-3 text-sm text-zk-text"
             />
           </label>
-          <button type="submit" className="h-10 rounded-full bg-electric-blue-strong px-4 text-sm font-semibold text-white">Filter</button>
+          <button type="submit" className={PRIMARY_ACTION}>Filter</button>
           {issueInput ? <Link className={`${link} self-center text-sm`} href="/activity">Clear</Link> : null}
         </form>
       </header>

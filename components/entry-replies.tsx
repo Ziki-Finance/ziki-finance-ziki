@@ -28,7 +28,7 @@ export function EntryReplies({ replies }: { replies: EntryReplyView[] }) {
           {index < replies.length - 1 ? <span aria-hidden="true" className="absolute bottom-0 left-0 top-0 border-l-2 border-zk-divider" /> : null}
           {/* The elbow into this reply's box. */}
           <span aria-hidden="true" className="absolute left-0 top-0 h-6 w-5 rounded-bl-lg border-b-2 border-l-2 border-zk-divider" />
-          <div className="rounded-xl border border-zk-border bg-zk-surface px-3 py-2 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+          <div className="rounded-xl border border-zk-border bg-zk-surface px-3 py-2 shadow-none">
             <p className="m-0 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px]">
               <span className="text-zk-muted" aria-hidden="true">↳</span>
               <b className="font-semibold text-zk-text">{reply.authorName}</b>

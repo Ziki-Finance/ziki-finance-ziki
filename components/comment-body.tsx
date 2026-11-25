@@ -8,7 +8,7 @@ type UserOption = { id: string; name: string };
 export function AgentMentionBadge() {
   return (
     <span
-      className="rounded bg-slate-200/90 px-1 text-[10px] font-medium text-slate-700"
+      className="rounded bg-slate-200/90 px-1 text-[11px] font-medium text-slate-700"
       aria-hidden="true"
     >
       bot

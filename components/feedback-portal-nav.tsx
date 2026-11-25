@@ -18,7 +18,7 @@ export function FeedbackPortalNav({ orgSlug, orgName, name }: { orgSlug: string 
     <div className="flex min-w-0 items-center gap-2">
       <Link href="/" aria-label="Ziki" className={`flex shrink-0 items-center rounded-full ${focus}`}><ZikiMark className="h-8 w-auto text-zk-text max-sm:h-7" /></Link>
       <span aria-hidden="true" className="h-[18px] w-px shrink-0 bg-zk-border max-sm:hidden" />
-      <Link href={orgSlug ? orgHomePath(orgSlug) : "/"} aria-label={`${orgName ?? "Organisation"} main page`} className={`inline-flex h-[30px] max-w-44 items-center gap-2 rounded-full px-1.5 text-[13px] font-medium text-zk-text hover:bg-zk-chip ${focus}`}>
+      <Link href={orgSlug ? orgHomePath(orgSlug) : "/"} aria-label={`${orgName ?? "Organisation"} main page`} className={`inline-flex h-[30px] max-w-44 items-center gap-2 rounded-control px-1.5 text-[13px] font-medium text-zk-text hover:bg-zk-chip ${focus}`}>
         <span aria-hidden="true" className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-chip text-xs font-bold ${avatarTone(orgName)}`}>{orgName?.trim().charAt(0).toUpperCase() || "?"}</span><span className="truncate">{orgName ?? "Feedback portal"}</span>
       </Link>
     </div>

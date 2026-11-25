@@ -118,7 +118,7 @@ export function MarkDuplicateButton({
           id={panelId}
           role="group"
           aria-label="Mark as duplicate"
-          className="absolute right-0 z-20 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-xl border border-zk-border bg-zk-surface p-3 shadow-lg"
+          className="absolute right-0 z-20 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-xl border border-zk-border bg-zk-surface p-3 shadow-none"
           onKeyDown={(event) => {
             if (event.key === "Escape") close();
           }}

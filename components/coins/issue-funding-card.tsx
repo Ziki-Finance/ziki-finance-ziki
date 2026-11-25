@@ -36,7 +36,7 @@ export type FundingCardProps = {
 };
 
 const PRIMARY =
-  "inline-flex min-h-11 w-full cursor-pointer items-center justify-center rounded-control bg-electric-blue-strong px-4 text-sm font-bold text-white transition hover:bg-[#2552af] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex h-9 w-full cursor-pointer items-center justify-center rounded-control bg-electric-blue-strong px-4 text-sm font-semibold text-white transition hover:bg-zk-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
 const SECONDARY =
   "inline-flex min-h-10 w-full cursor-pointer items-center justify-center rounded-control border border-zk-border bg-zk-surface px-4 text-sm font-semibold text-zk-text transition hover:bg-zk-chip focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue disabled:cursor-not-allowed disabled:opacity-60";
 

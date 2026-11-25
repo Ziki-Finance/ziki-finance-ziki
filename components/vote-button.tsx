@@ -146,7 +146,7 @@ export function VoteButton({
             title={title}
             aria-describedby={error ? errorId : undefined}
             onClick={handleVote}
-            className={`group inline-flex h-11 items-center justify-center gap-2 rounded-full border px-4 text-sm font-bold transition-all duration-150 active:scale-95 disabled:opacity-50 ${tone}`}
+            className={`group inline-flex h-9 items-center justify-center gap-2 rounded-control border px-4 text-sm font-semibold transition-all duration-150  disabled:opacity-50 ${tone}`}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="transition-transform group-hover:-translate-y-0.5">
               <path d="m18 15-6-6-6 6" />
@@ -177,7 +177,7 @@ export function VoteButton({
         title={title}
         aria-describedby={error ? errorId : undefined}
         onClick={handleVote}
-        className={`group inline-flex min-w-[2.75rem] flex-col items-center justify-center rounded-lg border px-2 py-1 text-xs font-semibold shadow-xs transition-all duration-150 active:scale-95 disabled:opacity-50 ${tone}`}
+        className={`group inline-flex min-w-[2.75rem] flex-col items-center justify-center rounded-lg border px-2 py-1 text-xs font-semibold shadow-none transition-all duration-150  disabled:opacity-50 ${tone}`}
       >
         {chevron ? (
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6" /></svg>

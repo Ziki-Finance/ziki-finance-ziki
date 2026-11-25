@@ -111,7 +111,7 @@ function fileKind(type: string, name: string): string {
  * something is.
  */
 export const RAISED =
-  "inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 whitespace-nowrap rounded-md border border-[#1f9d55] bg-[#22a85b] px-2 text-[11.5px] font-bold text-white shadow-[0_1px_2px_rgba(0,0,0,0.18)] transition hover:brightness-110 active:translate-y-px active:shadow-none disabled:cursor-default disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-electric-blue";
+  "inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 whitespace-nowrap rounded-md border border-zk-ok-fg bg-zk-ok-fg px-2 text-[11.5px] font-bold text-white shadow-none transition hover:brightness-110 disabled:cursor-default disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-electric-blue";
 
 /** The thumbs-up on a raised action button. */
 function ThumbsUp() {
@@ -194,7 +194,7 @@ export function WorkFeed({ items, groups, title, toolbar, empty, footer, justAdd
                   // Opened, the card unfolds into the whole of it, as an opened email.
                   <FeedCard item={item} id={`work-feed-detail-${item.id}`} onClose={() => setOpenId(null)} />
                 ) : (
-                  <div className={item.justDelivered ? "relative overflow-hidden rounded-2xl border border-zk-warn-bd/60 bg-zk-surface shadow-[0_2px_10px_rgba(0,0,0,0.05)]" : ""}>
+                  <div className={item.justDelivered ? "relative overflow-hidden rounded-2xl border border-zk-warn-bd/60 bg-zk-surface shadow-none" : ""}>
                   {/* The newest delivery (#just-delivered): who delivered it, with a dancing agent and fireworks. */}
                   {item.justDelivered ? <JustDelivered by={item.deliveredBy} /> : null}
                   <div className={`flex items-center gap-4 bg-zk-surface px-5 py-4 transition hover:bg-zk-chip ${item.justDelivered ? "" : "rounded-2xl border border-zk-border"}`}>
@@ -313,7 +313,7 @@ export function IssueThumb({ item }: { item: Pick<WorkFeedItem, "title" | "files
   const tone = kind?.tone ?? toneForName(item.title);
   // The issue's coloured icon tile: shown when there is no screenshot, or the screenshot won't load (#safe-img).
   const tile = (
-    <span aria-hidden="true" className="flex h-11 w-14 shrink-0 items-center justify-center rounded-control shadow-[inset_0_1px_0_rgba(255,255,255,0.25)]" style={TILE_TONES[tone]}>
+    <span aria-hidden="true" className="flex h-11 w-14 shrink-0 items-center justify-center rounded-control shadow-none" style={TILE_TONES[tone]}>
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d={kind?.icon ?? "M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"} />
       </svg>
@@ -400,7 +400,7 @@ function FeedCard({ item, id, onClose }: { item: WorkFeedItem; id: string; onClo
   const tone = PILL_TONES[kind.tone];
   const who = item.who ?? "Nobody yet";
   return (
-    <article id={id} aria-labelledby={`${id}-title`} className="my-1 rounded-2xl border border-zk-border bg-zk-surface px-5 pb-5 pt-4 shadow-[0_2px_10px_rgba(0,0,0,0.06)]">
+    <article id={id} aria-labelledby={`${id}-title`} className="my-1 rounded-2xl border border-zk-border bg-zk-surface px-5 pb-5 pt-4 shadow-none">
       <div className="flex flex-wrap items-center gap-3 border-b border-zk-divider pb-4">
         <button type="button" aria-expanded={true} aria-controls={id} onClick={onClose} className={`flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-lg text-left ${focus}`}>
           <IssueThumb item={item} />
@@ -426,7 +426,7 @@ function FeedCard({ item, id, onClose }: { item: WorkFeedItem; id: string; onClo
         ) : (
         <Link
           href={item.decision.href}
-          className={`inline-flex min-h-9 w-full shrink-0 items-center justify-center gap-1.5 sm:w-auto rounded-[9px] bg-electric-blue-strong px-3.5 text-[13.5px] font-semibold text-white transition hover:opacity-90 ${focus}`}
+          className={`inline-flex min-h-9 w-full shrink-0 items-center justify-center gap-1.5 sm:w-auto rounded-control bg-electric-blue-strong px-3.5 text-[13.5px] font-semibold text-white transition hover:opacity-90 ${focus}`}
         >
           {item.decision.label}
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
@@ -659,12 +659,12 @@ function StalledFix({ item }: { item: WorkFeedItem }) {
           {fix.approve ? <DeliveredActions item={item} /> : null}
           {fix.action ? (
             fix.action.external ? (
-              <a href={fix.action.href} target="_blank" rel="noopener noreferrer" className={`inline-flex min-h-8 items-center gap-1 rounded-[9px] bg-electric-blue-strong px-3 text-[13px] font-semibold text-white transition hover:opacity-90 ${focus}`}>
+              <a href={fix.action.href} target="_blank" rel="noopener noreferrer" className={`inline-flex min-h-8 items-center gap-1 rounded-control bg-electric-blue-strong px-3 text-[13px] font-semibold text-white transition hover:opacity-90 ${focus}`}>
                 {fix.action.label}
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9" /></svg>
               </a>
             ) : (
-              <Link href={fix.action.href} className={`inline-flex min-h-8 items-center gap-1 rounded-[9px] bg-electric-blue-strong px-3 text-[13px] font-semibold text-white transition hover:opacity-90 ${focus}`}>
+              <Link href={fix.action.href} className={`inline-flex min-h-8 items-center gap-1 rounded-control bg-electric-blue-strong px-3 text-[13px] font-semibold text-white transition hover:opacity-90 ${focus}`}>
                 {fix.action.label}
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
               </Link>
@@ -739,7 +739,7 @@ function DeliveryPreview({ item }: { item: WorkFeedItem }) {
           below with the timeline and links. */}
       <div className="rounded-panel border border-zk-border/70 bg-zk-bg p-1.5">
       {/* The screenshots' card opens the full issue. */}
-      <Link href={item.href} aria-label={`Open the full issue ${formatIssueNumber(item.number)}`} className={`block rounded-panel border border-zk-border bg-zk-surface p-3 shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition hover:border-zk-accent/50 hover:shadow-[0_2px_8px_rgba(16,24,40,0.08)] ${focus}`}>
+      <Link href={item.href} aria-label={`Open the full issue ${formatIssueNumber(item.number)}`} className={`block rounded-panel border border-zk-border bg-zk-surface p-3 shadow-none transition hover:border-zk-accent/50  ${focus}`}>
       {first && item.beforeScreenshots.length > 0 ? <p className="m-0 mb-1.5 text-[12px] font-semibold uppercase tracking-[0.06em] text-zk-muted">Now</p> : null}
       {first ? (
         <div className="flex flex-col gap-2">
@@ -865,7 +865,7 @@ function ConfirmLive({ item, className = "" }: { item: WorkFeedItem; className?:
           type="button"
           onClick={sendLove}
           disabled={loving}
-          className="inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 whitespace-nowrap rounded-md border border-[#e0335a] bg-[#ef4f6b] px-2 text-[11.5px] font-bold text-white shadow-[0_1px_2px_rgba(0,0,0,0.18)] transition hover:brightness-110 active:translate-y-px active:shadow-none disabled:cursor-default focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-electric-blue"
+          className="inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 whitespace-nowrap rounded-md border border-zk-bad-fg bg-zk-bad-fg px-2 text-[11.5px] font-bold text-white shadow-none transition hover:brightness-110 disabled:cursor-default focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-electric-blue"
         >
           <span aria-hidden="true">♥</span>
           {loving ? "Love sent!" : "Send some Love"}

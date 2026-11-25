@@ -118,7 +118,7 @@ export function IssueRowStatus({
         <span className={PILL} style={TONE.yellow}>
           <ClockIcon /> Plan review
         </span>
-        {planReviewFor ? <span className="max-w-[10rem] truncate pl-4 text-[10.5px] text-zk-muted">{planReviewFor}</span> : null}
+        {planReviewFor ? <span className="max-w-[10rem] truncate pl-4 text-[11px] text-zk-muted">{planReviewFor}</span> : null}
       </span>
     );
   }
@@ -168,7 +168,7 @@ export function IssueRowStatus({
           <span className="sr-only">is working on it</span>
         </span>
         {work.since ? (
-          <span className="inline-flex items-center gap-0.5 pl-5 text-[10.5px] tabular-nums text-zk-muted">
+          <span className="inline-flex items-center gap-0.5 pl-5 text-[11px] tabular-nums text-zk-muted">
             <ClockIcon />
             <ElapsedTime since={work.since} />
           </span>

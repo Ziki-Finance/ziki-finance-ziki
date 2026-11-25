@@ -53,7 +53,7 @@ export function RankingRow({
     <li className={last ? "" : "border-b border-zk-divider"}>
       <div
         className={`flex items-center gap-4 rounded-2xl px-4 py-3 ${
-          isYou ? "bg-[#F3F8FF] shadow-[inset_3px_0_0_#2E6FEF] dark:bg-[#13254A]" : ""
+          isYou ? "bg-zk-tint border-l-2 border-zk-blue" : ""
         }`}
       >
         <span className="w-10 text-sm font-extrabold" style={{ color: medal }}>
@@ -75,7 +75,7 @@ export function RankingRow({
           <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-zk-tint">
             <span
               className="block h-full rounded-full"
-              style={{ width: `${pct}%`, background: goalMet ? "#2E6FEF" : "#8FC9FF" }}
+              style={{ width: `${pct}%`, background: goalMet ? "var(--zk-blue)" : "var(--color-teal-300)" }}
             />
           </span>
           <span className="w-10 text-right text-xs font-bold text-zk-text2">{pct}%</span>

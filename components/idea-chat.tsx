@@ -218,7 +218,7 @@ export function IdeaChat({
   // closes with ×.
   const conversation = chatSlug && turns.length ? (
     <div
-      className="zk-paper relative mx-auto mb-4 w-[calc(100%-1rem)] max-w-[820px] rounded-panel bg-zk-surface pb-3 shadow-[0_28px_56px_-16px_rgba(16,24,40,0.28),0_10px_20px_-10px_rgba(16,24,40,0.16),0_0_0_1px_rgba(16,24,40,0.04)]"
+      className="zk-paper relative mx-auto mb-4 w-[calc(100%-1rem)] max-w-[820px] rounded-panel bg-zk-surface pb-3 shadow-none"
       style={{ animation: "zk-sheet 0.45s ease-out both" }}
     >
       <style>{`
@@ -245,22 +245,22 @@ export function IdeaChat({
         return (
           <li key={index} className={`flex items-end gap-2 ${mine ? "flex-row-reverse" : ""}`}>
             {mine ? (
-              <Avatar name={me?.name ?? "You"} image={me?.image ?? null} size="sm" className="mb-0.5 !h-6 !w-6 shadow-[0_2px_6px_rgba(16,24,40,0.18)]" />
+              <Avatar name={me?.name ?? "You"} image={me?.image ?? null} size="sm" className="mb-0.5 !h-6 !w-6 shadow-none" />
             ) : (
-              <span aria-hidden="true" className="mb-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zk-text text-zk-surface shadow-[0_2px_6px_rgba(16,24,40,0.22)]">
+              <span aria-hidden="true" className="mb-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zk-text text-zk-surface shadow-none">
                 <ZikiMark className="h-3 w-auto" />
               </span>
             )}
             <div
-              className={`zk-paper relative max-w-[75%] px-3 py-1.5 text-[13px] leading-relaxed shadow-[0_8px_18px_-6px_rgba(16,24,40,0.22),0_2px_4px_-1px_rgba(16,24,40,0.10)] ${mine
+              className={`zk-paper relative max-w-[75%] px-3 py-1.5 text-[13px] leading-relaxed shadow-none ${mine
                 ? "rounded-2xl rounded-br-[4px] bg-zk-text text-zk-surface"
-                : "rounded-2xl rounded-bl-[4px] bg-[#f1f3f6] text-zk-text"}`}
+                : "rounded-2xl rounded-bl-[4px] bg-zk-chip text-zk-text"}`}
               style={!mine && newest ? { animation: "zk-paper 0.5s ease-out both" } : undefined}
             >
               {/* The little tail on the bubble's bottom corner, toward who said it. */}
               <span
                 aria-hidden="true"
-                className={`absolute bottom-0 h-3 w-3 ${mine ? "-right-1.5 bg-zk-text [clip-path:polygon(0_0,0_100%,100%_100%)]" : "-left-1.5 bg-[#f1f3f6] [clip-path:polygon(100%_0,0_100%,100%_100%)]"}`}
+                className={`absolute bottom-0 h-3 w-3 ${mine ? "-right-1.5 bg-zk-text [clip-path:polygon(0_0,0_100%,100%_100%)]" : "-left-1.5 bg-zk-chip [clip-path:polygon(100%_0,0_100%,100%_100%)]"}`}
               />
               <span className="sr-only">{mine ? "You: " : "Ziki: "}</span>
               {!mine && newest ? <Typed text={turn.text} /> : <span className="whitespace-pre-wrap">{turn.text}</span>}
@@ -298,7 +298,7 @@ export function IdeaChat({
               event.preventDefault();
               boxRef.current?.focus();
             }}
-            className="relative z-[1] cursor-text rounded-panel border border-black/[0.06] bg-zk-surface px-4 pb-2.5 pt-3 shadow-[0_14px_34px_rgba(16,24,40,0.10),0_3px_8px_rgba(16,24,40,0.06)] focus-within:border-electric-blue-strong/50"
+            className="relative z-[1] cursor-text rounded-panel border border-black/[0.06] bg-zk-surface px-4 pb-2.5 pt-3 shadow-none focus-within:border-electric-blue-strong/50"
           >
             <label htmlFor={boxId} className="sr-only">Your idea</label>
             <textarea

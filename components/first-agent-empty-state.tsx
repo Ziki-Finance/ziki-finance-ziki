@@ -1,3 +1,4 @@
+import { PRIMARY_ACTION } from "@/lib/ui-style";
 /**
  * Prominent first-time setup panel (#434): shown on My agents until one of the
  * person's agents has connected (called Ziki with its key), guiding them into
@@ -93,7 +94,7 @@ export function FirstAgentEmptyState({
           <Link
             href={addHref}
             data-testid="first-agent-cta"
-            className="inline-flex min-h-11 items-center justify-center rounded-control bg-electric-blue-strong px-5 text-sm font-bold text-white transition hover:bg-[#2552af] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2"
+            className={PRIMARY_ACTION}
           >
             Add agent →
           </Link>

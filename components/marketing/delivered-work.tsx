@@ -1,5 +1,7 @@
 "use client";
 
+import { PRIMARY_ACTION } from "@/lib/ui-style";
+
 import { useEffect, useRef, useState } from "react";
 import { RichText } from "@/components/rich-text";
 
@@ -67,7 +69,7 @@ export function DeliveredWork({ text, title, from }: { text: string; title: stri
         ref={dialogRef}
         aria-label={`Delivered work: ${title}`}
         onClose={() => setOpen(false)}
-        className="m-auto w-[min(48rem,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl border border-zk-border bg-zk-surface p-0 text-zk-text shadow-[0_24px_56px_rgba(11,23,51,0.22)] backdrop:bg-black/40 open:flex"
+        className="m-auto w-[min(48rem,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl border border-zk-border bg-zk-surface p-0 text-zk-text shadow-none backdrop:bg-black/40 open:flex"
       >
         {open ? (
           <>
@@ -92,7 +94,7 @@ export function DeliveredWork({ text, title, from }: { text: string; title: stri
               <button type="button" onClick={() => dialogRef.current?.close()} className="rounded-lg border border-zk-border px-3 py-1.5 text-sm font-semibold text-zk-text hover:bg-zk-chip">
                 Close
               </button>
-              <button type="button" onClick={copyWork} className="rounded-lg bg-electric-blue-strong px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90">
+              <button type="button" onClick={copyWork} className={PRIMARY_ACTION}>
                 Copy the work
               </button>
             </footer>

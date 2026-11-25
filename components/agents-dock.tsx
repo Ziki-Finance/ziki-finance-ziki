@@ -639,7 +639,7 @@ export function AgentsDock({
           data-dock-toggle
           aria-expanded={panel}
           aria-label={panel ? "Close your agents" : `Your agents${waiting ? `, ${waiting} ${waiting === 1 ? "needs" : "need"} you` : ""}${stuck ? `, ${stuck} stuck` : ""}`}
-          className="flex min-h-9 cursor-pointer items-center gap-2 rounded-full border border-zk-border bg-zk-surface py-1.5 pl-3.5 pr-3 text-xs font-semibold text-zk-text shadow-[0_6px_18px_rgba(11,23,51,0.14)] transition hover:bg-zk-chip active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-electric-blue"
+          className="flex min-h-9 cursor-pointer items-center gap-2 rounded-full border border-zk-border bg-zk-surface py-1.5 pl-3.5 pr-3 text-xs font-semibold text-zk-text shadow-[0_6px_18px_rgba(11,23,51,0.14)] transition hover:bg-zk-chip focus-visible:outline-2 focus-visible:outline-electric-blue"
         >
           {/* Just the word and the arrow: the agents themselves stand on the strip. The counts show only when the strip isn't there to show them. */}
           Agents
@@ -948,7 +948,7 @@ function PlainFigure({ agent }: { agent: DockAgent }) {
 
 const BADGE: Record<DockAgent["status"], string> = {
   waiting: "bg-red-500 text-white",
-  stuck: "bg-amber-500 text-[#3d2600]",
+  stuck: "bg-amber-500 text-zk-warn-fg",
   working: "bg-emerald-500 text-white",
   idle: "bg-electric-blue-strong text-white",
   offline: "bg-slate-400 text-white",
@@ -1062,7 +1062,7 @@ function Nameplate({ agent, left, centred, shown, open, onPick, onEnter, onLeave
         </span>
       </span>
       {agent.pendingRequests ? (
-        <span className="absolute -top-1.5 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-electric-blue-strong px-1 text-[10px] font-bold text-white">
+        <span className="absolute -top-1.5 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-electric-blue-strong px-1 text-[11px] font-bold text-white">
           {agent.pendingRequests}
         </span>
       ) : null}
@@ -1079,7 +1079,7 @@ const CHIP: Record<DockAgent["status"], string> = {
 };
 
 const BUTTON =
-  "inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3 text-[13px] font-semibold transition active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-electric-blue";
+  "inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3 text-[13px] font-semibold transition focus-visible:outline-2 focus-visible:outline-electric-blue";
 const PRIMARY = "bg-electric-blue-strong text-white hover:brightness-110";
 const SECONDARY = "border border-zk-border bg-zk-surface text-zk-text hover:bg-zk-chip";
 

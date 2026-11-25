@@ -1,3 +1,4 @@
+import { PRIMARY_ACTION } from "@/lib/ui-style";
 import Link from "next/link";
 import { forbidden } from "next/navigation";
 import { requireUser } from "@/lib/auth-helpers";
@@ -177,7 +178,7 @@ export default async function AuditLogPage({ searchParams }: Props) {
         </label>
         <button
           type="submit"
-          className="min-h-11 rounded-full bg-electric-blue-strong px-4 text-sm font-bold text-white hover:brightness-105"
+          className={PRIMARY_ACTION}
         >
           Filter
         </button>

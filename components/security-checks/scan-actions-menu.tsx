@@ -122,7 +122,7 @@ export function ScanActionsMenu({ checkId, site, posted, nextCheckId }: { checkI
           aria-label={`Actions for ${site}`}
           tabIndex={-1}
           onKeyDown={moveFocus}
-          className="absolute right-0 top-full z-30 mt-2 w-56 rounded-xl border border-zk-border bg-zk-surface py-1.5 shadow-[0_16px_40px_rgba(11,23,51,0.18)]"
+          className="absolute right-0 top-full z-30 mt-2 w-56 rounded-xl border border-zk-border bg-zk-surface py-1.5 shadow-none"
         >
           {canRescan ? (
             <button role="menuitem" type="button" disabled={pending} className={`${row} text-zk-text`} onClick={scanAgain}>

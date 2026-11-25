@@ -1,3 +1,4 @@
+import { PRIMARY_ACTION } from "@/lib/ui-style";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -22,7 +23,7 @@ export function ComingSoon({
       <p className="max-w-md text-sm leading-relaxed text-zk-text2">{children}</p>
       <Link
         href="/home"
-        className="mt-2 inline-flex h-10 items-center rounded-full bg-electric-blue-strong px-5 text-sm font-bold text-white hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2"
+        className={`${PRIMARY_ACTION} mt-2`}
       >
         Back to Product
       </Link>

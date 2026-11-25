@@ -156,7 +156,7 @@ function ProofList({ items }: { items: ProofItem[] }) {
             ) : null}
             <span className="min-w-0">
               <span className="flex flex-wrap items-center gap-1.5">
-                <span className={`rounded border px-1 font-mono text-[10px] font-black ${RESULT[item.result][1]}`}>{RESULT[item.result][0]}</span>
+                <span className={`rounded border px-1 font-mono text-[11px] font-black ${RESULT[item.result][1]}`}>{RESULT[item.result][0]}</span>
                 <b className="font-semibold text-zk-text">{item.label}</b>
               </span>
               <span className="block text-xs text-zk-text2">
