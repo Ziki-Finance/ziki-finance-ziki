@@ -19,37 +19,70 @@ export const metadata: Metadata = {
 
 export default async function FinancePage() {
   const user = await requireFinanceOwner();
-  const [criteria, run, decisions, portfolio, changes] = await Promise.all([
-    listFinanceCriteria(user.id),
-    prisma.financeRun.findFirst({
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        criteriaLabel: true,
-        criteriaVersion: true,
-        candidates: {
-          orderBy: { createdAt: "asc" },
-          select: {
-            id: true,
-            stage: true,
-            tickerSymbol: true,
-            companyName: true,
-            ticker: { select: { symbol: true, name: true } },
-            decision: { select: { id: true } },
-            evaluations: { select: { reasons: true } },
-            _count: { select: { evidence: true, reviews: true } },
+  let data: [
+    Awaited<ReturnType<typeof listFinanceCriteria>>,
+    {
+      id: string;
+      criteriaLabel: string;
+      criteriaVersion: number;
+      candidates: Array<{
+        id: string;
+        stage: string;
+        tickerSymbol: string | null;
+        companyName: string | null;
+        ticker: { symbol: string; name: string } | null;
+        decision: { id: string } | null;
+        evaluations: Array<{ reasons: string[] }>;
+        _count: { evidence: number; reviews: number };
+      }>;
+    } | null,
+    Awaited<ReturnType<typeof decisionsForOwner>>,
+    Awaited<ReturnType<typeof portfolioForOwner>>,
+    Array<{ id: string; tickerId: string; kind: string; actorLabel: string; createdAt: Date; detail: unknown }>,
+  ];
+  try {
+    data = await Promise.all([
+      listFinanceCriteria(user.id),
+      prisma.financeRun.findFirst({
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          criteriaLabel: true,
+          criteriaVersion: true,
+          candidates: {
+            orderBy: { createdAt: "asc" },
+            select: {
+              id: true,
+              stage: true,
+              tickerSymbol: true,
+              companyName: true,
+              ticker: { select: { symbol: true, name: true } },
+              decision: { select: { id: true } },
+              evaluations: { select: { reasons: true } },
+              _count: { select: { evidence: true, reviews: true } },
+            },
           },
         },
-      },
-    }),
-    decisionsForOwner(prisma, user.id),
-    portfolioForOwner(prisma, user.id),
-    prisma.financeChange.findMany({
-      where: { OR: [{ userId: user.id }, { userId: null }] },
-      orderBy: { createdAt: "desc" },
-      take: 100,
-    }),
-  ]);
+      }),
+      decisionsForOwner(prisma, user.id),
+      portfolioForOwner(prisma, user.id),
+      prisma.financeChange.findMany({
+        where: { OR: [{ userId: user.id }, { userId: null }] },
+        orderBy: { createdAt: "desc" },
+        take: 100,
+      }),
+    ]);
+  } catch (err) {
+    const message = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    console.error("[finance:page]", message, err);
+    return (
+      <div className="mx-auto max-w-2xl rounded-xl border border-zk-bad-fg/30 bg-zk-surface p-6">
+        <h1 className="text-lg font-bold text-zk-text">Finance failed to load</h1>
+        <pre className="mt-3 whitespace-pre-wrap text-xs text-zk-bad-fg">{message}</pre>
+      </div>
+    );
+  }
+  const [criteria, run, decisions, portfolio, changes] = data;
   const researching = run?.candidates.filter((c) => !c.decision) ?? [];
   const groups = [
     { title: "Needs you", entries: decisions.needsYou, actionable: true },
