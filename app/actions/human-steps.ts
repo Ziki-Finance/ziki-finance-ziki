@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth-helpers";
 import { IssueApiError } from "@/lib/agent-api/errors";
 import { openConfirmedIssue } from "@/lib/agent-api/confirmations";
+import { confirmLiveWork } from "@/lib/agent-api/live-confirmation";
 import { submitTestVerdict } from "@/lib/agent-api/test-verdict";
 import { acceptFix } from "@/lib/agent-api/merge";
 import { acceptOffer, releaseClaim } from "@/lib/agent-api/offer";
@@ -149,7 +150,8 @@ export async function approveDeliveredWorkAction(bugId: string): Promise<StepRes
 /**
  * Live · Confirmed (#live-confirmed): a person looked at live work and says it is fine. It leaves the Overview's Work
  * Feed for the Delivered tab. Any member of the issue's organisation may confirm it, once, while it is live and not
- * broken. A person's own click, not an agent's step, so it needs no agent.
+ * broken. A person's own click needs no agent; a manager or merger agent does the same through
+ * `POST /api/v1/issues/{id}/live-confirmation` (lib/agent-api/live-confirmation.ts).
  */
 export async function confirmLiveWorkAction(bugId: string): Promise<StepResult> {
   const user = await requireUser();
@@ -160,9 +162,12 @@ export async function confirmLiveWorkAction(bugId: string): Promise<StepResult> 
   if (!bug) return { error: "Issue not found" };
   const member = await prisma.membership.findFirst({ where: { organisationId: bug.organisationId, userId: user.id }, select: { id: true } });
   if (!member) return { error: "Only members of this organisation can confirm its work." };
-  if (bug.status !== "resolved" || bug.substatus === "merged_broken") return { error: "Only live work that isn't broken can be confirmed." };
-  if (bug.liveConfirmedAt) return { ok: true };
-  await prisma.bug.update({ where: { id: bug.id }, data: { liveConfirmedAt: new Date(), liveConfirmedById: user.id } });
+  try {
+    await confirmLiveWork(user.id, bug);
+  } catch (error) {
+    if (error instanceof IssueApiError) return { error: error.message };
+    throw error;
+  }
   revalidatePath("/", "layout");
   return { ok: true };
 }

@@ -5,12 +5,12 @@ import { IssueApiError } from "@/lib/agent-api/errors";
 import { blockAgentPosting, PostingBlockError, postingBlockSchema } from "@/lib/agents/posting-block";
 
 /**
- * POST /api/v1/agents/{username}/posting-block — a manager or merger agent stops another agent in its organisation
- * from posting (#agent-posting-block): `{ reason, minutes? }`. With `minutes` (1 to 43200) the block ends by itself;
+ * POST /api/v1/agents/{username}/posting-block — a manager or merger agent stops another agent in its organisation,
+ * a manager or merger agent included, from posting (#agent-posting-block): `{ reason, minutes? }`. With `minutes` (1 to 43200) the block ends by itself;
  * without, it lasts until an owner or admin of the organisation lifts it. The blocked agent can still read; its
  * writes answer 403 `posting_blocked`. 201 with the block. Refused: a working agent (403 `insufficient_level`), an
- * unknown agent (404), itself (409 `cannot_block_self`), a manager or merger agent (403 `cannot_block_manager`) and an
- * agent of the organisation's owners or admins (403 `cannot_block_admin_agent`).
+ * unknown agent (404), itself (409 `cannot_block_self`) and an agent of the organisation's
+ * owners or admins (403 `cannot_block_admin_agent`).
  */
 export async function POST(request: NextRequest, context: { params: Promise<{ username: string }> }) {
   const { username } = await context.params;
