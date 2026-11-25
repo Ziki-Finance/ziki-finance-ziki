@@ -14,6 +14,7 @@ import {
   sectionStatuses,
   type SectionStatus,
 } from "@/lib/finance/pipeline";
+import { findDemoStock } from "@/lib/finance/demo-stocks";
 import {
   FreshCheckButton,
   TradeButton,
@@ -108,7 +109,21 @@ export default async function FinanceTickerPage({
   const holding =
     portfolio.positions.find((p) => p.symbol === symbol) ?? null;
 
-  if (demo === "1" && symbol === "MSFT") {
+  const demoStock = demo === "1" ? findDemoStock(symbol) : null;
+  if (demoStock) {
+    const demoCall = demoStock.item.call;
+    const demoBadgeLabel = demoCall
+      ? CALL_LABELS[demoCall] ?? demoCall
+      : STAGE_LABEL[demoStock.item.stage] ?? demoStock.item.stage;
+    const demoBadgeClass =
+      demoCall === "no_go" || demoCall === "sell"
+        ? "bg-zk-bad-bg text-zk-bad-fg"
+        : demoCall === "trim"
+          ? "bg-zk-warn-bg text-zk-warn-fg"
+          : demoCall
+            ? "bg-zk-ok-bg text-zk-ok-fg"
+            : "bg-zk-tint text-zk-accent";
+
     return (
       <div className="mx-auto max-w-5xl space-y-5 pb-10">
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zk-accent/40 bg-zk-tint/50 px-4 py-2.5 text-xs">
@@ -126,27 +141,29 @@ export default async function FinanceTickerPage({
         <header className="flex flex-col justify-between gap-4 rounded-2xl border border-zk-border bg-zk-surface p-5 sm:flex-row sm:items-center sm:p-6">
           <div className="flex items-center gap-3.5">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-zk-border bg-zk-bg text-sm font-bold text-zk-accent">
-              MS
+              {symbol.slice(0, 2)}
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2.5">
                 <h1 className="text-xl font-extrabold tracking-tight text-zk-text">
-                  Microsoft
+                  {demoStock.item.name}
                 </h1>
-                <span className="font-mono text-xs text-zk-muted">MSFT</span>
-                <span className="rounded-full bg-zk-ok-bg px-2.5 py-0.5 text-xs font-medium text-zk-ok-fg">
-                  Go
+                <span className="font-mono text-xs text-zk-muted">{symbol}</span>
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${demoBadgeClass}`}
+                >
+                  {demoBadgeLabel}
                 </span>
                 <span className="rounded-full border border-zk-accent/40 bg-zk-tint px-2.5 py-0.5 text-xs font-medium text-zk-accent">
                   Demo
                 </span>
               </div>
               <p className="mt-1 text-xs text-zk-muted">
-                Quality at a fair price · criteria v1
+                {demoStock.criteriaLabel} · criteria v{demoStock.criteriaVersion}
               </p>
             </div>
           </div>
-          <TradeButton symbol="MSFT" label="+ Log a trade (MSFT)" />
+          <TradeButton symbol={symbol} label={`+ Log a trade (${symbol})`} />
         </header>
 
         {holding ? (
@@ -215,17 +232,24 @@ export default async function FinanceTickerPage({
                 <h2 className="text-base font-bold text-zk-text">
                   Recommendation
                 </h2>
-                <span className="rounded-full bg-zk-ok-bg px-2.5 py-0.5 text-xs font-medium text-zk-ok-fg">
-                  Go
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${demoBadgeClass}`}
+                >
+                  {demoBadgeLabel}
                 </span>
               </div>
-              <span className="text-xs text-zk-muted">
-                Reviewers: 4 Go / 1 No-go
-              </span>
+              {demoStock.item.reviewGo !== null &&
+              demoStock.item.reviewTotal !== null ? (
+                <span className="text-xs text-zk-muted">
+                  Reviewers: {demoStock.item.reviewGo} Go /{" "}
+                  {demoStock.item.reviewTotal - demoStock.item.reviewGo} No-go
+                </span>
+              ) : (
+                <span className="text-xs text-zk-muted">In pipeline</span>
+              )}
             </div>
             <p className="text-sm font-medium leading-relaxed text-zk-text">
-              Durable enterprise cloud moat, 35% ROIC, and disciplined capital
-              return.
+              {demoStock.item.summary}
             </p>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <div className="rounded-xl border border-zk-border bg-zk-bg p-3">
@@ -233,7 +257,7 @@ export default async function FinanceTickerPage({
                   Buy range
                 </p>
                 <p className="mt-1 text-sm font-semibold tabular-nums text-zk-text">
-                  $395.00 – $435.00
+                  {demoStock.buyRange}
                 </p>
               </div>
               <div className="rounded-xl border border-zk-border bg-zk-bg p-3">
@@ -241,7 +265,7 @@ export default async function FinanceTickerPage({
                   Review if below
                 </p>
                 <p className="mt-1 text-sm font-semibold tabular-nums text-zk-text">
-                  $365.00
+                  {demoStock.reviewIfBelow}
                 </p>
               </div>
               <div className="rounded-xl border border-zk-border bg-zk-bg p-3">
@@ -249,7 +273,7 @@ export default async function FinanceTickerPage({
                   Hold for
                 </p>
                 <p className="mt-1 text-sm font-semibold text-zk-text">
-                  5+ years
+                  {demoStock.holdFor}
                 </p>
               </div>
             </div>
@@ -257,145 +281,19 @@ export default async function FinanceTickerPage({
         )}
 
         <FinanceTickerPipeline
-          symbol="MSFT"
-          currentStage="done"
-          criteriaLabel="Quality at a fair price"
-          criteriaVersion={1}
-          proposedCount={2}
-          sectionsCovered={4}
+          symbol={symbol}
+          currentStage={demoStock.item.stage}
+          criteriaLabel={demoStock.criteriaLabel}
+          criteriaVersion={demoStock.criteriaVersion}
+          proposedCount={demoStock.proposedCount}
+          sectionsCovered={demoStock.sectionsCovered}
           isDemo
-          evidence={[
-            {
-              id: "demo-ev-1",
-              section: "business",
-              summary:
-                "Azure and Microsoft 365 create high enterprise switching costs with >42% operating margins.",
-              tier: 1,
-              tierLabel: "SEC Filing",
-              codeChecked: true,
-              codeCheckNote: "Verified against FY26 10-K",
-              url: "https://www.sec.gov",
-            },
-            {
-              id: "demo-ev-2",
-              section: "numbers",
-              summary:
-                "Free cash flow margin above 30% with net cash position funding AI infrastructure capex.",
-              tier: 1,
-              tierLabel: "Financials",
-              codeChecked: true,
-              codeCheckNote: null,
-              url: "https://www.sec.gov",
-            },
-            {
-              id: "demo-ev-3",
-              section: "filings",
-              summary:
-                "10-K highlights $80B+ annual capex commitment for data-center expansion.",
-              tier: 1,
-              tierLabel: "SEC Filing",
-              codeChecked: false,
-              codeCheckNote: null,
-              url: "https://www.sec.gov",
-            },
-            {
-              id: "demo-ev-4",
-              section: "news",
-              summary:
-                "Commercial cloud backlog grew 22% YoY driven by enterprise Copilot adoption.",
-              tier: 2,
-              tierLabel: "News",
-              codeChecked: false,
-              codeCheckNote: null,
-              url: "https://www.sec.gov",
-            },
-          ]}
-          evaluations={[
-            {
-              id: "demo-eval-1",
-              call: "buy",
-              callLabel: "Buy",
-              against: false,
-              confidence: 86,
-              createdAt: "2026-11-25",
-              reasons: [
-                "Enterprise cloud + productivity lock-in supports durable double-digit FCF compounding.",
-                "Balance sheet remains net-cash despite elevated AI capex.",
-              ],
-              risks: ["AI monetization lagging data-center depreciation."],
-              changeMind:
-                "Operating margin falling below 38% for two consecutive quarters.",
-              buyRangeLow: "$395.00",
-              buyRangeHigh: "$435.00",
-              reviewIfBelow: "$365.00",
-              holdDuration: "5+ years",
-              citedCount: 4,
-            },
-            {
-              id: "demo-eval-2",
-              call: "hold",
-              callLabel: "Hold",
-              against: true,
-              confidence: 71,
-              createdAt: "2026-11-25",
-              reasons: [
-                "Capex intensity reduces near-term free cash flow conversion.",
-              ],
-              risks: ["Multiple compression if Azure growth slows below 20%."],
-              changeMind: "Clear acceleration in AI software gross margins.",
-              buyRangeLow: "$370.00",
-              buyRangeHigh: "$400.00",
-              reviewIfBelow: "$350.00",
-              holdDuration: "3–5 years",
-              citedCount: 3,
-            },
-          ]}
-          breakdown={{
-            total: 2,
-            buy: 1,
-            hold: 1,
-            dontBuy: 0,
-            against: 1,
-            averageConfidence: 79,
-          }}
-          overallVerdictLabel="Buy"
-          overallVerdictKey="buy"
-          decision={{
-            id: "demo-decision",
-            call: "go",
-            origin: "review",
-            actorLabel: "Finance Committee",
-            sentence:
-              "Durable enterprise cloud moat, 35% ROIC, and disciplined capital return.",
-            reviewGo: 4,
-            reviewTotal: 5,
-            reasons: [
-              "High-margin recurring enterprise software & cloud infrastructure.",
-              "Consistent dividend growth and share repurchases backed by FCF.",
-            ],
-            answerAgainst:
-              "Elevated AI capex is funded organically from operating cash flow without taking on net debt.",
-            answerDissent:
-              "1 reviewer preferred waiting for a pullback toward $395 due to near-term capex drag.",
-            changeMind:
-              "Sustained Azure deceleration below 18% YoY or operating margin compression below 38%.",
-            reviews: [
-              {
-                id: "demo-rev-1",
-                actorLabel: "Reviewer A",
-                call: "go",
-                summary: "Strongest balance sheet in megacap tech.",
-                answerAgainst: "Capex is high-ROIC contracted demand.",
-              },
-              {
-                id: "demo-rev-2",
-                actorLabel: "Reviewer B",
-                call: "no_go",
-                summary: "Valuation leaves modest margin of safety.",
-                answerAgainst: "Would revisit below $395.",
-              },
-            ],
-          }}
+          evidence={demoStock.evidence}
+          evaluations={demoStock.evaluations}
+          breakdown={demoStock.breakdown}
+          overallVerdictLabel={demoStock.overallVerdictLabel}
+          overallVerdictKey={demoStock.overallVerdictKey}
+          decision={demoStock.decision}
         />
       </div>
     );

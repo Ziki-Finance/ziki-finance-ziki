@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { FinanceCriteriaView } from "@/lib/finance/criteria";
 import { financeCriteriaTitle } from "@/lib/validations/finance";
+import { DEMO_STOCK_ITEMS } from "@/lib/finance/demo-stocks";
 import {
   CriteriaModal,
   FinanceCriteriaManager,
@@ -24,23 +25,6 @@ export type ResearchStockItem = {
   criteriaId: string | null;
   isHeld: boolean;
   isDemo?: boolean;
-};
-
-const DEMO_STOCK_ITEM: ResearchStockItem = {
-  id: "demo-msft",
-  symbol: "MSFT",
-  name: "Microsoft",
-  bucket: "needs_you",
-  call: "go",
-  stage: "decide",
-  summary:
-    "Durable enterprise cloud moat, 35% ROIC, and disciplined capital return.",
-  reviewGo: 4,
-  reviewTotal: 5,
-  origin: "review",
-  criteriaId: null,
-  isHeld: false,
-  isDemo: true,
 };
 
 type FilterKey = "all" | "needs_you" | "go" | "in_progress" | "not_now";
@@ -112,7 +96,7 @@ export function FinanceResearchBoard({
     null;
 
   const displayItems = useMemo(
-    () => (showDemo ? [DEMO_STOCK_ITEM, ...items] : items),
+    () => (showDemo ? [...DEMO_STOCK_ITEMS, ...items] : items),
     [showDemo, items],
   );
 
