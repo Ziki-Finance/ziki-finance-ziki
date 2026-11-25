@@ -49,8 +49,7 @@ export const CONFIRMATION_SUMMARY_MAX_CHARS = ENTRY_SUMMARY_MAX_CHARS;
 
 const ref = z.string().trim().min(1).max(191);
 
-/** The entry's body. Summary and description follow the idea verdict rules (`ideaVerdictFields`). */
-export const confirmationSchema = z
+const confirmationFields = z
   .object({
     projectId: ref.optional(),
     verdict: z.enum(CONFIRMATION_VERDICTS),
@@ -67,15 +66,25 @@ export const confirmationSchema = z
      */
     files: evidenceFilesSchema.optional(),
   })
-  .strict()
-  .superRefine((body, ctx) => {
-    if (body.verdict === "confirm" && !(body.files && body.files.length > 0)) {
+  .strict();
+
+type ConfirmationFields = z.infer<typeof confirmationFields>;
+
+function confirmationRules(requireFiles: boolean) {
+  return (body: ConfirmationFields, ctx: z.RefinementCtx) => {
+    if (requireFiles && body.verdict === "confirm" && !(body.files && body.files.length > 0)) {
       ctx.addIssue({ code: "custom", path: ["files"], message: "A confirm needs files: the files (and lines) where you found the issue, as [{ path, lines? }]." });
     }
     if (body.duplicateOfId && body.verdict !== "reject") {
       ctx.addIssue({ code: "custom", path: ["duplicateOfId"], message: "duplicateOfId only goes with reject: this issue duplicates that one." });
     }
-  });
+  };
+}
+
+/** The entry's body. Summary and description follow the idea verdict rules (`ideaVerdictFields`). */
+export const confirmationSchema = confirmationFields.superRefine(confirmationRules(true));
+/** A bulk confirm's entries (#bulk-confirm): the manager's one judgement covers them all, so files are optional. */
+const bulkEntrySchema = confirmationFields.superRefine(confirmationRules(false));
 
 export type ConfirmationInput = z.infer<typeof confirmationSchema>;
 
@@ -121,8 +130,8 @@ function invalid(error: z.ZodError): IssueApiError {
 }
 
 /** Parses a raw body, throwing a 400 `IssueApiError` that names the field. */
-export function parseConfirmation(raw: unknown): ConfirmationInput {
-  const parsed = confirmationSchema.safeParse(raw ?? {});
+export function parseConfirmation(raw: unknown, options: { requireFiles?: boolean } = {}): ConfirmationInput {
+  const parsed = (options.requireFiles === false ? bulkEntrySchema : confirmationSchema).safeParse(raw ?? {});
   if (!parsed.success) throw invalid(parsed.error);
   return parsed.data;
 }
@@ -221,8 +230,9 @@ export async function giveConfirmation(
   scope: Scope,
   issueRef: string,
   raw: unknown,
+  options: { requireFiles?: boolean } = {},
 ): Promise<GivenConfirmation> {
-  const input = parseConfirmation(raw);
+  const input = parseConfirmation(raw, options);
   const parsedRef = parseIssueRef(issueRef);
 
   return prisma.$transaction(async (tx) => {
@@ -521,4 +531,102 @@ export async function listConfirmations(
       })),
     })),
   };
+}
+
+/** The most issues one bulk confirm takes; call it again for the rest (`remaining`). */
+export const BULK_CONFIRM_MAX = 100;
+
+export const bulkConfirmSchema = z
+  .object({
+    /** The issues to confirm, by number or id. Leave it out for the oldest ones waiting that you haven't confirmed. */
+    issues: z.array(ref).min(1).max(BULK_CONFIRM_MAX).optional(),
+    summary: entrySummary,
+    description: entryDescription,
+    /** Optional here: files that apply to all of them. */
+    files: evidenceFilesSchema.optional(),
+  })
+  .strict();
+export type BulkConfirmInput = z.infer<typeof bulkConfirmSchema>;
+
+export type BulkConfirmResult = {
+  /** Issues this call confirmed (given or replaced the owner's manager entry). */
+  confirmed: number;
+  /** Of those, the ones now confirmed and moved to Open. */
+  opened: number;
+  /** Issues it couldn't confirm, with why. */
+  skipped: { issue: string; error: string; message: string }[];
+  /** Issues in the project still at Requires confirmation without this owner's manager confirmation. */
+  remaining: number;
+};
+
+/** The project's issues at Requires confirmation that `userId` hasn't given a manager-class confirmation yet. */
+function awaitingManagerConfirmation(scope: Scope, userId: string): Prisma.BugWhereInput {
+  return {
+    ...scope,
+    isDeleted: false,
+    track: "product",
+    substatus: "requires_confirmation",
+    confirmations: { none: { onBehalfOfUserId: userId, weightClass: "manager", undoneAt: null } },
+  };
+}
+
+/**
+ * `POST /api/v1/projects/{id}/confirmations` (manager, #bulk-confirm): a manager or merger agent confirms many issues
+ * at Requires confirmation at once, with one summary and description for them all, instead of one call per issue.
+ * Each is its owner's ordinary manager confirmation entry (it counts `managerVoteWeight`, replaces an earlier one, and
+ * is audited), and each one that is then confirmed moves on to Open. Up to `BULK_CONFIRM_MAX` per call: the issues
+ * named, or the oldest still waiting for this owner's manager confirmation. An issue that can't take it is skipped.
+ */
+export async function bulkConfirm(
+  agent: { agentId: string; ownerId: string; organisationId: string; level: AgentLevel },
+  scope: Scope,
+  raw: unknown,
+): Promise<BulkConfirmResult> {
+  if (!hasLevel(agent.level, "manager")) {
+    const message = "Only a manager or merger agent can confirm issues in bulk.";
+    throw new IssueApiError(403, message, { error: "insufficient_level", message });
+  }
+  const parsed = bulkConfirmSchema.safeParse(raw ?? {});
+  if (!parsed.success) throw invalid(parsed.error);
+  const input = parsed.data;
+
+  const refs =
+    input.issues ??
+    (
+      await prisma.bug.findMany({
+        where: awaitingManagerConfirmation(scope, agent.ownerId),
+        orderBy: { createdAt: "asc" },
+        take: BULK_CONFIRM_MAX,
+        select: { id: true },
+      })
+    ).map((bug) => bug.id);
+
+  const giver: ConfirmationGiver = { organisationId: agent.organisationId, userId: agent.ownerId, agent: { id: agent.agentId, level: agent.level } };
+  const entry = { verdict: "confirm" as const, summary: input.summary, description: input.description, ...(input.files ? { files: input.files } : {}) };
+  let confirmed = 0;
+  let opened = 0;
+  const skipped: BulkConfirmResult["skipped"] = [];
+  for (const issue of [...new Set(refs)]) {
+    try {
+      const given = await giveConfirmation(giver, scope, issue, entry, { requireFiles: false });
+      confirmed += 1;
+      if (given.opened) {
+        opened += 1;
+      } else if (given.confirmed) {
+        // Confirmed: move it on to Open, as ziki_open_issue would. Work that started first stays where it is.
+        try {
+          await openConfirmedIssue(agent, scope, issue);
+          opened += 1;
+        } catch (error) {
+          if (!(error instanceof IssueApiError)) throw error;
+        }
+      }
+    } catch (error) {
+      if (!(error instanceof IssueApiError)) throw error;
+      const body = (error.body ?? {}) as { error?: string };
+      skipped.push({ issue, error: body.error ?? "refused", message: error.message });
+    }
+  }
+  const remaining = await prisma.bug.count({ where: awaitingManagerConfirmation(scope, agent.ownerId) });
+  return { confirmed, opened, skipped, remaining };
 }

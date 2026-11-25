@@ -142,8 +142,10 @@ export function StatusBadge({ substatus, className = "" }: { substatus: Substatu
  * last moved, and a pill on the right with its status, or Approve on delivered work. Clicking a card unfolds
  * it downwards, in place, as an opened email; clicking its head folds it.
  */
-export function WorkFeed({ items, groups, title, toolbar, empty, footer, justAdded = [], justAddedCount = 0 }: {
+export function WorkFeed({ items, groups, title, toolbar, empty, footer, justAdded = [], justAddedCount = 0, groupActions = {} }: {
   items: WorkFeedItem[];
+  /** A control at the right of a section's title, by section key: Confirm all on Waiting for an agent (#bulk-confirm). */
+  groupActions?: Record<string, React.ReactNode>;
   /** New ideas that need your OK (#just-added), newest first, at the top of Needs your OK; the one just filed flashes. */
   justAdded?: JustAddedIdea[];
   /** How many there are in all, counted into Needs your OK. */
@@ -258,11 +260,14 @@ export function WorkFeed({ items, groups, title, toolbar, empty, footer, justAdd
                     {group.title} <span className="ml-1 text-[13px] font-medium tabular-nums text-zk-muted">{group.count + (group.key === "needs" ? justAddedCount : 0)}</span>
                   </h2>
                 </div>
-                {group.moreHref ? (
-                  <Link href={group.moreHref} className={`shrink-0 text-[13px] font-medium text-zk-accent hover:underline ${focus}`}>
-                    Show all {group.count + (group.key === "needs" ? justAddedCount : 0)} →
-                  </Link>
-                ) : null}
+                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                  {groupActions[group.key] ?? null}
+                  {group.moreHref ? (
+                    <Link href={group.moreHref} className={`shrink-0 text-[13px] font-medium text-zk-accent hover:underline ${focus}`}>
+                      Show all {group.count + (group.key === "needs" ? justAddedCount : 0)} →
+                    </Link>
+                  ) : null}
+                </div>
               </div>
               {group.items.length > 0 || (group.key === "needs" && justAdded.length > 0)
                 ? cards(group.items, group.title, group.key === "needs" && justAdded.length > 0 ? <IdeaOkCards ideas={justAdded} flash={flash} /> : null)
