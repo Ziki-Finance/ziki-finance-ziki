@@ -8,7 +8,7 @@ _Updated 2026-11-25_
 - `/finance` (`app/(app)/finance/page.tsx`, `components/finance/finance-research-board.tsx`, `components/finance/finance-criteria-manager.tsx`, `components/finance/portfolio-card.tsx`):
   - `max-w-7xl` research-first command center with 4-card KPI strip (`Portfolio value`, `Needs your call`, `Researched universe`, `Active criteria`).
   - `Stock Research & Analysis` at the top with verdict filter tabs (`All`, `Needs you`, `Go / Keep`, `In progress`, `Not now`), search, ticker monograms, and links to `/finance/[ticker]`.
-  - Right-hand rail with `Saved Criteria` and `Recent Agent Activity`; text-first `New / Edit research criteria` modal with clickable prefilled chips (`Quality at a fair price`, `Steady dividend growers`, `Long-term growth leaders`). Raw `Agent API` paths hidden from the investor UI.
+  - Collapsible `Saved Criteria` side rail (expanded via `Criteria (N)` toggle in the header; `Stock Research & Analysis` spans full width when collapsed); text-first `New / Edit research criteria` modal with clickable prefilled chips (`Quality at a fair price`, `Steady dividend growers`, `Long-term growth leaders`). Raw `Agent API` paths hidden from the investor UI.
   - `Portfolio` below with neutral border (`border-zk-border`), allocation bars, separated `Value` and `Gain / S&P 500`, neutral slate `Not checked yet` pill, soft `Next check` pills, and row links to `/finance/[ticker]`.
 - `/finance/[ticker]` (`app/(app)/finance/[ticker]/page.tsx`, `components/finance/finance-ticker-pipeline.tsx`):
   - Stock header with `+ Log a trade (SYMBOL)` button.

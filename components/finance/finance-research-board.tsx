@@ -9,7 +9,6 @@ import {
   CriteriaModal,
   FinanceCriteriaManager,
 } from "./finance-criteria-manager";
-import type { FinanceLogEntry } from "./portfolio-card";
 
 export type ResearchStockItem = {
   id: string;
@@ -72,19 +71,18 @@ export function FinanceResearchBoard({
   items,
   portfolioTotalValue,
   holdingsCount,
-  recentChanges,
 }: {
   initialCriteria: FinanceCriteriaView[];
   items: ResearchStockItem[];
   portfolioTotalValue: number | null;
   holdingsCount: number;
-  recentChanges: FinanceLogEntry[];
 }) {
   const [selectedCriteriaId, setSelectedCriteriaId] = useState<string | null>(
     initialCriteria[0]?.id ?? null,
   );
   const [filter, setFilter] = useState<FilterKey>("all");
   const [search, setSearch] = useState("");
+  const [criteriaOpen, setCriteriaOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCriteria, setEditingCriteria] =
     useState<FinanceCriteriaView | null>(null);
@@ -162,6 +160,14 @@ export function FinanceResearchBoard({
               ))}
             </select>
           ) : null}
+          <Button
+            type="button"
+            variant="secondary"
+            aria-expanded={criteriaOpen}
+            onClick={() => setCriteriaOpen((prev) => !prev)}
+          >
+            Criteria ({initialCriteria.length}) {criteriaOpen ? "▴" : "▾"}
+          </Button>
           <Button type="button" onClick={openNewModal}>
             + New criteria
           </Button>
@@ -232,11 +238,13 @@ export function FinanceResearchBoard({
         </button>
       </section>
 
-      {/* Main 2-Column Workspace: Researched Stocks (Priority) + Side Rail */}
+      {/* Main Workspace: Researched Stocks (Full-width when Criteria collapsed, 2-col when expanded) */}
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
         <section
           aria-label="Stock Research and Analysis"
-          className="lg:col-span-8 rounded-2xl border border-zk-border bg-zk-surface p-5 space-y-4"
+          className={`${
+            criteriaOpen ? "lg:col-span-8" : "lg:col-span-12"
+          } rounded-2xl border border-zk-border bg-zk-surface p-5 space-y-4`}
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -360,47 +368,18 @@ export function FinanceResearchBoard({
           )}
         </section>
 
-        {/* Right Side Rail: Criteria + Recent Agent Activity */}
-        <aside className="lg:col-span-4 space-y-4">
-          <FinanceCriteriaManager
-            initialCriteria={initialCriteria}
-            activeCriteriaId={activeCriteria?.id ?? null}
-            onSelectCriteria={(id) => setSelectedCriteriaId(id)}
-            onOpenNew={openNewModal}
-            onOpenEdit={openEditModal}
-          />
-
-          <section
-            aria-label="Recent Agent Activity"
-            className="rounded-2xl border border-zk-border bg-zk-surface p-5 space-y-3"
-          >
-            <h2 className="text-sm font-bold text-zk-text">
-              Recent Agent Activity
-            </h2>
-            {recentChanges.length === 0 ? (
-              <p className="text-xs text-zk-muted">
-                No agent activity recorded yet.
-              </p>
-            ) : (
-              <ul className="space-y-3">
-                {recentChanges.slice(0, 5).map((entry) => (
-                  <li
-                    key={entry.id}
-                    className="border-l-2 border-zk-accent/50 pl-3 py-0.5 text-xs"
-                  >
-                    <p className="text-zk-text2 leading-relaxed">
-                      {entry.description}
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-zk-muted">
-                      {new Date(entry.createdAt).toLocaleDateString()} ·{" "}
-                      {entry.actorLabel}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </aside>
+        {/* Collapsible Right Side Rail: Criteria */}
+        {criteriaOpen ? (
+          <aside className="lg:col-span-4 space-y-4">
+            <FinanceCriteriaManager
+              initialCriteria={initialCriteria}
+              activeCriteriaId={activeCriteria?.id ?? null}
+              onSelectCriteria={(id) => setSelectedCriteriaId(id)}
+              onOpenNew={openNewModal}
+              onOpenEdit={openEditModal}
+            />
+          </aside>
+        ) : null}
       </div>
 
       <CriteriaModal

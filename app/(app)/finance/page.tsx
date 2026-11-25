@@ -178,7 +178,6 @@ export default async function FinancePage() {
         items={items}
         portfolioTotalValue={portfolio.totalValue}
         holdingsCount={portfolio.positions.length}
-        recentChanges={serializedChanges}
       />
 
       <PortfolioCard portfolio={portfolio} changes={serializedChanges} />
