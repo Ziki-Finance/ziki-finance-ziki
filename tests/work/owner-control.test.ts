@@ -13,6 +13,8 @@ const bugFindFirst = vi.hoisted(() => vi.fn());
 const bugFindMany = vi.hoisted(() => vi.fn());
 const bugCount = vi.hoisted(() => vi.fn());
 const bugUpdate = vi.hoisted(() => vi.fn());
+const bugUpdateMany = vi.hoisted(() => vi.fn(async () => ({ count: 1 })));
+const auditEvent = vi.hoisted(() => vi.fn());
 const claimFindMany = vi.hoisted(() => vi.fn());
 const claimUpdateMany = vi.hoisted(() => vi.fn());
 const activityCreateMany = vi.hoisted(() => vi.fn());
@@ -34,7 +36,7 @@ const tx = {
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    bug: { findUnique: bugFindUnique, findFirst: bugFindFirst, findMany: bugFindMany, count: bugCount, update: bugUpdate },
+    bug: { findUnique: bugFindUnique, findFirst: bugFindFirst, findMany: bugFindMany, count: bugCount, update: bugUpdate, updateMany: bugUpdateMany },
     idea: { findFirst: ideaFindFirst },
     membership: { findFirst: membershipFindFirst },
     $transaction: vi.fn(async (fn: (client: typeof tx) => unknown) => fn(tx)),
@@ -46,6 +48,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/revalidate-issue", () => ({ revalidateIssue: vi.fn() }));
 vi.mock("@/lib/notify", () => ({ notifyLater: vi.fn() }));
 vi.mock("@/lib/agent-api/events", () => ({ publish: vi.fn() }));
+vi.mock("@/lib/agents/audit", () => ({ audit: auditEvent }));
 vi.mock("@/lib/agent-api/web-events", () => ({ publishWebEvent: vi.fn(), issueChangePayload: vi.fn(() => ({})) }));
 vi.mock("@/lib/coins/issue-payout", () => ({ releasePayoutIfLive: vi.fn(async () => false) }));
 vi.mock("@/lib/agent-api/test-verdict", () => ({ submitTestVerdict }));
@@ -56,6 +59,7 @@ vi.mock("@/lib/security/secret-guard", () => ({ checkPostForSecrets }));
 import { ownerMove } from "@/lib/owner-moves";
 import { ownerAcceptIdeaAction, ownerConfirmAllAction, ownerMoveIssueAction } from "@/app/actions/owner-moves";
 import { confirmLiveWorkAction, deliverForMyAgentAction, giveTestVerdictAction } from "@/app/actions/human-steps";
+import { agentConfirmLiveWork } from "@/lib/agent-api/live-confirmation";
 
 const inProgress = {
   id: "bug-1",
@@ -196,11 +200,11 @@ describe("Live · Confirmed (#live-confirmed)", () => {
     bugFindFirst.mockResolvedValue(live);
     membershipFindFirst.mockResolvedValue(null);
     expect("error" in (await confirmLiveWorkAction("bug-1"))).toBe(true);
-    expect(bugUpdate).not.toHaveBeenCalled();
+    expect(bugUpdateMany).not.toHaveBeenCalled();
 
     membershipFindFirst.mockResolvedValue({ id: "m-1" });
     expect(await confirmLiveWorkAction("bug-1")).toEqual({ ok: true });
-    expect(bugUpdate).toHaveBeenCalledWith({ where: { id: "bug-1" }, data: { liveConfirmedAt: expect.any(Date), liveConfirmedById: "user-1" } });
+    expect(bugUpdateMany).toHaveBeenCalledWith({ where: { id: "bug-1", liveConfirmedAt: null }, data: { liveConfirmedAt: expect.any(Date), liveConfirmedById: "user-1" } });
   });
 
   it("refuses work that isn't live, or is live but broken", async () => {
@@ -209,6 +213,22 @@ describe("Live · Confirmed (#live-confirmed)", () => {
     expect("error" in (await confirmLiveWorkAction("bug-1"))).toBe(true);
     bugFindFirst.mockResolvedValue({ ...live, substatus: "merged_broken" });
     expect("error" in (await confirmLiveWorkAction("bug-1"))).toBe(true);
-    expect(bugUpdate).not.toHaveBeenCalled();
+    expect(bugUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("a manager agent approves live work for its owner; a working agent can't", async () => {
+    const scope = { organisationId: "org-1", projectId: "project-1" };
+    const manager = { agentId: "agent-m", ownerId: "owner-1", organisationId: "org-1", level: "manager" as const };
+    bugFindFirst.mockResolvedValue(live);
+
+    await expect(agentConfirmLiveWork({ ...manager, level: "working" }, scope, "bug-1")).rejects.toMatchObject({ status: 403 });
+    expect(bugUpdateMany).not.toHaveBeenCalled();
+
+    expect(await agentConfirmLiveWork(manager, scope, "bug-1")).toMatchObject({ issueId: "bug-1", alreadyConfirmed: false });
+    expect(bugUpdateMany).toHaveBeenCalledWith({ where: { id: "bug-1", liveConfirmedAt: null }, data: { liveConfirmedAt: expect.any(Date), liveConfirmedById: "owner-1" } });
+    expect(auditEvent).toHaveBeenCalledWith({ agentId: "agent-m", organisationId: "org-1" }, "issue.live_confirmed", "bug:bug-1", { issueId: "bug-1" }, { bugId: "bug-1" });
+
+    bugFindFirst.mockResolvedValue({ ...live, substatus: "merged_broken" });
+    await expect(agentConfirmLiveWork(manager, scope, "bug-1")).rejects.toMatchObject({ status: 409 });
   });
 });
