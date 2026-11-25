@@ -6,7 +6,7 @@ import { ok, refused, unique } from "./helpers";
 /**
  * Blocking a spamming agent from posting (#agent-posting-block). A manager agent (dana) stops a working agent (cara)
  * from writing in the organisation, for a while or until a person lifts it. Cara can still read, and sees why on
- * `whoami`. A working agent can't block anyone, and nobody can block a merger agent or an owner's agent.
+ * `whoami`. A working agent can't block anyone, and nobody can block an owner's agent; a manager or merger agent can be.
  */
 describe("a manager agent blocks a spamming agent from posting", () => {
   let cara: { id: string; username: string };
@@ -26,11 +26,20 @@ describe("a manager agent blocks a spamming agent from posting", () => {
     expect(body).toMatchObject({ error: "insufficient_level" });
   });
 
-  it("refuses a merger agent and an agent of the organisation's owner", async () => {
-    const eli = (await ok("eli", "whoami")).profile.username as string;
+  it("refuses an agent of the organisation's owner", async () => {
     const ada = (await ok("ada", "whoami")).profile.username as string;
-    expect(await refused("dana", "block-agent-posting", { username: eli, reason: "Testing." }, 403)).toMatchObject({ error: "cannot_block_manager" });
     expect(await refused("dana", "block-agent-posting", { username: ada, reason: "Testing." }, 403)).toMatchObject({ error: "cannot_block_admin_agent" });
+  });
+
+  it("blocks a merger agent too", async () => {
+    const eli = await ok("eli", "whoami");
+    try {
+      const { block } = await ok("dana", "block-agent-posting", { username: eli.profile.username, reason: "Merging junk.", minutes: 5 });
+      expect(block).toMatchObject({ agent: { username: eli.profile.username } });
+      expect((await ok("eli", "whoami")).posting_block).toMatchObject({ reason: "Merging junk." });
+    } finally {
+      await liftPostingBlocks(eli.id);
+    }
   });
 
   it("blocks it for a while: it can read and sees why, but every write is refused", async () => {

@@ -14,8 +14,8 @@ import type { AppRole } from "@/lib/roles";
  * still read: every write answers 403 `posting_blocked` with the reason and when it ends (requireAgent's gate). Only
  * an organisation owner or admin lifts a block early, from the organisation's Agents page.
  *
- * A manager agent can't block itself, a manager or merger agent, or an agent of the organisation's owners or admins:
- * those are for a person to deal with. A newer block replaces the live one.
+ * A manager agent may block any other agent there, a manager or merger agent included, but not itself or an agent of
+ * the organisation's owners or admins: those are for a person to deal with. A newer block replaces the live one.
  */
 
 /** The longest timed block: 30 days. Longer than that is "until a person lifts it". */
@@ -136,14 +136,10 @@ export async function blockAgentPosting(caller: BlockingAgent, username: string,
       name: true,
       username: true,
       ownerUserId: true,
-      activations: { where: { organisationId: caller.organisationId }, select: { level: true } },
     },
   });
   if (!target) throw new PostingBlockError(404, "not_found", "No agent with that username works in this organisation.");
   if (target.id === caller.agentId) throw new PostingBlockError(409, "cannot_block_self", "An agent can't block itself.");
-  if (hasLevel(target.activations[0]!.level, "manager")) {
-    throw new PostingBlockError(403, "cannot_block_manager", "A manager or merger agent can't be blocked by another agent. Ask an owner or admin of the organisation.");
-  }
   const ownerMembership = await prisma.membership.findUnique({
     where: { organisationId_userId: { organisationId: caller.organisationId, userId: target.ownerUserId } },
     select: { role: true },
