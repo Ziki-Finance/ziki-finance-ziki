@@ -17,6 +17,9 @@ import { refreshMergeQueue } from "@/lib/github/sync";
 import { followPreviewBuilds } from "@/lib/previews/builds";
 import { sweepSecurityChecks } from "@/lib/security-checks/engine";
 import { retryPendingWithdrawals } from "@/lib/coins/withdraw";
+import { sweepProjectBudgets } from "@/lib/coins/budget-sweeps";
+import { sweepZikiEstimates } from "@/lib/coins/ziki-estimates";
+import { convertSoloIdeas, endBrokenSolo } from "@/lib/projects/solo";
 import { sweepFallback } from "@/lib/security-checks/fallback";
 import { sweepTesting } from "@/lib/agent-api/testing-sweep";
 import { sweepProactiveOffers } from "@/lib/agents/proactive-offers";
@@ -88,6 +91,8 @@ export type PlatformSweepsResult = {
     githubStatus: { status: "ok" | "error"; checked?: number; moved?: number; failed?: number; error?: string };
     previews: { status: "ok" | "error"; checked?: number; failed?: number; error?: string };
     withdrawals: { status: "ok" | "error"; checked?: number; sent?: number; waiting?: number; returned?: number; error?: string };
+    projectBudgets: { status: "ok" | "error"; checked?: number; returned?: number; locked?: number; error?: string };
+    zikiEstimates: { status: "ok" | "error"; checked?: number; estimated?: number; error?: string };
     deliveries: { status: "ok" | "error"; processed?: number; error?: string };
     retention: {
       status: "ok" | "error";
@@ -140,6 +145,8 @@ export async function runPlatformSweeps(): Promise<PlatformSweepsResult | { skip
         githubStatus: { status: "ok" },
         previews: { status: "ok" },
         withdrawals: { status: "ok" },
+        projectBudgets: { status: "ok" },
+        zikiEstimates: { status: "ok" },
         deliveries: { status: "ok" },
         retention: { status: "ok" },
         searchIndex: { status: "ok" },
@@ -326,6 +333,39 @@ export async function runPlatformSweeps(): Promise<PlatformSweepsResult | { skip
       recordSweepFailure("withdrawals", err);
       result.sweeps.withdrawals = { status: "error", error: err instanceof Error ? err.message : String(err) };
     }
+
+    // 3b''. Solo projects (#solo): end Solo where someone else can now work, and turn ideas filed some other way into
+    // issues.
+    try {
+      await endBrokenSolo();
+      await convertSoloIdeas();
+      recordSweepSuccess("soloIdeas");
+    } catch (err) {
+      recordSweepFailure("soloIdeas", err);
+    }
+
+    // 3b'. Ziki's own estimate (#ziki-estimate): issues that waited a day with fewer than three estimates get Ziki's, so
+    // none waits for a price forever. Before the budgets, so a price it settles can be locked on a later run.
+    try {
+      const res = await sweepZikiEstimates();
+      recordSweepSuccess("zikiEstimates");
+      result.sweeps.zikiEstimates = { status: "ok", ...res };
+    } catch (err) {
+      recordSweepFailure("zikiEstimates", err);
+      result.sweeps.zikiEstimates = { status: "error", error: err instanceof Error ? err.message : String(err) };
+    }
+
+    // 3c. Project budgets (#project-budget, #price-lock): lock settled prices the budget covers, warn owners whose work
+    // waits for funding or whose budget is low, and give an idle or archived project's budget back.
+    try {
+      const res = await sweepProjectBudgets();
+      recordSweepSuccess("projectBudgets");
+      result.sweeps.projectBudgets = { status: "ok", ...res };
+    } catch (err) {
+      recordSweepFailure("projectBudgets", err);
+      result.sweeps.projectBudgets = { status: "error", error: err instanceof Error ? err.message : String(err) };
+    }
+
 
     // 4. Webhook Deliveries
     try {

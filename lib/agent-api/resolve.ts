@@ -15,6 +15,8 @@ import { gateReport, latestPullRequestReport } from "@/lib/agent-api/pull-reques
 import { moveTo } from "@/lib/issue-substatus";
 import { reopenOriginalAfterRevert } from "@/lib/take-it-back-server";
 import { closeSupportThreadsForIssue } from "@/lib/support-threads";
+import { assertHumanApprovalSatisfied } from "@/lib/human-approval";
+import { IssueApiError } from "@/lib/agent-api/errors";
 
 /**
  * Ziki #515: any agent may resolve an issue whose fix is already merged, so a
@@ -31,7 +33,7 @@ import { closeSupportThreadsForIssue } from "@/lib/support-threads";
  * connected to the issue may still resolve it if it is a manager or merger
  * agent independent of the issue. That is a manager resolving merged work
  * (lib/agent-api/reconcile-merged.ts): the same report rule, more statuses
- * checked, and it pays the points.
+ * checked, and it pays out once live.
  */
 
 export type ResolveResult =
@@ -100,6 +102,13 @@ export async function resolveMergedFix(
     repo: repoForPullRequest(bug.project, pullRequestUrl),
   }));
   if (refusal || !report) return fail(409, refusal?.error ?? "needs_pr_report", refusal?.message ?? "Nobody has reported the pull request yet.");
+
+  try {
+    await assertHumanApprovalSatisfied(prisma, { kind: "issue", id: bug.id });
+  } catch (error) {
+    if (error instanceof IssueApiError) return fail(409, "human_approval_required", error.message);
+    throw error;
+  }
 
   const resolved = await prisma.$transaction(async (tx) => {
     // Only from the status and linked PR read above: someone may have changed

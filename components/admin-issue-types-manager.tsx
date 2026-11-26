@@ -205,7 +205,7 @@ export function AdminIssueTypesManager({
       ) : null}
 
       {(isCreating || editingType) && (
-        <div className="rounded-xl border border-slate-200 bg-card p-6 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-card p-6 shadow-none">
           <h2 className="text-lg font-medium text-slate-900">
             {editingType ? `Edit "${editingType.name}"` : "Create new issue type"}
           </h2>
@@ -303,7 +303,7 @@ export function AdminIssueTypesManager({
       {/* #211: `overflow-hidden` clipped the Actions column on narrow screens,
           making Delete unreachable. Scroll instead, matching the users table
           in app/(app)/superadmin/users/page.tsx. */}
-      <div className="overflow-x-auto overflow-y-hidden rounded-xl border border-slate-200 bg-card shadow-sm">
+      <div className="overflow-x-auto overflow-y-hidden rounded-xl border border-slate-200 bg-card shadow-none">
         <table className="min-w-full divide-y divide-slate-200 text-sm">
           <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
             <tr>

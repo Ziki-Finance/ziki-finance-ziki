@@ -1,3 +1,4 @@
+import { PRIMARY_ACTION } from "@/lib/ui-style";
 import "@/app/(app)/settings/settings-design.css";
 import { checkOptions, loadProofRules } from "@/lib/proof";
 import { ProofRulesEditor } from "@/components/proof-rules-editor";
@@ -5,7 +6,7 @@ import { organisationAccessFor } from "@/lib/organisation-access";
 import { PRODUCT_TRACK } from "@/lib/marketing/track";
 import type { AppRole } from "@/lib/roles";
 import Link from "next/link";
-import { issuesPath, orgPath, refOf } from "@/lib/project-paths";
+import { issuesPath, orgPath, projectPath, refOf } from "@/lib/project-paths";
 import { notFound, redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth-helpers";
 import { currentOrganisationIdFor } from "@/lib/organisation-context";
@@ -20,15 +21,15 @@ import { repositoryAccessForSettings } from "@/lib/github/settings-access";
 import { PreviewSettingsForm } from "./preview-settings-form";
 import { ProjectGoals } from "@/app/(app)/[org]/[project]/goals/project-goals";
 import { CopyProjectIdButton } from "@/app/(app)/projects/copy-project-id";
+import { SoloButton } from "@/components/coins/solo-button";
+import { SOLO_BLOCK_MESSAGE, soloBlock } from "@/lib/projects/solo";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { Button } from "@/components/ui/button";
 import { deleteProjectAction, setProjectArchivedAction } from "@/app/(app)/projects/actions";
 import { workflowValues } from "@/lib/workflow-config";
 import { previewSettingsValues } from "@/lib/validations/preview-settings";
-import {
-  getPlatformRewardConfig,
-  projectDefaultsFromPlatform,
-} from "@/lib/points/platform-rewards";
+import { getPlatformRewardConfig } from "@/lib/rewards/platform";
+import { projectDefaultsFromPlatform } from "@/lib/rewards/config";
 
 export const metadata = { title: "Project settings" };
 
@@ -95,7 +96,7 @@ function parseSection(value: string | undefined, github: string | undefined): Se
   return SECTIONS.find((item) => item.id === value)?.id ?? "details";
 }
 
-const card = "rounded-[20px] border border-zk-border bg-zk-surface p-6 flex flex-col gap-4";
+const card = "rounded-panel border border-zk-border bg-zk-surface p-6 flex flex-col gap-4";
 
 /** The Checks section's data: the organisation's rules (read-only here) and this project's per area. */
 async function projectChecks(organisationId: string, projectId: string, user: { id: string; role?: AppRole | null }) {
@@ -131,9 +132,9 @@ export default async function ProjectSettingsPage({
   const project = await prisma.project.findFirst({
     where: { organisationId, slug },
     select: {
-      id: true, slug: true, name: true, goal: true, repoUrl: true, stagingUrl: true, siteUrl: true,
-      visibility: true, isOpenForContributors: true, acceptsGuestIdeas: true, contributorGuidelines: true,
-      githubInstallationId: true, rewardConfig: true, workflow: true, archivedAt: true, organisation: { select: { slug: true } },
+      id: true, slug: true, name: true, goal: true, repoUrl: true, stagingUrl: true, siteUrl: true, appStoreUrl: true, playStoreUrl: true, downloadUrl: true,
+      visibility: true, isOpenForContributors: true, acceptsGuestIdeas: true, contributorGuidelines: true, humanApprovalGuidelines: true,
+      githubInstallationId: true, rewardConfig: true, workflow: true, archivedAt: true, solo: true, organisation: { select: { slug: true } },
       _count: { select: { bugs: true } },
       repositories: {
         select: { id: true, url: true, label: true, branch: true, githubInstallationId: true },
@@ -160,6 +161,9 @@ export default async function ProjectSettingsPage({
     : null;
   const platformDefaults = section === "details" ? projectDefaultsFromPlatform(await getPlatformRewardConfig(prisma)) : null;
   const base = `/projects/${encodeURIComponent(project.slug)}/settings`;
+  // #solo: why it can't be Solo right now, said before they try.
+  const soloBlocked = section === "details" && !project.solo ? await soloBlock(prisma, project.id) : null;
+  const soloBlockReason = soloBlocked ? SOLO_BLOCK_MESSAGE[soloBlocked] : null;
 
   return (
     <div className="settings-page settings-design mx-auto flex w-full max-w-5xl flex-col gap-6 pb-10">
@@ -181,6 +185,9 @@ export default async function ProjectSettingsPage({
           <CopyProjectIdButton projectId={project.id} />
           {project.archivedAt ? <span className="rounded-full bg-zk-warn-bg px-2 py-0.5 text-[11px] font-bold text-zk-warn-fg">Archived</span> : null}
         </div>
+        <Link href={projectPath(refOf(project), "/budget")} className="self-start text-sm font-semibold text-zk-accent hover:underline">
+          Fund this project with Ziks (budget)
+        </Link>
       </div>
 
       <div className="settings-layout">
@@ -192,7 +199,7 @@ export default async function ProjectSettingsPage({
                 key={item.id}
                 href={`${base}?section=${item.id}`}
                 aria-current={on ? "page" : undefined}
-                className={`flex w-full items-center gap-3 rounded-[14px] px-3 py-2.5 text-left text-zk-text transition ${
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-zk-text transition ${
                   on ? "bg-zk-tint" : "bg-transparent hover:bg-zk-chip"
                 }`}
               >
@@ -224,15 +231,32 @@ export default async function ProjectSettingsPage({
               <ProjectSettingsForm project={project} defaults={platformDefaults} />
             </section>
           ) : null}
+          {/* #solo: just the owner and their own agents, or other people's agents too. */}
+          {section === "details" ? (
+            <section className={card} data-testid="solo-setting">
+              <div className="flex flex-col gap-1">
+                <h2 className="m-0 text-lg font-bold text-zk-text">Who works on it</h2>
+                <span className="text-[13px] text-zk-muted">
+                  {project.solo
+                    ? "Solo: just you and your own agents. Tasks start straight away, with no prices or funding."
+                    : "Solo is off. Turn it on to work with your own agents only: tasks start straight away, with no prices or funding."}
+                </span>
+              </div>
+              {soloBlockReason && !project.solo ? <p className="m-0 text-sm text-zk-muted">{soloBlockReason}</p> : null}
+              <div className="flex flex-wrap items-center gap-3">
+                <SoloButton projectId={project.id} solo={!project.solo} label={project.solo ? "Turn off Solo" : "Work Solo"} primary={!project.solo} />
+              </div>
+            </section>
+          ) : null}
 
           {section === "github" ? (
             <div className="flex flex-col gap-4">
               <Link href="/projects/readiness" className="self-start text-sm font-semibold text-zk-accent underline">Check repository readiness for this organisation</Link>
-              {github === "error" ? <p role="alert" className="rounded-[14px] bg-zk-warn-bg p-3 text-sm text-zk-warn-fg">GitHub setup could not be completed. Start the connection again from this page.</p> : null}
-              {github === "connected" ? <p role="status" className="rounded-[14px] bg-zk-ok-bg p-3 text-sm text-zk-ok-fg">GitHub App installation connected.</p> : null}
-              {github === "unavailable" ? <p role="alert" className="rounded-[14px] bg-zk-warn-bg p-3 text-sm text-zk-warn-fg">The GitHub App is not configured. Set GITHUB_APP_SLUG before connecting it.</p> : null}
-              {github === "requested" ? <p role="status" className="rounded-[14px] bg-zk-warn-bg p-3 text-sm text-zk-warn-fg">GitHub App installation was requested and is waiting for organisation admin approval.</p> : null}
-              {github === "cancelled" ? <p role="status" className="rounded-[14px] bg-zk-surface p-3 text-sm text-zk-text2">GitHub App connection was cancelled.</p> : null}
+              {github === "error" ? <p role="alert" className="rounded-xl bg-zk-warn-bg p-3 text-sm text-zk-warn-fg">GitHub setup could not be completed. Start the connection again from this page.</p> : null}
+              {github === "connected" ? <p role="status" className="rounded-xl bg-zk-ok-bg p-3 text-sm text-zk-ok-fg">GitHub App installation connected.</p> : null}
+              {github === "unavailable" ? <p role="alert" className="rounded-xl bg-zk-warn-bg p-3 text-sm text-zk-warn-fg">The GitHub App is not configured. Set GITHUB_APP_SLUG before connecting it.</p> : null}
+              {github === "requested" ? <p role="status" className="rounded-xl bg-zk-warn-bg p-3 text-sm text-zk-warn-fg">GitHub App installation was requested and is waiting for organisation admin approval.</p> : null}
+              {github === "cancelled" ? <p role="status" className="rounded-xl border border-zk-border bg-zk-surface p-3 text-sm text-zk-text2">GitHub App connection was cancelled.</p> : null}
               <section className={card}>
                 <div className="flex flex-col gap-1">
                   <h2 className="m-0 text-lg font-bold text-zk-text">GitHub App</h2>
@@ -242,7 +266,7 @@ export default async function ProjectSettingsPage({
                 </div>
                 <a
                   href={`${base}/github`}
-                  className="inline-flex h-[42px] items-center self-start rounded-full bg-electric-blue-strong px-[18px] text-sm font-bold text-white hover:brightness-105"
+                  className={`${PRIMARY_ACTION} self-start`}
                 >
                   {project.githubInstallationId ? "Change installation" : "Connect GitHub App"}
                 </a>
@@ -266,7 +290,7 @@ export default async function ProjectSettingsPage({
                 </span>
               </div>
               {!project.githubInstallationId ? (
-                <p role="status" className="rounded-[14px] bg-zk-warn-bg p-3 text-sm text-zk-warn-fg">
+                <p role="status" className="rounded-xl bg-zk-warn-bg p-3 text-sm text-zk-warn-fg">
                   Private repositories need the GitHub App, so Ziki can fetch their code.{" "}
                   <Link href={`${base}?section=github`} className="font-semibold underline">
                     Connect it in GitHub

@@ -1,4 +1,5 @@
 import type { SelectHTMLAttributes } from "react";
+import { FIELD_CONTROL } from "@/lib/ui-style";
 
 export function Select({
   className = "",
@@ -7,7 +8,7 @@ export function Select({
 }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
-      className={`w-full rounded-lg border border-slate-300 bg-card px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-600/20 ${className}`}
+      className={`${FIELD_CONTROL} h-9 ${className}`}
       {...props}
     >
       {children}

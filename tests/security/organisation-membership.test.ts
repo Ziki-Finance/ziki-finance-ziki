@@ -8,6 +8,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const membershipFindUnique = vi.hoisted(() => vi.fn());
 const membershipFindFirst = vi.hoisted(() => vi.fn());
+const membershipUpdate = vi.hoisted(() => vi.fn());
+const pickFirstThing = vi.hoisted(() => vi.fn());
+const activateAgent = vi.hoisted(() => vi.fn());
 const projectMembershipFindUnique = vi.hoisted(() => vi.fn());
 const projectMembershipFindFirst = vi.hoisted(() => vi.fn());
 const bugFindUnique = vi.hoisted(() => vi.fn());
@@ -26,10 +29,6 @@ const userFindFirst = vi.hoisted(() => vi.fn());
 const userFindMany = vi.hoisted(() => vi.fn().mockResolvedValue([]));
 const $transaction = vi.hoisted(() => vi.fn());
 const $executeRaw = vi.hoisted(() => vi.fn());
-const redesignFindFirst = vi.hoisted(() => vi.fn());
-const redesignFindMany = vi.hoisted(() => vi.fn());
-const redesignGroupBy = vi.hoisted(() => vi.fn());
-const requireProject = vi.hoisted(() => vi.fn());
 const navigation = vi.hoisted(() => ({
   redirect: vi.fn(),
   notFound: vi.fn(() => { throw new Error("NOT_FOUND"); }),
@@ -40,13 +39,10 @@ vi.mock("@/lib/organisation-context", async (importOriginal) => ({
   currentOrganisationIdFor: vi.fn(),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("@/lib/points/signup-bonus", () => ({ awardSignupBonus: vi.fn(async () => undefined) }));
+vi.mock("@/lib/coins/welcome-bonus", () => ({ giveWelcomeBonus: vi.fn(async () => true) }));
+const addOnCallGuests = vi.hoisted(() => vi.fn(async () => [] as string[]));
+vi.mock("@/lib/on-call-guests", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/on-call-guests")>()), addOnCallGuests }));
 vi.mock("next/navigation", () => navigation);
-// The Design pages (#9) resolve their project here; nothing else in this file does.
-vi.mock("@/lib/project-route", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/project-route")>()),
-  requireProject,
-}));
 vi.mock("@/lib/notify", () => ({ notifyLater: vi.fn() }));
 // Tidying an idea with Claude is a network call: as with no API key, it leaves the text as typed.
 vi.mock("@/lib/idea-structuring", async (importOriginal) => ({
@@ -60,6 +56,10 @@ vi.mock("@/lib/rate-limit", async (importOriginal) => ({
   consumeRateLimit: vi.fn(async () => ({ allowed: true })),
 }));
 vi.mock("@/lib/agent-api/web-events", () => ({ publishWebEvent: vi.fn() }));
+vi.mock("@/lib/join-first-thing", () => ({ pickFirstThing }));
+vi.mock("@/lib/agents/registry", () => ({ activateAgent, createAgent: vi.fn() }));
+vi.mock("@/lib/feature-flags", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/feature-flags")>()), isAgentPlatformEnabled: () => true }));
+vi.mock("@/app/(app)/agent/[username]/get-started-data", () => ({ loadGetStarted: vi.fn() }));
 vi.mock("@/lib/organisation-access", () => ({
   currentOrganisationAccess: vi.fn(async () => ({
     organisationId: "own-organisation-id",
@@ -88,11 +88,11 @@ vi.mock("@/lib/prisma", () => ({
     membership: {
       findFirst: membershipFindFirst,
       findUnique: membershipFindUnique,
+      update: membershipUpdate,
     },
     projectMembership: { findUnique: projectMembershipFindUnique, findFirst: projectMembershipFindFirst },
     issueWatch: { upsert: issueWatchUpsert, updateMany: vi.fn(), createMany: issueWatchCreateMany },
     user: { findUnique: userFindUnique, findFirst: userFindFirst, findMany: userFindMany },
-    redesignProposal: { findFirst: redesignFindFirst, findMany: redesignFindMany, groupBy: redesignGroupBy },
     $transaction,
     $executeRaw,
   },
@@ -104,6 +104,8 @@ import { currentOrganisationIdFor, NO_ORGANISATION_MESSAGE } from "@/lib/organis
 import { canContributeToProject } from "@/lib/project-permissions";
 import { createBugAction, requestRetestAction, updateBugAction } from "@/app/actions/issues";
 import { setWatchingAction } from "@/app/actions/watch";
+import { joinAgentConnectAction, saveJoinAnswersAction } from "@/app/actions/join-questions";
+import { refuseCanFundChange } from "@/lib/membership-admin";
 
 const organisationOf = currentOrganisationIdFor as unknown as ReturnType<typeof vi.fn>;
 
@@ -129,7 +131,20 @@ describe("creating an organisation", () => {
     expect(result).toMatchObject({ ok: true, organisation: { id: "org-new" } });
     const data = (create.mock.calls[0][0] as { data: Record<string, unknown> }).data;
     expect(data.memberships).toEqual({ create: { userId: "ada", role: "owner" } });
-    expect(data.projects).toEqual({ create: { name: "Web", slug: "web", workflow: { create: {} } } });
+    expect(data.projects).toEqual({ create: { name: "Web", slug: "web", solo: false, workflow: { create: {} } } });
+    // Open to others: free on-call agents join it to give a quick win.
+    expect(addOnCallGuests).toHaveBeenCalledWith(db, { organisationId: "org-new", creatorId: "ada" });
+  });
+
+  it("starts its Web project Solo when the creator chose it, with no on-call guests, whose agents would end Solo (#solo)", async () => {
+    const { createOrganisation } = await import("@/lib/organisations");
+    addOnCallGuests.mockClear();
+    const create = vi.fn(async ({ data }: { data: { slug: string; name: string } }) => ({ id: "org-solo", slug: data.slug, name: data.name }));
+    const db = { membership: { findFirst: vi.fn(async () => null) }, organisation: { create } };
+    expect(await createOrganisation(db as never, { id: "ada" }, { name: "Ada Solo", solo: true })).toMatchObject({ ok: true });
+    const data = (create.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+    expect(data.projects).toEqual({ create: { name: "Web", slug: "web", solo: true, workflow: { create: {} } } });
+    expect(addOnCallGuests).not.toHaveBeenCalled();
   });
 });
 
@@ -313,64 +328,52 @@ describe("canContributeToProject permissions", () => {
   });
 });
 
-describe("the Design area belongs to the project's organisation (#9)", () => {
-  const params = Promise.resolve({ org: "acme", project: "web" });
-  const viewer = (access: { isOrgMember: boolean; isProjectMember: boolean }) => ({
-    user: { id: "viewer", role: "user" },
-    organisationId: "org-acme",
-    project: { id: "project-web", slug: "web", name: "Web", ref: "acme/web", organisationId: "org-acme", orgSlug: "acme" },
-    isOrgAdmin: false,
-    canContribute: access.isOrgMember || access.isProjectMember,
-    ...access,
-  });
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("is a 404 for someone outside the organisation and for a project-only member, before any proposal is read", async () => {
-    const { default: DesignPage } = await import("@/app/(app)/[org]/[project]/design/page");
-    const { default: DesignProposalPage } = await import("@/app/(app)/[org]/[project]/design/[id]/page");
-    for (const access of [{ isOrgMember: false, isProjectMember: false }, { isOrgMember: false, isProjectMember: true }]) {
-      requireProject.mockResolvedValue(viewer(access));
-      await expect(DesignPage({ params, searchParams: Promise.resolve({}) })).rejects.toThrow("NOT_FOUND");
-      await expect(DesignProposalPage({ params: Promise.resolve({ org: "acme", project: "web", id: "rd-1" }) })).rejects.toThrow("NOT_FOUND");
-    }
-    expect(redesignFindMany).not.toHaveBeenCalled();
-    expect(redesignFindFirst).not.toHaveBeenCalled();
-  });
-
-  it("shows a member this project's waiting proposals, read inside its organisation", async () => {
-    const { default: DesignPage } = await import("@/app/(app)/[org]/[project]/design/page");
-    requireProject.mockResolvedValue(viewer({ isOrgMember: true, isProjectMember: false }));
-    redesignFindMany.mockResolvedValue([]);
-    redesignGroupBy.mockResolvedValue([]);
-    await DesignPage({ params, searchParams: Promise.resolve({}) });
-    expect(redesignFindMany.mock.calls[0][0].where).toEqual({ organisationId: "org-acme", projectId: "project-web", status: { in: ["proposed"] } });
-  });
-
-  it("is a 404 for a proposal in another project, even of the same organisation", async () => {
-    const { default: DesignProposalPage } = await import("@/app/(app)/[org]/[project]/design/[id]/page");
-    requireProject.mockResolvedValue(viewer({ isOrgMember: true, isProjectMember: false }));
-    redesignFindFirst.mockResolvedValue(null);
-    membershipFindUnique.mockResolvedValue({ role: "member" });
-    await expect(DesignProposalPage({ params: Promise.resolve({ org: "acme", project: "web", id: "rd-other" }) })).rejects.toThrow("NOT_FOUND");
-    expect(redesignFindFirst.mock.calls[0][0].where).toEqual({ id: "rd-other", organisationId: "org-acme", projectId: "project-web" });
-  });
-
-  it("sends an old /redesigns link to the Design page only for a member of the proposal's organisation", async () => {
-    const { default: OldRedesignPage } = await import("@/app/(app)/redesigns/[id]/page");
-    vi.mocked(requireUser).mockResolvedValue({ id: "viewer", role: "user" } as never);
-    redesignFindFirst.mockResolvedValueOnce(null);
-    await expect(OldRedesignPage({ params: Promise.resolve({ id: "rd-elsewhere" }) })).rejects.toThrow("NOT_FOUND");
-    expect(redesignFindFirst.mock.calls[0][0].where).toEqual({
-      id: "rd-elsewhere",
-      project: { archivedAt: null, organisation: { archivedAt: null, memberships: { some: { userId: "viewer" } } } },
+describe("join questions (#join-questions)", () => {
+  it("saves a member's answers on their own membership only, and refuses where they aren't a member", async () => {
+    (requireUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "joiner-1", role: "user" });
+    pickFirstThing.mockResolvedValue({ kind: "request", projectId: "project-1" });
+    membershipFindFirst.mockResolvedValueOnce({ id: "membership-1", organisation: { id: "org-1", name: "Org" } });
+    const answers = { organisationId: "org-1", strengths: ["review", "testing"] };
+    await expect(saveJoinAnswersAction(answers)).resolves.toEqual({ ok: true, firstThing: { kind: "request", projectId: "project-1" } });
+    expect(membershipFindFirst).toHaveBeenLastCalledWith(expect.objectContaining({ where: expect.objectContaining({ organisationId: "org-1", userId: "joiner-1" }) }));
+    expect(membershipUpdate).toHaveBeenCalledWith({
+      where: { id: "membership-1" },
+      data: { strengths: ["testing", "review"], joinAnsweredAt: expect.any(Date) },
     });
-    expect(navigation.redirect).not.toHaveBeenCalled();
 
-    redesignFindFirst.mockResolvedValueOnce({ id: "rd-1", project: { slug: "web", organisation: { slug: "acme" } } });
-    await OldRedesignPage({ params: Promise.resolve({ id: "rd-1" }) });
-    expect(navigation.redirect).toHaveBeenCalledWith("/acme/web/design/rd-1");
+    membershipUpdate.mockClear();
+    membershipFindFirst.mockResolvedValueOnce(null);
+    await expect(saveJoinAnswersAction({ ...answers, organisationId: "other-org" })).resolves.toEqual({ error: expect.any(String) });
+    expect(membershipUpdate).not.toHaveBeenCalled();
+  });
+
+  it("brings an agent in only where its owner is a member, with that organisation's key", async () => {
+    (requireUser as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "joiner-1", role: "user" });
+    membershipFindFirst.mockResolvedValueOnce(null);
+    await expect(joinAgentConnectAction({ organisationId: "other-org", agentId: "agent-1" })).resolves.toEqual({ error: expect.any(String) });
+    expect(activateAgent).not.toHaveBeenCalled();
+
+    membershipFindFirst.mockResolvedValueOnce({ id: "membership-1", organisation: { id: "org-1", name: "Org" } });
+    activateAgent.mockResolvedValueOnce({ ok: true, key: { agentId: "agent-1", name: "Claude", rawKey: "zk_live_raw", prefix: "zk_live" } });
+    await expect(joinAgentConnectAction({ organisationId: "org-1", agentId: "agent-1" })).resolves.toMatchObject({ ok: true, agentId: "agent-1", setupText: expect.stringContaining("zk_live_raw") });
+    expect(activateAgent).toHaveBeenCalledWith(expect.objectContaining({ id: "joiner-1" }), "agent-1", "org-1");
+  });
+});
+
+describe("who funds an organisation's issues (#payers)", () => {
+  const admin = { role: "admin" as const, canFundIssues: false };
+
+  it("lets only an owner (or the site super admin) let an admin fund issues, or stop them", () => {
+    expect(refuseCanFundChange({ actorIsOwner: true, actorIsSuperAdmin: false, target: admin, canFund: true })).toBeNull();
+    expect(refuseCanFundChange({ actorIsOwner: false, actorIsSuperAdmin: true, target: admin, canFund: true })).toBeNull();
+    expect(refuseCanFundChange({ actorIsOwner: true, actorIsSuperAdmin: false, target: { ...admin, canFundIssues: true }, canFund: false })).toBeNull();
+    // An admin can't make themself or another admin a payer: funding spends their own wallet, and the owner decides.
+    expect(refuseCanFundChange({ actorIsOwner: false, actorIsSuperAdmin: false, target: admin, canFund: true })).toBe("fund-not-allowed");
+  });
+
+  it("gives it only to admins: owners always fund, members never do", () => {
+    expect(refuseCanFundChange({ actorIsOwner: true, actorIsSuperAdmin: false, target: { role: "member", canFundIssues: false }, canFund: true })).toBe("fund-admins-only");
+    expect(refuseCanFundChange({ actorIsOwner: true, actorIsSuperAdmin: false, target: { role: "owner", canFundIssues: false }, canFund: false })).toBe("fund-admins-only");
+    expect(refuseCanFundChange({ actorIsOwner: true, actorIsSuperAdmin: false, target: null, canFund: true })).toBe("not-found");
   });
 });

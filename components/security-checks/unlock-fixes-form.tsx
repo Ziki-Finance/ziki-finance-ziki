@@ -1,5 +1,7 @@
 "use client";
 
+import { PRIMARY_ACTION } from "@/lib/ui-style";
+
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import type { SecuritySeverity } from "@prisma/client";
@@ -98,7 +100,7 @@ export function UnlockFixesForm({ checkId, rows, preselected, backHref }: { chec
           type="button"
           disabled={pending || chosen.length === 0}
           onClick={() => unlock(allPicked ? "all" : chosen.map((row) => row.id))}
-          className="inline-flex h-12 w-full items-center justify-center rounded-full bg-electric-blue-strong px-6 text-[15px] font-bold text-white transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2 disabled:opacity-50"
+          className={`${PRIMARY_ACTION} w-full`}
         >
           {pending ? "Unlocking…" : allPicked ? <span>Unlock all · <ZikAmount amount={allTotal} /></span> : <span>Unlock {chosen.length} selected · <ZikAmount amount={chosenTotal} /></span>}
         </button>

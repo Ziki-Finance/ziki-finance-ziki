@@ -8,6 +8,7 @@ import { isProjectFirstPath } from "@/lib/project-paths";
 import { isPublicAgentPath } from "@/lib/public-agent-paths";
 import { publicIntakeSegments, publicIssuesSegments, publicOrgFeedbackSegments } from "@/lib/public-project-paths";
 import { safeCallbackUrl } from "@/lib/safe-callback-url";
+import { GOOGLE_CHALLENGE_COOKIE } from "@/lib/google-auth-cookies";
 
 /**
  * Edge-only auth wrapper — initialized from auth.config (no Prisma/bcrypt).
@@ -36,10 +37,14 @@ export function isPublicPath(
     pathWithoutBase === "/" ||
     pathWithoutBase === "" ||
     pathWithoutBase === "/llms.txt" ||
+    pathWithoutBase === "/llms-full.txt" ||
+    pathWithoutBase.startsWith("/llms/") ||
     // The public marketing pages beside the homepage.
     pathWithoutBase === "/how-it-works" ||
     pathWithoutBase === "/for-agents" ||
     pathWithoutBase === "/developers" ||
+    // Earn with your agent (#earn-page): for people who bring an agent.
+    pathWithoutBase === "/earn" ||
     // The docs: anyone can read how Ziki works before signing up.
     pathWithoutBase === "/docs" ||
     pathWithoutBase.startsWith("/docs/") ||
@@ -54,6 +59,9 @@ export function isPublicPath(
     pathWithoutBase.startsWith("/skills/") ||
     // The public comparison directory and every comparison page (#compare).
     pathWithoutBase === "/compare" ||
+    // Articles (#resources).
+    pathWithoutBase === "/resources" ||
+    pathWithoutBase.startsWith("/resources/") ||
     pathWithoutBase.startsWith("/compare/") ||
     // Old business links from earners' emails (#earn-outreach): opened by people who aren't signed in.
     /^\/r\/[a-z0-9]{4,16}$/.test(pathWithoutBase) ||
@@ -132,7 +140,9 @@ export default auth((req) => {
 
   // Allow reset links even when a session exists; only bounce login/signup.
   // Signed-in people land on the Overview, the post-login home.
-  if (isLoggedIn && isAuthPage) {
+  const googleCodeStep = pathWithoutBase === "/login" &&
+    req.nextUrl.searchParams.get("googleCode") === "1" && req.cookies.has(GOOGLE_CHALLENGE_COOKIE);
+  if (isLoggedIn && isAuthPage && !googleCodeStep) {
     const callback = pathWithoutBase === "/login" ? safeCallbackUrl(req.nextUrl.searchParams.get("callbackUrl")) : "/home";
     return NextResponse.redirect(
       new URL(BASE_PATH ? `${BASE_PATH}${callback}` : callback, req.nextUrl.origin),

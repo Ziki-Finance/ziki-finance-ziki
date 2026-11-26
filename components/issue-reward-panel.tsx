@@ -3,9 +3,8 @@
 import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { giveRewardEstimateAction } from "@/app/actions/reward";
-import { LocalTime } from "@/components/local-time";
 import { ZikAmount } from "@/components/zik-symbol";
-import { REWARD_MAX_ESTIMATES, REWARD_ZIK_MAX, REWARD_ZIK_STEP } from "@/lib/points/rules";
+import { REWARD_ZIK_MAX, REWARD_ZIK_STEP } from "@/lib/coins/price-rules";
 
 export type RewardEstimateView = {
   id: string;
@@ -21,10 +20,14 @@ export type RewardEstimateView = {
 /** The choices, in Ziks, two steps apart so they fit on one line: 20, 40, … 100. */
 const VALUES = Array.from({ length: REWARD_ZIK_MAX / (2 * REWARD_ZIK_STEP) }, (_, index) => (index + 1) * 2 * REWARD_ZIK_STEP);
 
+/** How many estimates give an issue its price (lib/coins/budget.ts MIN_ESTIMATES_TO_AWARD). */
+const ESTIMATES_FOR_A_PRICE = 3;
+
 /**
- * The issue page's Reward panel (#rewards): what solving the issue is worth, in
- * Ziks (the average of the estimates, fixed at 15), a place to give or change
- * your own estimate, and every estimate so far with who gave it and why.
+ * The issue page's Reward panel (#rewards), compact: what solving the issue is worth, in Ziks (the average of the
+ * estimates once three are in, locked once it is funded), and the values in one row with yours highlighted. Picking one
+ * gives or changes your estimate at once. The organisation's payers (#payers) fund its issues, so they see the
+ * values but don't estimate (#price-lock).
  */
 export function IssueRewardPanel({
   bugId,
@@ -33,10 +36,13 @@ export function IssueRewardPanel({
   fixed,
   viewerId,
   canEstimate,
-  caption,
+  payer = false,
+  ziki = null,
   children,
 }: {
-  /** Drawn right under the amount, before the estimates: where the issue is funded (#ziki-coins). */
+  /** Ziki's own estimate (#ziki-estimate), given when fewer than three agents had estimated it after a day. */
+  ziki?: { value: number; reason: string | null } | null;
+  /** Drawn under the values: where the issue is funded (#ziki-coins). */
   children?: React.ReactNode;
   bugId: string;
   /** In Ziks. */
@@ -46,102 +52,124 @@ export function IssueRewardPanel({
   viewerId: string | null;
   /** False on a closed or deleted issue. */
   canEstimate: boolean;
-  caption?: string;
+  /** The viewer pays for the organisation's issues (an owner or admin), so doesn't estimate them. */
+  payer?: boolean;
 }) {
   const id = useId();
   const router = useRouter();
   const mine = viewerId ? estimates.find((estimate) => estimate.userId === viewerId) ?? null : null;
   const [value, setValue] = useState<number | null>(mine?.value ?? null);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const open = canEstimate && !fixed && Boolean(viewerId);
+  const open = canEstimate && !fixed && !payer && Boolean(viewerId);
+  const priced = fixed || estimates.length >= ESTIMATES_FOR_A_PRICE || ziki !== null;
 
-  const submit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const pick = (option: number) => {
+    if (!open || pending || option === value) return;
+    const previous = value;
+    setValue(option);
     setError(null);
-    setSaved(null);
-    if (value === null) return setError("Pick what it is worth.");
     const data = new FormData();
-    data.set("value", String(value));
+    data.set("value", String(option));
     startTransition(async () => {
       const result = await giveRewardEstimateAction(bugId, data);
       if (result.error) {
+        setValue(previous);
         setError(result.error);
         return;
       }
-      setSaved(result.replaced ? "Your estimate was updated." : "Your estimate was added.");
       router.refresh();
     });
   };
 
   return (
-    <section aria-labelledby={`${id}-heading`} className="flex flex-col gap-3 rounded-[20px] border border-zk-border bg-zk-surface px-4 py-3.5" data-testid="reward-panel">
+    <section aria-labelledby={`${id}-heading`} className="flex flex-col gap-2 rounded-panel border border-zk-border bg-zk-surface px-4 py-3" data-testid="reward-panel">
       <div className="flex items-baseline justify-between gap-2">
         <h2 id={`${id}-heading`} className="text-xs font-bold uppercase tracking-[0.08em] text-zk-muted">Reward</h2>
-        {fixed ? <span className="text-xs text-zk-muted">Fixed</span> : null}
+        {priced ? (
+          <span className="text-xs text-zk-muted">
+            <b className="font-mono font-bold tabular-nums text-zk-text" data-testid="reward-amount"><ZikAmount amount={reward} /></b>
+            {" · "}
+            {fixed ? "locked" : ziki ? `${estimates.length} ${estimates.length === 1 ? "estimate" : "estimates"} + Ziki` : `${estimates.length} estimates`}
+          </span>
+        ) : (
+          <span className="text-xs text-zk-muted" data-testid="reward-amount">
+            Waiting for estimates · {estimates.length} of {ESTIMATES_FOR_A_PRICE}
+          </span>
+        )}
       </div>
-      <p className="m-0 flex items-center justify-center gap-5 py-2">
-        <span className="font-mono text-[32px] font-extrabold leading-none tabular-nums text-zk-text" data-testid="reward-amount"><ZikAmount amount={reward} /></span>
-        <span className="max-w-[40ch] text-xs leading-relaxed text-zk-muted">{caption ?? "paid to whoever solves it, once three people report it deployed"}</span>
-      </p>
-
-      {children}
-
-      {open ? (
-        <form onSubmit={submit} aria-label="Your estimate" className="flex flex-col gap-2">
-          <fieldset className="m-0 border-0 p-0">
-            <legend className="mb-1.5 text-[13px] font-semibold text-zk-text">{mine ? "Change your estimate" : "Your estimate"}</legend>
-            {/* The choices share the full width of one row; the button sits full width under them. */}
-            <div className="flex flex-col gap-3">
-              <div className="grid grid-cols-5 gap-1.5">
-                {VALUES.map((option) => (
-                  <label
-                    key={option}
-                    className={`inline-flex h-10 cursor-pointer items-center justify-center rounded-xl border px-1 text-[14px] font-bold tabular-nums transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-electric-blue-strong ${
-                      value === option ? "border-electric-blue-strong bg-electric-blue-strong text-white" : "border-zk-border bg-zk-surface text-zk-text hover:bg-zk-chip"
-                    }`}
-                  >
-                    <input type="radio" name="value" value={option} checked={value === option} onChange={() => setValue(option)} className="sr-only" />
-                    <ZikAmount amount={option} />
-                  </label>
-                ))}
-              </div>
-              <button
-                type="submit"
-                disabled={pending}
-                className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center rounded-full border border-zk-border bg-zk-surface px-4 text-sm font-bold text-zk-text transition hover:bg-zk-chip focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue-strong disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {pending ? "Saving…" : mine ? "Update estimate" : "Add estimate"}
-              </button>
-            </div>
-          </fieldset>
-          {error ? <p role="alert" className="m-0 text-xs font-medium text-zk-bad-fg">{error}</p> : null}
-          {saved ? <p role="status" className="m-0 text-xs font-medium text-zk-ok-fg">{saved}</p> : null}
-        </form>
-      ) : fixed ? (
-        <p className="m-0 text-xs text-zk-muted">The reward is fixed after {REWARD_MAX_ESTIMATES} estimates.</p>
+      <div role="radiogroup" aria-label={mine ? "Your estimate" : "Give your estimate"} className="grid grid-cols-5 gap-1">
+        {VALUES.map((option) => {
+          const chosen = value === option;
+          return (
+            <button
+              key={option}
+              type="button"
+              role="radio"
+              aria-checked={chosen}
+              disabled={!open || pending}
+              onClick={() => pick(option)}
+              className={`inline-flex h-8 items-center justify-center rounded-lg border text-[13px] font-bold tabular-nums transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue-strong disabled:cursor-default ${
+                chosen ? "border-electric-blue-strong bg-electric-blue-strong text-white" : "border-zk-border bg-zk-surface text-zk-text enabled:cursor-pointer enabled:hover:bg-zk-chip disabled:text-zk-muted"
+              }`}
+            >
+              <ZikAmount amount={option} />
+            </button>
+          );
+        })}
+      </div>
+      {payer && canEstimate && !fixed ? (
+        <p className="m-0 text-xs text-zk-muted">You pay for this organisation&apos;s issues, so you don&apos;t estimate them.</p>
       ) : null}
-
-      {estimates.length === 0 ? null : (
-        <ul className="m-0 flex list-none flex-col gap-1.5 p-0" aria-label="Estimates" data-testid="reward-estimates">
-          {[...estimates].reverse().map((estimate) => (
-            <li key={estimate.id} className="rounded-lg bg-zk-chip px-2.5 py-1.5 text-[13px]">
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="min-w-0 truncate">
-                  <b className="font-semibold text-zk-text">{estimate.by}</b>
-                  {estimate.agentName ? <span className="text-zk-muted"> via {estimate.agentName}</span> : null}
-                </span>
-                <span className="font-mono font-bold tabular-nums text-zk-text"><ZikAmount amount={estimate.value} /></span>
-              </div>
-              {estimate.reason ? <p className="m-0 mt-0.5 text-xs text-zk-text2">{estimate.reason}</p> : null}
-              <p className="m-0 mt-0.5 text-[11px] text-zk-muted">
-                <LocalTime date={estimate.updatedAt} />
-              </p>
-            </li>
-          ))}
-        </ul>
-      )}
+      {error ? <p role="alert" className="m-0 text-xs font-medium text-zk-bad-fg">{error}</p> : null}
+      {children}
+      {estimates.length > 0 || ziki ? <EstimateList estimates={estimates} viewerId={viewerId} ziki={ziki} /> : null}
     </section>
+  );
+}
+
+/**
+ * Who estimated the issue and why (#price-lock), under its price, folded until opened, while it is estimated and once
+ * its price is locked, so the person paying can see what the price is made of. Agents reading the API still see only
+ * the average until the price is locked (lib/agent-api/reward-estimates.ts readReward), so they don't anchor on each other.
+ */
+function EstimateList({ estimates, viewerId, ziki }: { estimates: RewardEstimateView[]; viewerId: string | null; ziki: { value: number; reason: string | null } | null }) {
+  return (
+    <details className="group" data-testid="reward-estimates">
+      <summary className="flex cursor-pointer list-none items-center gap-1 text-xs font-semibold text-zk-accent hover:underline focus-visible:outline-2 focus-visible:outline-electric-blue [&::-webkit-details-marker]:hidden">
+        <span className="group-open:hidden">See estimates ({estimates.length + (ziki ? 1 : 0)})</span>
+        <span className="hidden group-open:inline">Hide estimates</span>
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3.5 w-3.5 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </summary>
+      <ul className="m-0 mt-2 flex list-none flex-col gap-2 p-0">
+        {estimates.map((estimate) => (
+          <li key={estimate.id} className="flex flex-col gap-0.5">
+            <div className="flex items-baseline justify-between gap-2 text-xs">
+              <span className="min-w-0 truncate text-zk-text">
+                <b className="font-semibold">{estimate.userId === viewerId ? "You" : estimate.by}</b>
+                {estimate.agentName ? <span className="text-zk-muted"> · via {estimate.agentName}</span> : null}
+              </span>
+              <b className="shrink-0 font-mono font-bold tabular-nums text-zk-text"><ZikAmount amount={estimate.value} /></b>
+            </div>
+            {estimate.reason ? <p className="m-0 line-clamp-2 text-xs text-zk-muted">{estimate.reason}</p> : null}
+          </li>
+        ))}
+        {/* #ziki-estimate: given because fewer than three agents had estimated it after a day; it counts as one. */}
+        {ziki ? (
+          <li className="flex flex-col gap-0.5" data-testid="ziki-estimate">
+            <div className="flex items-baseline justify-between gap-2 text-xs">
+              <span className="min-w-0 truncate text-zk-text">
+                <b className="font-semibold">Ziki</b>
+                <span className="text-zk-muted"> · AI estimate, as too few agents estimated it in a day</span>
+              </span>
+              <b className="shrink-0 font-mono font-bold tabular-nums text-zk-text"><ZikAmount amount={ziki.value} /></b>
+            </div>
+            {ziki.reason ? <p className="m-0 line-clamp-2 text-xs text-zk-muted">{ziki.reason}</p> : null}
+          </li>
+        ) : null}
+      </ul>
+    </details>
   );
 }

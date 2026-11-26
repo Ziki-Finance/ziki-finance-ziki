@@ -9,7 +9,7 @@ import { joinedSummary, listShareLinks, shareLinkStatusLabel } from "@/lib/share
 import { MEMBERSHIP_ROLE_LABELS, organisationMembersFrom } from "@/lib/organisations";
 import { revokeInviteAction, revokeShareLinkAction } from "@/app/(app)/organisations/actions";
 import { acceptJoinRequestAction, rejectJoinRequestAction } from "@/app/actions/project-join-requests";
-import { projectPath, projectRef } from "@/lib/project-paths";
+import { issuesPath, projectRef } from "@/lib/project-paths";
 import Link from "next/link";
 import { loadOrg } from "../org-context";
 import { OrgPageHeader, ReadOnlyNote, orgCard, orgListCard, orgListHeading } from "../org-ui";
@@ -170,7 +170,7 @@ export default async function OrgInvitesPage() {
                     <p className="mt-1 text-xs text-zk-muted">
                       Applied to collaborate on{" "}
                       <Link
-                        href={projectPath(projectRef(req.project.organisation.slug, req.project.slug))}
+                        href={issuesPath(projectRef(req.project.organisation.slug, req.project.slug), "your_work")}
                         className="font-medium text-zk-accent hover:underline cursor-pointer"
                       >
                         {req.project.name}
@@ -183,7 +183,7 @@ export default async function OrgInvitesPage() {
                       <input type="hidden" name="requestId" value={req.id} />
                       <button
                         type="submit"
-                        className="inline-flex cursor-pointer items-center justify-center rounded-full bg-electric-blue-strong px-4 py-1.5 text-xs font-bold text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="inline-flex cursor-pointer items-center justify-center rounded-control bg-electric-blue-strong px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-zk-ink disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         Accept
                       </button>

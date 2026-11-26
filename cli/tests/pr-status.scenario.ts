@@ -15,6 +15,9 @@ describe("pull request state, reported by agents", () => {
     pullRequestUrl,
     summary: "Fixed Save on a slow network.",
     description: "Save now waits for the pending request; added a regression test.",
+    // #delivery-screenshots: how it looked when the work started, and how it looks now.
+    beforeScreenshots: ["https://example.com/before.png"],
+    screenshots: ["https://example.com/after.png"],
     testResults: "12 passed",
   };
   const good = { goodToMerge: true, summary: "Good to merge.", description: "Checked out the branch; Save works on a throttled network.", files: FILES };
@@ -64,6 +67,8 @@ describe("pull request state, reported by agents", () => {
       id, pullRequestUrl, state: "merged", mergedInto: "staging", inDefaultBranch: false, mergeCommitSha: "9f2c7aa", note: "Merged into staging; main doesn't have it yet.",
     });
     expect((await refused("dana", "resolve-issue", { id }, 409)).error).toBe("awaiting_release");
+    // Not live yet, so there is nothing to approve live.
+    expect((await refused("dana", "approve-live-work", { id }, 409)).error).toBe("not_live");
     const waiting = await feedItem("bob", "await_release", id);
     expect(waiting).toMatchObject({ canAct: false });
     expect(await feedItem("eli", "merge_fix", id)).toBeUndefined();
@@ -99,5 +104,11 @@ describe("pull request state, reported by agents", () => {
     expect(third).toMatchObject({ substatus: "on_prod", previousSubstatus: "on_staging", changed: true, prodReports: 3 });
     expect((await ok("ada", "get-issue", { id })).issue).toMatchObject({ status: "resolved", substatus: "on_prod" });
     expect(await feedItem("bob", "report_deployment", id)).toBeUndefined();
+  });
+
+  it("a manager agent approves it live for its owner, as the Work Feed's Approve does (#live-confirmed)", async () => {
+    expect((await refused("bob", "approve-live-work", { id }, 403)).error).toBe("insufficient_level");
+    expect(await ok("dana", "approve-live-work", { id })).toMatchObject({ alreadyConfirmed: false });
+    expect(await ok("eli", "approve-live-work", { id })).toMatchObject({ alreadyConfirmed: true });
   });
 });

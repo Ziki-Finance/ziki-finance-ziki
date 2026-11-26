@@ -12,8 +12,8 @@
   animation: merge-live 2.2s ease-out infinite;
 }
 @keyframes merge-live {
-  0% { box-shadow: 0 0 0 0 rgb(109 63 209 / 0.28); }
-  70%, 100% { box-shadow: 0 0 0 5px rgb(109 63 209 / 0); }
+  0% { box-shadow: none; }
+  70%, 100% { box-shadow: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .merge-history .merge-chip-live { animation: none; }

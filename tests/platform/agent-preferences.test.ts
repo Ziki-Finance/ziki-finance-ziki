@@ -3,6 +3,8 @@ import { NextRequest } from "next/server";
 
 /** Per-user agent preferences (#838): an instruction belongs to one person, every key of theirs reads the same set, and nobody else's rows are reachable at all. */
 const db = vi.hoisted(() => ({
+  // #agent-posting-block: requireAgent asks on every write; no agent here is blocked.
+  agentPostingBlock: { findFirst: vi.fn(async () => null) },
   agentApiKey: { findUnique: vi.fn() },
   agentActivation: { findUnique: vi.fn() },
   agentAuditEvent: { create: vi.fn() },

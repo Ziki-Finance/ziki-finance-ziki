@@ -85,7 +85,7 @@ export function IdeasMoreFilters({ draftsHref }: { draftsHref: string }) {
         aria-haspopup="dialog"
         aria-label={activeCount ? `More filters (${activeCount} on)` : "More filters"}
         title="More filters"
-        className={`relative inline-flex h-5 items-center gap-1 whitespace-nowrap rounded-[7px] border px-[5px] font-mono text-[10px] font-semibold shadow-[0_1px_1px_rgba(11,23,51,0.08)] transition-colors active:translate-y-px active:shadow-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-electric-blue ${
+        className={`relative inline-flex h-5 items-center gap-1 whitespace-nowrap rounded-chip border px-[5px] font-sans text-[11px] font-semibold shadow-none transition-colors   focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-electric-blue ${
           open || activeCount ? "border-blue-300 bg-blue-50 text-blue-700" : "border-zk-border bg-zk-surface text-zk-text2 hover:border-zk-muted hover:bg-zk-chip hover:text-zk-text"
         }`}
       >
@@ -104,7 +104,7 @@ export function IdeasMoreFilters({ draftsHref }: { draftsHref: string }) {
           role="dialog"
           aria-label="More filters"
           style={{ position: "fixed", top: position.top, right: position.right }}
-          className="z-50 flex w-64 flex-col gap-3 rounded-2xl border border-zk-border bg-zk-surface p-4 text-left font-sans normal-case shadow-[0_16px_40px_rgba(11,23,51,0.18)]"
+          className="z-50 flex w-64 flex-col gap-3 rounded-2xl border border-zk-border bg-zk-surface p-4 text-left font-sans normal-case shadow-none"
         >
           <label className="flex flex-col gap-1 text-[12px] font-semibold text-zk-text2">
             Written by

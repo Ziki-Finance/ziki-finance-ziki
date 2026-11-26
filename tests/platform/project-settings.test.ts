@@ -52,6 +52,8 @@ vi.mock("@/lib/organisation-context", () => ({
   NO_ORGANISATION_MESSAGE: "You're not a member of a organisation yet.",
 }));
 vi.mock("@/lib/workflow", () => ({ invalidateWorkflow }));
+const organisationSoloBlock = vi.hoisted(() => vi.fn(async (): Promise<"members" | "agents" | null> => null));
+vi.mock("@/lib/projects/solo", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/projects/solo")>()), organisationSoloBlock }));
 vi.mock("@/lib/github/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/github/client")>()),
   installationIdForRepo,
@@ -73,7 +75,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-import { createProjectAction, updateProjectAction } from "@/app/(app)/projects/actions";
+import { createProjectAction, saveProductKindsAction, saveProjectLinksAction, updateProjectAction } from "@/app/(app)/projects/actions";
 import { updateProjectWorkflowAction } from "@/app/(app)/projects/[slug]/settings/workflow-actions";
 import { updateProjectPreviewSettingsAction } from "@/app/(app)/projects/[slug]/settings/preview-actions";
 import { previewSettingsSchema } from "@/lib/validations/preview-settings";
@@ -83,8 +85,9 @@ import {
   createMarketingIssueTypeAction,
   deleteMarketingIssueTypeAction,
   updateMarketingRevisionLimitAction,
-} from "@/app/(app)/[org]/[project]/marketing/settings/actions";
-import { askMarketingAssistantAction, saveMarketingSiteAction } from "@/app/(app)/[org]/[project]/marketing/actions";
+} from "@/app/(app)/[org]/marketing/settings/actions";
+import { askMarketingAssistantAction, saveMarketingSiteAction } from "@/app/(app)/[org]/marketing/actions";
+import { asAddress, missingBasics, PROJECT_CHAT_TOOLS, type ProjectChatContext } from "@/lib/project-chat/assistant";
 import { IssueApiError } from "@/lib/agent-api/errors";
 import {
   DEFAULT_PROJECT_WORKFLOW,
@@ -329,7 +332,31 @@ describe("createProjectAction", () => {
     data.set("visibility", "private");
     await expect(createProjectAction(undefined, data)).rejects.toThrow("redirect:");
     expect(projectCreate).toHaveBeenCalledOnce();
-    expect(projectCreate.mock.calls[0][0].data).toMatchObject({ name: "Mobile app", slug: "mobile-app", contributorGuidelines: null });
+    expect(projectCreate.mock.calls[0][0].data).toMatchObject({ name: "Mobile app", slug: "mobile-app", contributorGuidelines: null, solo: false });
+  });
+
+  it("creates a Solo project, always private, while nobody else works in the organisation, and refuses it once someone does (#solo)", async () => {
+    requireUser.mockResolvedValue({ id: "owner", role: "user" });
+    currentOrganisationIdFor.mockResolvedValue("org");
+    isAdminOfOrganisation.mockResolvedValue(true);
+    projectFindMany.mockResolvedValue([]);
+    projectCreate.mockClear();
+    projectCreate.mockResolvedValue({ id: "p2" });
+    organisationFindUnique.mockResolvedValue({ slug: "acme" });
+    const data = new FormData();
+    data.set("name", "Side project");
+    data.set("solo", "true");
+    data.set("visibility", "public");
+    data.set("isOpenForContributors", "true");
+
+    organisationSoloBlock.mockResolvedValueOnce(null);
+    await expect(createProjectAction(undefined, data)).rejects.toThrow("redirect:");
+    expect(projectCreate.mock.calls[0][0].data).toMatchObject({ solo: true, visibility: "private", isOpenForContributors: false });
+
+    projectCreate.mockClear();
+    organisationSoloBlock.mockResolvedValueOnce("members");
+    expect(await createProjectAction(undefined, data)).toMatchObject({ error: expect.stringContaining("Other people are members here") });
+    expect(projectCreate).not.toHaveBeenCalled();
   });
 });
 
@@ -409,6 +436,124 @@ describe("public issue intake project setting (#3464)", () => {
     expect(projectUpdate).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ visibility: "private", acceptsGuestIdeas: false }),
     }));
+  });
+});
+
+describe("a project's mobile app links (#app-links)", () => {
+  function linksForm(values: Record<string, string>) {
+    const data = new FormData();
+    data.set("slug", "web");
+    data.set("siteUrl", "https://acme.test");
+    data.set("repoUrl", "https://github.com/acme/web");
+    for (const [key, value] of Object.entries(values)) data.set(key, value);
+    return data;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    requireUser.mockResolvedValue({ id: "admin", role: "user" });
+    currentOrganisationIdFor.mockResolvedValue("organisation-1");
+    isAdminOfOrganisation.mockResolvedValue(true);
+    findFirst.mockResolvedValue({
+      id: "project-1",
+      siteUrl: "https://acme.test",
+      repoUrl: "https://github.com/acme/web",
+      appStoreUrl: null,
+      playStoreUrl: "https://play.google.com/store/apps/details?id=com.acme.old",
+    });
+    transaction.mockImplementation(async (run: (tx: unknown) => unknown) => run({
+      project: { update: projectUpdate },
+      projectAuditEvent: { create: auditCreate },
+    }));
+  });
+
+  it("saves App Store and Google Play links in their canonical form and audits them", async () => {
+    await expect(saveProjectLinksAction(undefined, linksForm({
+      appStoreUrl: "apps.apple.com/gb/app/acme-coffee/id1234567890?mt=8",
+      playStoreUrl: "https://play.google.com/store/apps/details?id=com.acme.coffee&hl=en",
+    }))).resolves.toEqual({ message: "Saved." });
+
+    expect(projectUpdate).toHaveBeenCalledWith({
+      where: { id: "project-1" },
+      data: expect.objectContaining({
+        appStoreUrl: "https://apps.apple.com/gb/app/id1234567890",
+        playStoreUrl: "https://play.google.com/store/apps/details?id=com.acme.coffee",
+      }),
+    });
+    expect(auditCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        changes: {
+          appStoreUrl: { from: null, to: "https://apps.apple.com/gb/app/id1234567890" },
+          playStoreUrl: { from: "https://play.google.com/store/apps/details?id=com.acme.old", to: "https://play.google.com/store/apps/details?id=com.acme.coffee" },
+        },
+      }),
+    });
+  });
+
+  it("refuses a link that isn't that store's page, without writing", async () => {
+    const result = await saveProjectLinksAction(undefined, linksForm({
+      appStoreUrl: "https://play.google.com/store/apps/details?id=com.acme.coffee",
+      playStoreUrl: "",
+    }));
+
+    expect(result).toMatchObject({ field: "appStoreUrl" });
+    expect(projectUpdate).not.toHaveBeenCalled();
+  });
+
+  it("leaves the store links alone when the form only sets the site and repository", async () => {
+    await expect(saveProjectLinksAction(undefined, linksForm({ siteUrl: "https://acme-coffee.test" }))).resolves.toEqual({ message: "Saved." });
+
+    const { data } = projectUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(data.siteUrl).toBe("https://acme-coffee.test");
+    expect(data.appStoreUrl).toBeUndefined();
+    expect(data.playStoreUrl).toBeUndefined();
+  });
+});
+
+describe("saying what a project is (#product-kinds)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    requireUser.mockResolvedValue({ id: "admin", role: "user" });
+    currentOrganisationIdFor.mockResolvedValue("organisation-1");
+    isAdminOfOrganisation.mockResolvedValue(true);
+    transaction.mockImplementation(async (run: (tx: unknown) => unknown) => run({
+      project: { update: projectUpdate },
+      projectAuditEvent: { create: auditCreate },
+    }));
+  });
+
+  it("saves the kinds and renames the untouched default project to fit, audited", async () => {
+    findFirst.mockResolvedValueOnce({ id: "project-1", name: "Web", productKinds: [], productOther: null });
+    await expect(saveProductKindsAction("web", ["mobile"], "")).resolves.toEqual({ message: "Saved." });
+    expect(projectUpdate).toHaveBeenCalledWith({ where: { id: "project-1" }, data: { productKinds: ["mobile"], productOther: null, name: "App" } });
+    expect(auditCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ changes: expect.objectContaining({ name: { from: "Web", to: "App" } }) }) });
+
+    findFirst.mockResolvedValueOnce({ id: "project-1", name: "Web", productKinds: [], productOther: null });
+    await saveProductKindsAction("web", ["desktop", "other"], "  a game ");
+    expect(projectUpdate).toHaveBeenLastCalledWith({
+      where: { id: "project-1" },
+      data: { productKinds: ["desktop", "other"], productOther: "a game", name: "Game" },
+    });
+
+    // Still the name the last answer gave it: answering again renames it to fit.
+    findFirst.mockResolvedValueOnce({ id: "project-1", name: "App", productKinds: ["mobile"], productOther: null });
+    await saveProductKindsAction("web", ["other"], "a game");
+    expect(projectUpdate).toHaveBeenLastCalledWith({ where: { id: "project-1" }, data: { productKinds: ["other"], productOther: "a game", name: "Game" } });
+  });
+
+  it("keeps a name someone chose and a website's Web, and refuses idea with a built kind or a member", async () => {
+    findFirst.mockResolvedValueOnce({ id: "project-1", name: "Acme Coffee", productKinds: [], productOther: null });
+    await saveProductKindsAction("web", ["mobile"], "");
+    expect(projectUpdate).toHaveBeenLastCalledWith({ where: { id: "project-1" }, data: { productKinds: ["mobile"], productOther: null } });
+    findFirst.mockResolvedValueOnce({ id: "project-1", name: "Web", productKinds: [], productOther: null });
+    await saveProductKindsAction("web", ["website", "other"], "");
+    expect(projectUpdate).toHaveBeenLastCalledWith({ where: { id: "project-1" }, data: { productKinds: ["website", "other"], productOther: null } });
+
+    projectUpdate.mockClear();
+    await expect(saveProductKindsAction("web", ["idea", "website"], "")).resolves.toMatchObject({ error: expect.any(String) });
+    isAdminOfOrganisation.mockResolvedValueOnce(false);
+    await expect(saveProductKindsAction("web", ["website"], "")).resolves.toMatchObject({ error: expect.any(String) });
+    expect(projectUpdate).not.toHaveBeenCalled();
   });
 });
 
@@ -499,7 +644,7 @@ describe("the marketing settings actions (M-UI-7)", () => {
     updateMarketingSettings.mockResolvedValue({ projectId: "project-1", slug: "web", name: "Web", revisionLimit: 3 });
     await expect(updateMarketingRevisionLimitAction(WEB, revisionForm(3))).resolves.toEqual({ ok: true });
     expect(updateMarketingSettings).toHaveBeenCalledWith("organisation-1", "project-1", "admin", { revisionLimit: 3 });
-    expect(revalidatePath).toHaveBeenCalledWith("/acme/web/marketing/settings");
+    expect(revalidatePath).toHaveBeenCalledWith("/acme/marketing/settings");
   });
 
   it("refuses a limit outside 1 to 10 without saving", async () => {
@@ -671,7 +816,7 @@ describe("saveMarketingSiteAction (#marketing-home)", () => {
   it("lets a project member who is not an organisation admin set the site, for now (#marketing-agent-home)", async () => {
     requireProject.mockResolvedValue({ user: { id: "member" }, organisationId: "organisation-1", project: { id: "project-1" }, isOrgAdmin: false });
     await expect(saveMarketingSiteAction(slug, undefined, site("https://acme.dev"))).resolves.toEqual({ ok: true });
-    expect(projectUpdate).toHaveBeenCalledWith({ where: { id: "project-1" }, data: { siteUrl: "https://acme.dev" } });
+    expect(projectUpdate).toHaveBeenCalledWith({ where: { id: "project-1" }, data: { marketingUrl: "https://acme.dev", siteUrl: "https://acme.dev" } });
   });
 
   it("refuses an empty, plain-http or example address", async () => {
@@ -693,9 +838,9 @@ describe("saveMarketingSiteAction (#marketing-home)", () => {
 
   it("sets the project's site and audits the change", async () => {
     await expect(saveMarketingSiteAction(slug, undefined, site("https://acme.dev"))).resolves.toEqual({ ok: true });
-    expect(projectUpdate).toHaveBeenCalledWith({ where: { id: "project-1" }, data: { siteUrl: "https://acme.dev" } });
+    expect(projectUpdate).toHaveBeenCalledWith({ where: { id: "project-1" }, data: { marketingUrl: "https://acme.dev", siteUrl: "https://acme.dev" } });
     expect(auditCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({ projectId: "project-1", actorUserId: "admin", changes: { siteUrl: { from: null, to: "https://acme.dev" } } }),
+      data: expect.objectContaining({ projectId: "project-1", actorUserId: "admin", changes: { marketingUrl: { from: null, to: "https://acme.dev" }, siteUrl: { from: null, to: "https://acme.dev" } } }),
     });
   });
 });
@@ -786,5 +931,36 @@ describe("startPreviewBuildIfDue (#previews)", () => {
     installationIdForRepo.mockResolvedValueOnce(null);
     expect(await startPreviewBuildIfDue(trigger)).toBe("failed");
     expect(previewBuildUpdate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "failed" }) }));
+  });
+});
+
+describe("project chat basics (#project-chat)", () => {
+  const tool = (name: string) => PROJECT_CHAT_TOOLS.find((candidate) => candidate.name === name)!;
+  const context = (canEdit: boolean): ProjectChatContext => ({
+    organisationId: "org-1", projectId: "p-1", userId: "u-1", canEdit,
+    project: { name: "New product", siteUrl: null, repoUrl: null },
+  });
+  const run = () => ({ activity: [], changed: [], idea: null });
+
+  it("turns what people type into an https address", () => {
+    expect(asAddress("hotels.ng")).toBe("https://hotels.ng");
+    expect(asAddress("http://hotels.ng.")).toBe("https://hotels.ng");
+    expect(asAddress("https://app.acme.io")).toBe("https://app.acme.io");
+  });
+
+  it("refuses to change the basics for someone who isn't an owner or admin, and saves nothing", async () => {
+    projectUpdate.mockClear();
+    await expect(tool("set_app_url").run({ url: "hotels.ng" }, context(false), run())).rejects.toThrow(/owners and admins/);
+    expect(projectUpdate).not.toHaveBeenCalled();
+  });
+
+  it("refuses an address that isn't a real https site or GitHub repository", async () => {
+    await expect(tool("set_app_url").run({ url: "https://example.com" }, context(true), run())).rejects.toThrow();
+    await expect(tool("set_github_url").run({ url: "https://gitlab.com/acme/app" }, context(true), run())).rejects.toThrow();
+  });
+
+  it("asks only for the product's basics, never the marketing site (#product-chat-scope)", () => {
+    expect(missingBasics(context(true).project)).toEqual(["the app's address", "the GitHub repository"]);
+    expect(PROJECT_CHAT_TOOLS.map((candidate) => candidate.name)).not.toContain("set_marketing_url");
   });
 });

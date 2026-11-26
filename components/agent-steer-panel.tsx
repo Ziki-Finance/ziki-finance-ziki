@@ -1,5 +1,7 @@
 "use client";
 
+import { PRIMARY_ACTION } from "@/lib/ui-style";
+
 import { useState, useTransition } from "react";
 import { sendIssueSteer, setAgentPaused } from "@/app/actions/agent-steering";
 
@@ -29,7 +31,7 @@ export function AgentSteerPanel({ agentId, issueId, paused, notes }: {
         <textarea aria-label="Steer note" maxLength={2000} required value={body} onChange={(event) => setBody(event.target.value)} className="w-full rounded-lg border border-zk-border bg-zk-surface p-2 text-sm text-zk-text" rows={3} placeholder="What should the agent focus on?" />
         <div className="flex items-center justify-between gap-3">
           <p role="status" className="text-sm text-zk-muted">{notice}</p>
-          <button disabled={pending} className="rounded-full bg-electric-blue-strong px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{pending ? "Sending…" : "Send steer"}</button>
+          <button disabled={pending} className={PRIMARY_ACTION}>{pending ? "Sending…" : "Send steer"}</button>
         </div>
       </form>
       {notes.length ? (

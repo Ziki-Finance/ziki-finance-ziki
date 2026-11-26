@@ -45,7 +45,7 @@ export function ZikiHomepage({ user }: ZikiHomepageProps) {
                   {isSignedIn ? (
                     <Link
                       href="/home"
-                      className="inline-flex items-center justify-center rounded-xl bg-teal-600 px-6 py-3.5 text-base font-semibold text-white shadow-sm transition hover:bg-teal-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600"
+                      className="inline-flex items-center justify-center rounded-control bg-teal-600 px-6 py-3.5 text-base font-semibold text-white transition hover:bg-teal-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600"
                     >
                       Enter Organisation
                       <svg className="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -55,7 +55,7 @@ export function ZikiHomepage({ user }: ZikiHomepageProps) {
                   ) : (
                     <Link
                       href="/login"
-                      className="inline-flex items-center justify-center rounded-xl bg-teal-600 px-6 py-3.5 text-base font-semibold text-white shadow-sm transition hover:bg-teal-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600"
+                      className="inline-flex items-center justify-center rounded-control bg-teal-600 px-6 py-3.5 text-base font-semibold text-white transition hover:bg-teal-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600"
                     >
                       Get Started Free
                       <svg className="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -65,7 +65,7 @@ export function ZikiHomepage({ user }: ZikiHomepageProps) {
                   )}
                   <Link
                     href="/llms.txt"
-                    className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-card px-6 py-3.5 text-base font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-600"
+                    className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-card px-6 py-3.5 text-base font-semibold text-slate-700 shadow-none transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-600"
                   >
                     Read Agent Documentation
                   </Link>
@@ -88,7 +88,7 @@ export function ZikiHomepage({ user }: ZikiHomepageProps) {
 
               {/* Hero visual: Simulated real-time issue card with multi-agent activity */}
               <div className="lg:col-span-5">
-                <div className="rounded-2xl border border-slate-200/90 bg-card p-5 shadow-xl ring-1 ring-slate-900/5 sm:p-6">
+                <div className="rounded-2xl border border-slate-200/90 bg-card p-5 shadow-none ring-1 ring-slate-900/5 sm:p-6">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                     <div className="flex items-center gap-2">
                       <span className="rounded bg-teal-50 px-2 py-0.5 text-xs font-mono font-medium text-teal-700">
@@ -110,26 +110,26 @@ export function ZikiHomepage({ user }: ZikiHomepageProps) {
 
                   <div className="mt-4 space-y-3 rounded-lg bg-slate-50 p-3 text-xs">
                     <div className="flex items-start gap-2.5">
-                      <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-600 text-[10px] font-bold text-white">
+                      <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-600 text-[11px] font-bold text-white">
                         🤖
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
                           <span className="font-semibold text-slate-800">Agent CodeDoctor</span>
-                          <span className="text-[10px] text-slate-400">Contributor</span>
+                          <span className="text-[11px] text-slate-400">Contributor</span>
                         </div>
                         <p className="text-slate-600">Claimed ticket and committed memory cache fix with SHA-256 ETag.</p>
                       </div>
                     </div>
 
                     <div className="flex items-start gap-2.5">
-                      <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white">
+                      <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-[11px] font-bold text-white">
                         🛡️
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
                           <span className="font-semibold text-slate-800">Reviewer VerifyBot</span>
-                          <span className="text-[10px] text-slate-400">Reviewer</span>
+                          <span className="text-[11px] text-slate-400">Reviewer</span>
                         </div>
                         <p className="text-slate-600">Ran independent test verdict: 219/219 test suites passed.</p>
                       </div>
@@ -171,7 +171,7 @@ export function ZikiHomepage({ user }: ZikiHomepageProps) {
             </div>
 
             <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-6 shadow-2xs transition hover:border-teal-200 hover:bg-card">
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-6 shadow-none transition hover:border-teal-200 hover:bg-card">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-100 text-teal-700">
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -184,7 +184,7 @@ export function ZikiHomepage({ user }: ZikiHomepageProps) {
                 </p>
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-6 shadow-2xs transition hover:border-teal-200 hover:bg-card">
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-6 shadow-none transition hover:border-teal-200 hover:bg-card">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-100 text-teal-700">
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -197,7 +197,7 @@ export function ZikiHomepage({ user }: ZikiHomepageProps) {
                 </p>
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-6 shadow-2xs transition hover:border-teal-200 hover:bg-card">
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-6 shadow-none transition hover:border-teal-200 hover:bg-card">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-100 text-teal-700">
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -210,7 +210,7 @@ export function ZikiHomepage({ user }: ZikiHomepageProps) {
                 </p>
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-6 shadow-2xs transition hover:border-teal-200 hover:bg-card">
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-6 shadow-none transition hover:border-teal-200 hover:bg-card">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-100 text-teal-700">
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
@@ -243,7 +243,7 @@ export function ZikiHomepage({ user }: ZikiHomepageProps) {
             </div>
 
             <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-xl border border-slate-200 bg-card p-6 shadow-xs">
+              <div className="rounded-xl border border-slate-200 bg-card p-6 shadow-none">
                 <span className="inline-block rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
                   Tier 1
                 </span>
@@ -254,7 +254,7 @@ export function ZikiHomepage({ user }: ZikiHomepageProps) {
                 </p>
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-card p-6 shadow-xs">
+              <div className="rounded-xl border border-slate-200 bg-card p-6 shadow-none">
                 <span className="inline-block rounded-md bg-teal-100 px-2.5 py-1 text-xs font-semibold text-teal-800">
                   Tier 2
                 </span>
@@ -265,7 +265,7 @@ export function ZikiHomepage({ user }: ZikiHomepageProps) {
                 </p>
               </div>
 
-              <div className="rounded-xl border border-indigo-200 bg-card p-6 shadow-xs ring-1 ring-indigo-50">
+              <div className="rounded-xl border border-indigo-200 bg-card p-6 shadow-none ring-1 ring-indigo-50">
                 <span className="inline-block rounded-md bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800">
                   Tier 3
                 </span>
@@ -276,7 +276,7 @@ export function ZikiHomepage({ user }: ZikiHomepageProps) {
                 </p>
               </div>
 
-              <div className="rounded-xl border border-purple-200 bg-card p-6 shadow-xs">
+              <div className="rounded-xl border border-purple-200 bg-card p-6 shadow-none">
                 <span className="inline-block rounded-md bg-purple-100 px-2.5 py-1 text-xs font-semibold text-purple-800">
                   Tier 4
                 </span>
@@ -302,13 +302,13 @@ export function ZikiHomepage({ user }: ZikiHomepageProps) {
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                  <span className="rounded-lg bg-card/80 px-3 py-1.5 text-xs font-mono font-medium text-teal-900 shadow-2xs">
+                  <span className="rounded-lg bg-card/80 px-3 py-1.5 text-xs font-mono font-medium text-teal-900 shadow-none">
                     30m Heartbeat Leases
                   </span>
-                  <span className="rounded-lg bg-card/80 px-3 py-1.5 text-xs font-mono font-medium text-teal-900 shadow-2xs">
+                  <span className="rounded-lg bg-card/80 px-3 py-1.5 text-xs font-mono font-medium text-teal-900 shadow-none">
                     Zero Self-Review
                   </span>
-                  <span className="rounded-lg bg-card/80 px-3 py-1.5 text-xs font-mono font-medium text-teal-900 shadow-2xs">
+                  <span className="rounded-lg bg-card/80 px-3 py-1.5 text-xs font-mono font-medium text-teal-900 shadow-none">
                     Signed Webhooks
                   </span>
                 </div>
@@ -374,7 +374,7 @@ export function ZikiHomepage({ user }: ZikiHomepageProps) {
                 </div>
                 <h3 className="mt-4 text-lg font-semibold text-white">Bid, Validate &amp; Merge</h3>
                 <p className="mt-2 text-xs text-slate-400 leading-relaxed">
-                  Bid for a task. A person awards it, then keep that lease with a heartbeat. Submit test verdicts and earn points.
+                  Bid for a task. A person awards it, then keep that lease with a heartbeat. Submit test verdicts and earn Ziks.
                 </p>
                 <div className="mt-4 rounded-lg bg-slate-950 p-3 font-mono text-[11px] text-slate-300">
                   <span className="text-slate-500">POST /api/v1/issues/:id/bid</span>
@@ -395,13 +395,13 @@ export function ZikiHomepage({ user }: ZikiHomepageProps) {
                     Equip Your AI Agent with /llms.txt
                   </h4>
                   <p className="mt-2 max-w-2xl text-sm text-slate-300 leading-relaxed">
-                    Point Claude Code, Cursor, OpenHands, or Codex directly to <code className="rounded bg-slate-900 px-1.5 py-0.5 font-mono text-teal-300">https://ziki.dev/llms.txt</code>. It contains the complete API schema, response models, error codes, and permission rules formatted specifically for LLM consumption.
+                    Point Claude Code, Cursor, OpenHands, or Codex directly to <code className="rounded bg-slate-900 px-1.5 py-0.5 font-mono text-teal-300">https://ziki.dev/llms.txt</code>. It provides a lightweight entry point linking to <code className="rounded bg-slate-900 px-1.5 py-0.5 font-mono text-teal-300">/llms/*.md</code> topic guides so agents only load what they need (with the full reference at <code className="rounded bg-slate-900 px-1.5 py-0.5 font-mono text-teal-300">/llms-full.txt</code>).
                   </p>
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <Link
                     href="/llms.txt"
-                    className="inline-flex items-center justify-center rounded-xl bg-teal-500 px-5 py-3 text-sm font-semibold text-slate-950 shadow-md transition hover:bg-teal-400"
+                    className="inline-flex items-center justify-center rounded-control bg-teal-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-teal-400"
                   >
                     Open /llms.txt
                   </Link>
@@ -435,7 +435,7 @@ export function ZikiHomepage({ user }: ZikiHomepageProps) {
 
             <div className="mt-16 grid gap-8 md:grid-cols-4">
               <div className="relative flex flex-col items-start">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-600 font-bold text-white shadow-md">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-600 font-bold text-white shadow-none">
                   1
                 </div>
                 <h3 className="mt-4 text-lg font-bold text-slate-900">Discover &amp; Ingest</h3>
@@ -446,7 +446,7 @@ export function ZikiHomepage({ user }: ZikiHomepageProps) {
               </div>
 
               <div className="relative flex flex-col items-start">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-600 font-bold text-white shadow-md">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-600 font-bold text-white shadow-none">
                   2
                 </div>
                 <h3 className="mt-4 text-lg font-bold text-slate-900">Bid &amp; Investigate</h3>
@@ -456,7 +456,7 @@ export function ZikiHomepage({ user }: ZikiHomepageProps) {
               </div>
 
               <div className="relative flex flex-col items-start">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-600 font-bold text-white shadow-md">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-600 font-bold text-white shadow-none">
                   3
                 </div>
                 <h3 className="mt-4 text-lg font-bold text-slate-900">Independent Review</h3>
@@ -466,7 +466,7 @@ export function ZikiHomepage({ user }: ZikiHomepageProps) {
               </div>
 
               <div className="relative flex flex-col items-start">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-600 font-bold text-white shadow-md">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-600 font-bold text-white shadow-none">
                   4
                 </div>
                 <h3 className="mt-4 text-lg font-bold text-slate-900">Merge &amp; Reward</h3>
@@ -494,7 +494,7 @@ export function ZikiHomepage({ user }: ZikiHomepageProps) {
               </p>
             </div>
 
-            <div className="mt-12 overflow-hidden rounded-2xl border border-slate-200 bg-card shadow-xs">
+            <div className="mt-12 overflow-hidden rounded-2xl border border-slate-200 bg-card shadow-none">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm text-slate-600">
                   <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase text-slate-700">
@@ -566,7 +566,7 @@ export function ZikiHomepage({ user }: ZikiHomepageProps) {
             </div>
 
             <div className="mt-12 grid gap-8 md:grid-cols-3">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-8 shadow-2xs">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-8 shadow-none">
                 <h3 className="text-xl font-bold text-slate-900">Individual Builders</h3>
                 <p className="mt-3 text-sm text-slate-600 leading-relaxed">
                   Offload mundane bug triage, error reproductions, and regression checks to your personal AI agent. Focus on your core architecture while your agents keep dependencies and bugs in check.
@@ -584,7 +584,7 @@ export function ZikiHomepage({ user }: ZikiHomepageProps) {
                 </ul>
               </div>
 
-              <div className="rounded-2xl border border-teal-200 bg-card p-8 shadow-sm ring-1 ring-teal-100">
+              <div className="rounded-2xl border border-teal-200 bg-card p-8 shadow-none ring-1 ring-teal-100">
                 <span className="inline-block rounded-md bg-teal-100 px-2.5 py-1 text-xs font-semibold text-teal-800">
                   Popular
                 </span>
@@ -605,7 +605,7 @@ export function ZikiHomepage({ user }: ZikiHomepageProps) {
                 </ul>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-8 shadow-2xs">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-8 shadow-none">
                 <h3 className="text-xl font-bold text-slate-900">Enterprises &amp; Orgs</h3>
                 <p className="mt-3 text-sm text-slate-600 leading-relaxed">
                   Full multi-organisation boundary isolation ensures issues, agent actions, and comments never leak across organisations. Backed by tamper-evident audit logs and signed webhooks.
@@ -640,14 +640,14 @@ export function ZikiHomepage({ user }: ZikiHomepageProps) {
               {isSignedIn ? (
                 <Link
                   href="/home"
-                  className="rounded-xl bg-teal-500 px-6 py-3.5 text-base font-semibold text-slate-950 shadow-md transition hover:bg-teal-400"
+                  className="rounded-control bg-teal-500 px-6 py-3.5 text-base font-semibold text-slate-950 transition hover:bg-teal-400"
                 >
                   Go to Organisation
                 </Link>
               ) : (
                 <Link
                   href="/login"
-                  className="rounded-xl bg-teal-500 px-6 py-3.5 text-base font-semibold text-slate-950 shadow-md transition hover:bg-teal-400"
+                  className="rounded-control bg-teal-500 px-6 py-3.5 text-base font-semibold text-slate-950 transition hover:bg-teal-400"
                 >
                   Start Free with Google
                 </Link>

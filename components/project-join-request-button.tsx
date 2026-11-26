@@ -4,8 +4,8 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { requestToJoinProjectAction } from "@/app/actions/project-join-requests";
-import { formatZ, REPORTER_POINTS, REVIEWER_POINTS } from "@/lib/points/rules";
-import type { ProjectRewardConfig } from "@/lib/points/project-rewards";
+import type { ProjectRewardConfig } from "@/lib/rewards/config";
+import { IssueSharesList } from "@/components/issue-shares-list";
 
 export type JoinRequestState = "none" | "pending" | "rejected";
 
@@ -34,8 +34,6 @@ export function ProjectJoinRequestButton({
   const [sent, setSent] = useState(false);
   const [pending, startTransition] = useTransition();
   const text = size === "sm" ? "text-xs" : "text-sm";
-  const reporterReward = project.rewardConfig?.reporter ?? REPORTER_POINTS;
-  const reviewerReward = project.rewardConfig?.reviewer ?? REVIEWER_POINTS;
   const earningGuidelines = project.rewardConfig?.guidelines ?? null;
 
   // Escape closes the form, unless it is still sending.
@@ -87,7 +85,7 @@ export function ProjectJoinRequestButton({
           aria-labelledby={`join-request-title-${project.id}`}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
         >
-          <div className="w-full max-w-lg rounded-[20px] border border-zk-border bg-zk-surface p-6 text-left shadow-2xl">
+          <div className="w-full max-w-lg rounded-panel border border-zk-border bg-zk-surface p-6 text-left shadow-none">
             <div className="flex items-center justify-between border-b border-zk-divider pb-3">
               <h2 id={`join-request-title-${project.id}`} className="text-lg font-bold text-zk-text">
                 Ask to join {project.name}
@@ -104,21 +102,10 @@ export function ProjectJoinRequestButton({
             </div>
 
             <form onSubmit={submit} className="mt-4 space-y-4">
-              <div className="rounded-[12px] border border-zk-border bg-zk-tint/40 p-3 text-xs text-zk-text2">
+              <div className="rounded-panel border border-zk-border bg-zk-tint/40 p-3 text-xs text-zk-text2">
                 <span className="font-semibold text-zk-text">How you make money on {project.name}</span>
-                <div className="mt-2 grid grid-cols-3 gap-2">
-                  <div className="rounded-lg border border-zk-divider bg-zk-surface px-2.5 py-1.5">
-                    <span className="block text-[11px] text-zk-muted">Solve issues</span>
-                    <span className="text-xs font-bold text-zk-text">$1–$10</span>
-                  </div>
-                  <div className="rounded-lg border border-zk-divider bg-zk-surface px-2.5 py-1.5">
-                    <span className="block text-[11px] text-zk-muted">Report bugs</span>
-                    <span className="text-xs font-bold text-zk-text">{formatZ(reporterReward)}</span>
-                  </div>
-                  <div className="rounded-lg border border-zk-divider bg-zk-surface px-2.5 py-1.5">
-                    <span className="block text-[11px] text-zk-muted">Review fixes</span>
-                    <span className="text-xs font-bold text-zk-text">{formatZ(reviewerReward)}</span>
-                  </div>
+                <div className="mt-2">
+                  <IssueSharesList compact />
                 </div>
                 {earningGuidelines ? (
                   <p className="mt-2 whitespace-pre-wrap text-xs text-zk-text2">{earningGuidelines}</p>
@@ -126,7 +113,7 @@ export function ProjectJoinRequestButton({
               </div>
 
               {project.contributorGuidelines ? (
-                <div className="rounded-[12px] border border-zk-border bg-zk-tint/30 p-3 text-xs text-zk-text2">
+                <div className="rounded-panel border border-zk-border bg-zk-tint/30 p-3 text-xs text-zk-text2">
                   <span className="font-semibold text-zk-text">Maintainer guidelines</span>
                   <p className="mt-1 whitespace-pre-wrap">{project.contributorGuidelines}</p>
                 </div>

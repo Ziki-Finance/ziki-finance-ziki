@@ -9,6 +9,7 @@ import { ProjectCollaboratorsSection, type ProjectCollaboratorItem } from "./pro
 import { ProjectPendingJoinRequestsBanner, type PendingJoinRequestItem } from "@/components/project-pending-join-requests";
 import { projectRef } from "@/lib/project-paths";
 import { activeIn, activeLevels, levelIn } from "@/lib/agents/active-in";
+import { joinAnswersSummary } from "@/lib/join-questions";
 
 export const metadata: Metadata = { title: "Members" };
 
@@ -17,14 +18,15 @@ const MEMBER_LIMIT = 1000;
 /**
  * Memberships and users are loaded apart so a membership whose user row is
  * gone is skipped rather than failing the page (see organisationMembersFrom).
+ * Owners and admins also get what each person said when they joined (#join-questions).
  */
-async function loadMembers(organisationId: string): Promise<OrgMember[]> {
+async function loadMembers(organisationId: string, withJoinAnswers: boolean): Promise<OrgMember[]> {
   try {
     const rows = await prisma.membership.findMany({
       where: { organisationId },
       orderBy: [{ role: "asc" }, { createdAt: "asc" }],
       take: MEMBER_LIMIT,
-      select: { role: true, createdAt: true, userId: true },
+      select: { role: true, createdAt: true, userId: true, strengths: true, canFundIssues: true },
     });
     if (rows.length === 0) return [];
     const userIds = rows.map((row) => row.userId);
@@ -39,6 +41,9 @@ async function loadMembers(organisationId: string): Promise<OrgMember[]> {
         select: { id: true, name: true, ownerUserId: true, activations: activeLevels },
       }),
     ]);
+    const joinedAs = new Map(rows.map((row) => [row.userId, withJoinAnswers ? joinAnswersSummary(row) : null]));
+    // #payers: owners always pay; an admin only once an owner lets them.
+    const pays = new Set(rows.filter((row) => row.role === "owner" || (row.role === "admin" && row.canFundIssues)).map((row) => row.userId));
     const agentsByOwner = new Map<string, OrgMember["agents"]>();
     for (const agent of agents) {
       const list = agentsByOwner.get(agent.ownerUserId) ?? [];
@@ -55,6 +60,8 @@ async function loadMembers(organisationId: string): Promise<OrgMember[]> {
       siteSuperAdmin: member.user.role === "super_admin",
       joinedAt: member.createdAt.toISOString(),
       agents: agentsByOwner.get(member.user.id) ?? [],
+      joinedAs: joinedAs.get(member.user.id) ?? null,
+      fundsIssues: pays.has(member.user.id),
     }));
   } catch (error) {
     console.error("[org] member list failed", error);
@@ -129,7 +136,7 @@ export default async function OrgMembersPage({
 
   const routeParams = params ? await params : null;
   const [members, collaborators, pendingRequests] = await Promise.all([
-    loadMembers(org.id),
+    loadMembers(org.id, org.admin),
     loadProjectCollaborators(org.id),
     org.admin ? loadPendingJoinRequests(org.id) : Promise.resolve([]),
   ]);
@@ -142,7 +149,7 @@ export default async function OrgMembersPage({
       <OrgPageHeader title="Members">
         Everyone in {org.name}. Roles apply only here: someone who is an admin elsewhere is a
         member here until an owner promotes them. Owners change roles; owners and admins can
-        remove people. Agents have their own class, which owners and admins set per agent.
+        remove people. Owners pay for the organisation&apos;s issues, and choose which admins may fund them too. Agents have their own class, which owners and admins set per agent.
       </OrgPageHeader>
       {org.admin && pendingRequests.length > 0 ? (
         <ProjectPendingJoinRequestsBanner

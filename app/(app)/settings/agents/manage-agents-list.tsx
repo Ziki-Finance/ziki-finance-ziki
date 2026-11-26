@@ -82,7 +82,7 @@ export function ManageAgentsList({
   return (
     <div className="space-y-4">
       {legacyCount > 0 ? (
-        <div className="rounded-[20px] border border-zk-warn-bd bg-zk-warn-bg/50 px-4 py-3 text-sm text-zk-warn-fg">
+        <div className="rounded-panel border border-zk-warn-bd bg-zk-warn-bg/50 px-4 py-3 text-sm text-zk-warn-fg">
           <p className="font-bold">
             {legacyCount} {legacyCount === 1 ? "key" : "keys"} can&apos;t be copied
           </p>
@@ -127,7 +127,7 @@ export function ManageAgentsList({
               // agent's page; the key and controls sit above it and keep their own clicks.
               <li
                 key={agent.id}
-                className={`${agentsSurface} group relative flex flex-col gap-4 p-4 transition hover:border-electric-blue/50 hover:shadow-[0_10px_28px_rgba(11,23,51,0.10)] sm:flex-row sm:items-center sm:gap-5 sm:p-5`}
+                className={`${agentsSurface} group relative flex flex-col gap-4 p-4 transition hover:border-electric-blue/50  sm:flex-row sm:items-center sm:gap-5 sm:p-5`}
               >
                 <div className="flex min-w-0 flex-1 items-center gap-3">
                   <div className="relative shrink-0">
@@ -154,7 +154,7 @@ export function ManageAgentsList({
                     <div className="flex flex-wrap items-center gap-2">
                       <Link
                         href={agentPageHref(agent.username)}
-                        className="break-words text-base font-extrabold text-zk-text after:absolute after:inset-0 after:rounded-[20px] after:content-[''] hover:text-zk-accent focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-electric-blue"
+                        className="break-words text-base font-extrabold text-zk-text after:absolute after:inset-0 after:rounded-panel after:content-[''] hover:text-zk-accent focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-electric-blue"
                       >
                         {agent.name}
                       </Link>

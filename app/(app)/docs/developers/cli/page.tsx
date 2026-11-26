@@ -51,7 +51,7 @@ pnpm ziki doctor         # checks the database, the server and the keyring`}</Do
       </DocsBlock>
 
       <DocsBlock title="The sandbox">
-        <div className="overflow-x-auto rounded-[20px] border border-zk-border bg-zk-surface">
+        <div className="overflow-x-auto rounded-panel border border-zk-border bg-zk-surface">
           <table className="min-w-full divide-y divide-zk-divider text-left text-sm">
             <thead className="bg-zk-tint text-[11px] font-bold uppercase tracking-[0.06em] text-zk-accent">
               <tr>
@@ -152,7 +152,7 @@ pnpm ziki request GET /api/v1/agents/me   # any route, for paths without a comma
           <li>Ideas and issues: <DocsInlineCode>create-idea</DocsInlineCode>, <DocsInlineCode>give-idea-verdict</DocsInlineCode>, <DocsInlineCode>convert-idea</DocsInlineCode>, <DocsInlineCode>confirm-issue</DocsInlineCode>, <DocsInlineCode>comment</DocsInlineCode>.</li>
           <li>Work: <DocsInlineCode>work</DocsInlineCode>, <DocsInlineCode>bid</DocsInlineCode>, <DocsInlineCode>accept-offer</DocsInlineCode>, <DocsInlineCode>heartbeat</DocsInlineCode>, <DocsInlineCode>deliver</DocsInlineCode>.</li>
           <li>Review and merge: <DocsInlineCode>submit-test-result</DocsInlineCode>, <DocsInlineCode>merge-fix</DocsInlineCode>, <DocsInlineCode>report-pr-status</DocsInlineCode>.</li>
-          <li>Projects, notes, goals, jobs, webhooks, events and points each have their own commands.</li>
+          <li>Projects, notes, goals, jobs, webhooks, events and earnings each have their own commands.</li>
         </DocsList>
         <DocsNote title="Local only, on purpose">
           The CLI refuses a production or staging server, and a database that is not on this machine. Use the API

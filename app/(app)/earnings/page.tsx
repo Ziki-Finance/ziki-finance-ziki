@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
-import { formatZ } from "@/lib/points/rules";
+import { formatZik } from "@/lib/coins/math";
 import { LocalTime } from "@/components/local-time";
 import { earningsByWorkspace, earningsSummary, weeklyGoalState } from "@/lib/earnings";
 import { ChangeGoal } from "./goal-form";
@@ -9,10 +9,10 @@ import { ChangeGoal } from "./goal-form";
 export const metadata = { title: "Your earnings" };
 export const dynamic = "force-dynamic";
 
-const card = "rounded-[22px] border border-zk-border bg-zk-surface p-5 sm:p-6";
+const card = "rounded-panel border border-zk-border bg-zk-surface p-5 sm:p-6";
 const label = "text-[11px] font-bold uppercase tracking-[0.08em] text-zk-muted";
 /** Where-it-came-from colours, in the bar's order: blue for the work, then quieter tones for the small things. */
-const SOURCE_DOT = ["bg-[#2f6fe4]", "bg-[#6f9bf0]", "bg-[#a9c4f7]", "bg-zk-ok-fg", "bg-[#5f6577]"];
+const SOURCE_DOT = ["bg-zk-blue", "bg-teal-300", "bg-teal-200", "bg-zk-ok-fg", "bg-zk-muted"];
 /** The goal bar keeps Earn's colours: green for what is paid, yellow stripes for what is being checked. */
 const PAID = "bg-zk-ok-fg";
 const CHECKING = "bg-[repeating-linear-gradient(45deg,#f2c14e_0,#f2c14e_6px,#f7d98a_6px,#f7d98a_12px)]";
@@ -47,7 +47,7 @@ export default async function EarningsPage() {
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight text-zk-text">Your earnings</h1>
         </div>
-        <Link href="/leaderboard" className="inline-flex min-h-11 items-center gap-2 rounded-full border border-zk-border bg-zk-surface px-5 text-sm font-bold text-zk-text hover:bg-zk-chip">
+        <Link href="/leaderboard" className="inline-flex h-9 items-center gap-2 rounded-control border border-zk-border bg-zk-surface px-5 text-sm font-semibold text-zk-text hover:bg-zk-chip">
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4ZM7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3" /></svg>
           Ranking
         </Link>
@@ -62,14 +62,14 @@ export default async function EarningsPage() {
           </div>
           <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
             <p className="text-4xl font-extrabold tracking-tight tabular-nums text-zk-text sm:text-[44px]">
-              {formatZ(week)} <span className="text-base font-medium text-zk-muted">of {formatZ(weeklyGoal)}</span>
+              {formatZik(week)} <span className="text-base font-medium text-zk-muted">of {formatZik(weeklyGoal)}</span>
             </p>
             <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${status.tone}`}>{status.text}</span>
           </div>
           <div className="relative mt-4">
             <div
               role="img"
-              aria-label={`${formatZ(week)} paid and ${formatZ(checking)} being checked, of ${formatZ(weeklyGoal)} this week`}
+              aria-label={`${formatZik(week)} paid and ${formatZik(checking)} being checked, of ${formatZik(weeklyGoal)} this week`}
               className="flex h-2.5 overflow-hidden rounded-full bg-zk-seg"
             >
               <span className={`h-full ${PAID}`} style={{ width: pct(week) }} />
@@ -80,13 +80,13 @@ export default async function EarningsPage() {
           </div>
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zk-text2">
             <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`h-2 w-2 rounded-full ${PAID}`} />Paid</span>
-            <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#f2c14e]" />Being checked</span>
+            <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="h-2 w-2 rounded-full bg-zk-warn-fg" />Being checked</span>
             <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="h-3 w-0.5 rounded-full bg-zk-text" />Where you should be today</span>
           </div>
           <dl className="mt-5 grid grid-cols-3 gap-3 border-t border-zk-divider pt-4">
-            <div><dt className="text-xs text-zk-muted">Still to earn</dt><dd className="mt-0.5 font-mono text-base font-bold tabular-nums text-zk-text">{formatZ(goal.left)}</dd></div>
-            <div><dt className="text-xs text-zk-muted">Needed per day</dt><dd className="mt-0.5 font-mono text-base font-bold tabular-nums text-zk-text">{formatZ(goal.perDay)}</dd></div>
-            <div><dt className="text-xs text-zk-muted">Being checked</dt><dd className="mt-0.5 font-mono text-base font-bold tabular-nums text-zk-warn-fg">+{formatZ(checking)}</dd></div>
+            <div><dt className="text-xs text-zk-muted">Still to earn</dt><dd className="mt-0.5 font-mono text-base font-bold tabular-nums text-zk-text">{formatZik(goal.left)}</dd></div>
+            <div><dt className="text-xs text-zk-muted">Needed per day</dt><dd className="mt-0.5 font-mono text-base font-bold tabular-nums text-zk-text">{formatZik(goal.perDay)}</dd></div>
+            <div><dt className="text-xs text-zk-muted">Being checked</dt><dd className="mt-0.5 font-mono text-base font-bold tabular-nums text-zk-warn-fg">+{formatZik(checking)}</dd></div>
           </dl>
         </section>
 
@@ -107,14 +107,14 @@ export default async function EarningsPage() {
                   <li key={source.key} className="flex items-center gap-2.5 text-sm text-zk-text">
                     <span aria-hidden="true" className={`h-2 w-2 rounded-full ${SOURCE_DOT[index % SOURCE_DOT.length]}`} />
                     <span className="flex-1">{source.label}</span>
-                    <span className="font-mono font-bold tabular-nums">{formatZ(source.amount)}</span>
+                    <span className="font-mono font-bold tabular-nums">{formatZik(source.amount)}</span>
                   </li>
                 ))}
               </ul>
             </>
           )}
           <p className="mt-5 border-t border-zk-divider pt-4 text-sm text-zk-text2">
-            {solvedCount === 0 ? "0 issues solved yet. Solving pays the most per task." : `${solvedCount} ${solvedCount === 1 ? "issue" : "issues"} solved. Solving pays the most per task.`}
+            {solvedCount === 0 ? "0 issues fixed yet. Fixing pays the most: the biggest share of what the issue is funded with." : `${solvedCount} ${solvedCount === 1 ? "issue" : "issues"} fixed. Fixing pays the most: the biggest share of what the issue is funded with.`}
           </p>
         </section>
       </div>
@@ -124,17 +124,17 @@ export default async function EarningsPage() {
         <section aria-labelledby="workspaces" className={card}>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 id="workspaces" className={label}>All workspaces</h2>
-            <p className="font-mono text-lg font-extrabold tabular-nums text-zk-text">{formatZ(total)}</p>
+            <p className="font-mono text-lg font-extrabold tabular-nums text-zk-text">{formatZik(total)}</p>
           </div>
           <ul className="m-0 mt-3 list-none space-y-2 p-0">
             {workspaces.map((workspace) => (
               <li key={workspace.organisationId} className="flex items-center justify-between gap-3 text-sm text-zk-text">
                 <span className="min-w-0 truncate">{workspace.name}</span>
-                <span className="font-mono font-bold tabular-nums">{formatZ(workspace.total)}</span>
+                <span className="font-mono font-bold tabular-nums">{formatZik(workspace.total)}</span>
               </li>
             ))}
           </ul>
-          <p className="mt-3 text-xs text-zk-muted">The $ in the header and Withdraw are for the workspace you are in. This page adds up every workspace.</p>
+          <p className="mt-3 text-xs text-zk-muted">The Ziks at the top of the page are everything you earned. Here is how it adds up, workspace by workspace.</p>
         </section>
       ) : null}
 
@@ -156,14 +156,14 @@ export default async function EarningsPage() {
             <ul className="m-0 list-none divide-y divide-zk-divider p-0">
               {tasks.map((task, index) => (
                 <li key={task.id} className="grid grid-cols-[88px_1fr_auto] items-center gap-3 px-4 py-3.5">
-                  <span className="justify-self-start rounded-lg border border-zk-border px-2.5 py-1.5 font-mono text-sm font-bold tabular-nums text-zk-ok-fg">+{formatZ(task.reward)}</span>
+                  <span className="justify-self-start rounded-lg border border-zk-border px-2.5 py-1.5 font-mono text-sm font-bold tabular-nums text-zk-ok-fg">+{formatZik(task.reward)}</span>
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-bold text-zk-text">{task.title}</span>
                     <span className="block truncate text-xs text-zk-muted">{task.where}</span>
                   </span>
                   <Link
                     href={task.href}
-                    className={`inline-flex min-h-10 items-center rounded-full px-4 text-sm font-bold ${index === 0 ? "bg-electric-blue-strong text-white hover:bg-[#2552af]" : "border border-zk-border bg-zk-surface text-zk-text hover:bg-zk-chip"}`}
+                    className={`inline-flex min-h-10 items-center rounded-control px-4 text-sm font-semibold ${index === 0 ? "bg-electric-blue-strong text-white hover:bg-zk-ink" : "border border-zk-border bg-zk-surface text-zk-text hover:bg-zk-chip"}`}
                   >
                     {tasksAreYours ? "Place bid" : "See task"}
                   </Link>
@@ -186,12 +186,12 @@ export default async function EarningsPage() {
           <ul className="m-0 mt-3 list-none space-y-3 p-0">
             {activity.map((entry) => (
               <li key={entry.id} className="flex items-baseline gap-3 text-sm">
-                <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 translate-y-[-2px] rounded-full ${entry.amount < 0 ? "bg-zk-bad-fg" : "bg-[#2f6fe4]"}`} />
+                <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 translate-y-[-2px] rounded-full ${entry.amount < 0 ? "bg-zk-bad-fg" : "bg-zk-blue"}`} />
                 <span className="min-w-0 flex-1 text-zk-text">
                   <b>{entry.who}</b>{entry.did ? ` ${entry.did}` : ""}{entry.ref ? ` ${entry.ref}` : ""}
                   <span className="text-zk-muted"> · <LocalTime date={entry.at} /></span>
                 </span>
-                <span className={`font-mono font-bold tabular-nums ${entry.amount < 0 ? "text-zk-bad-fg" : "text-zk-ok-fg"}`}>{entry.amount < 0 ? "" : "+"}{formatZ(entry.amount)}</span>
+                <span className={`font-mono font-bold tabular-nums ${entry.amount < 0 ? "text-zk-bad-fg" : "text-zk-ok-fg"}`}>{entry.amount < 0 ? "" : "+"}{formatZik(entry.amount)}</span>
               </li>
             ))}
           </ul>

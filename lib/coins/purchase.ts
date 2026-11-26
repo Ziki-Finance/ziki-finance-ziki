@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { absoluteUrl } from "@/lib/site-url";
@@ -7,6 +8,7 @@ import { discountedCents, isKnownDiscount } from "./plans";
 import { getStripe } from "./stripe";
 import { discountPercentFor } from "./subscription";
 import { safeReturnTo } from "./return-to";
+import { TEST_CURRENCY, TEST_SESSION_PREFIX } from "./test-mode";
 
 /**
  * Buying Ziks (#ziki-coins). Checkout takes the money; the webhook
@@ -47,6 +49,35 @@ export async function createPackCheckout(userId: string, email: string | undefin
   });
   if (!session.url) throw new CoinError("not_configured", "Stripe didn't return a checkout page.");
   return session.url;
+}
+
+/**
+ * Test mode (./test-mode.ts): buys the pack at once with no payment, and gives back the page to land on. The purchase
+ * is marked with the `test` currency so it never counts toward what Stripe should hold. A buyer's plan discount still
+ * shows in the amount, so the flow reads as it will with real payments.
+ */
+export async function createTestPurchase(userId: string, packId: string, returnTo?: unknown): Promise<string> {
+  const back = safeReturnTo(returnTo);
+  const pack = findPack(packId);
+  if (!pack) throw new CoinError("invalid_amount", "Choose one of the packs.");
+  const discountPercent = await discountPercentFor(userId);
+  await prisma.$transaction(async (tx) => {
+    await lockUser(tx, userId);
+    // The database requires every purchase to come from a Checkout session or an invoice (CoinPurchase_source_check), so a
+    // test purchase carries a stand-in session id of its own. It never matches a real Stripe session.
+    const purchase = await tx.coinPurchase.create({
+      data: {
+        userId,
+        stripeSessionId: `${TEST_SESSION_PREFIX}${randomUUID()}`,
+        packId: pack.id,
+        zik: pack.zik,
+        amountCents: discountedCents(zikToCents(pack.zik), discountPercent),
+        currency: TEST_CURRENCY,
+      },
+    });
+    await appendRows(tx, [{ account: "wallet", userId, kind: "purchase", amount: pack.zik, sourceKey: `purchase:test:${purchase.id}`, purchaseId: purchase.id }]);
+  });
+  return back ? `${back}?bought=1` : "/coins?bought=1";
 }
 
 /** Stripe's processing fee on a payment, in cents, when it can be read. */

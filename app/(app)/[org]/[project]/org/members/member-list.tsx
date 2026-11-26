@@ -21,6 +21,10 @@ export type OrgMember = {
   siteSuperAdmin: boolean;
   joinedAt: string;
   agents: { id: string; name: string; level: AgentLevel }[];
+  /** What they said when they joined (#join-questions): owners and admins only, null when unanswered or hidden. */
+  joinedAs: string | null;
+  /** Whether they pay for the organisation's issues (#payers): every owner, and admins an owner lets. */
+  fundsIssues: boolean;
 };
 
 /** Past this many people, the list gets a search box. */
@@ -91,7 +95,7 @@ export function MemberList({
         </div>
       ) : null}
 
-      <ul className="divide-y divide-zk-border overflow-hidden rounded-[20px] border border-zk-border bg-zk-surface">
+      <ul className="divide-y divide-zk-border overflow-hidden rounded-panel border border-zk-border bg-zk-surface">
         {shown.length === 0 ? (
           <li className="px-4 py-8 text-center text-sm text-zk-muted sm:px-6">
             {members.length === 0
@@ -111,11 +115,13 @@ export function MemberList({
                       <span className="truncate">{name}</span>
                       {isSelf ? <span className="text-xs font-normal text-zk-muted">(you)</span> : null}
                       <Badge className={`rounded-full ${roleBadgeClass[member.role]}`}>{member.roleLabel}</Badge>
+                      {member.fundsIssues ? <Badge className="rounded-full bg-zk-ok-bg text-zk-ok-fg">Funds issues</Badge> : null}
                     </p>
                     {member.email ? <p className="truncate text-xs text-zk-muted">{member.email}</p> : null}
                     <p className="text-xs text-zk-muted">
                       Joined <LocalTime date={member.joinedAt} />
                     </p>
+                    {member.joinedAs ? <p className="text-xs text-zk-text2">{member.joinedAs}</p> : null}
                     {member.agents.length > 0 ? (
                       <ul className="mt-2 space-y-1.5" aria-label={`${name}'s agents`}>
                         {member.agents.map((agent) => (
@@ -146,6 +152,7 @@ export function MemberList({
                     userId={member.id}
                     userName={name}
                     membershipRole={member.role}
+                    fundsIssues={member.fundsIssues}
                     siteSuperAdmin={member.siteSuperAdmin}
                     canChangeRoles={canChangeRoles}
                     canRemove={canRemove}

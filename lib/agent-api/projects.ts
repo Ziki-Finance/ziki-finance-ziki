@@ -3,12 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { absoluteUrl } from "@/lib/site-url";
 import { projectPath, projectRef } from "@/lib/project-paths";
 import { IssueApiError } from "@/lib/agent-api/errors";
-import {
-  getPlatformRewardConfig,
-  projectDefaultsFromPlatform,
-} from "@/lib/points/platform-rewards";
-import { parseProjectRewardConfig } from "@/lib/points/project-rewards";
+import { getPlatformRewardConfig } from "@/lib/rewards/platform";
+import { parseProjectRewardConfig, projectDefaultsFromPlatform, type ProjectRewardConfig } from "@/lib/rewards/config";
+import { ISSUE_SHARES } from "@/lib/coins/issue-shares";
+import { feePercent } from "@/lib/coins/math";
 import { workflowValues } from "@/lib/workflow-config";
+import { effectiveHumanApprovalGuidelines } from "@/lib/human-approval";
 import type { Prisma } from "@prisma/client";
 
 /**
@@ -25,13 +25,21 @@ import type { Prisma } from "@prisma/client";
  * not selected — it is deployment configuration, not agent-visible data.
  */
 const projectSelect = {
-  id: true, slug: true, name: true, goal: true, repoUrl: true, stagingUrl: true, rewardConfig: true,
+  id: true, slug: true, name: true, goal: true, humanApprovalGuidelines: true, repoUrl: true, stagingUrl: true, rewardConfig: true,
   workflow: true,
   repositories: {
     select: { url: true, label: true, branch: true },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
   },
 } satisfies Prisma.ProjectSelect;
+
+/**
+ * What the project's work pays (#one-payment): every funded issue pays out the same split once live, Ziki's fee
+ * first (`feePercent`), then each role's share (`shares`, percent of the rest); and the project's earning guidelines.
+ */
+function rewardRules(rewardConfig: unknown, base: ProjectRewardConfig) {
+  return { feePercent: feePercent(), shares: ISSUE_SHARES, guidelines: parseProjectRewardConfig(rewardConfig, base).guidelines };
+}
 
 type AgentRepository = { url: string; label: string | null; branch: string | null; main: boolean };
 
@@ -78,11 +86,12 @@ export async function listAgentProjects(organisationId: string) {
   const openByProject = new Map(openCounts.map((row) => [row.projectId, row._count._all]));
   return projects.map((project) => ({
     ...project,
+    humanApprovalGuidelines: effectiveHumanApprovalGuidelines(project.humanApprovalGuidelines),
     repositories: agentRepositories(project),
     workUrl: absoluteUrl(projectPath(projectRef(orgSlug, project.slug), "/work")),
     notesUrl: `/api/v1/projects/${project.id}/notes`,
     notesCommentsUrl: `/api/v1/projects/${project.id}/notes/comments`,
-    rewardRules: parseProjectRewardConfig(project.rewardConfig, base),
+    rewardRules: rewardRules(project.rewardConfig, base),
     workflow: workflowValues(project.workflow),
     openIssueCount: openByProject.get(project.id) ?? 0,
   }));
@@ -104,11 +113,12 @@ export async function getAgentProject(organisationId: string, projectId: string)
   });
   return {
     ...project,
+    humanApprovalGuidelines: effectiveHumanApprovalGuidelines(project.humanApprovalGuidelines),
     repositories: agentRepositories(project),
     workUrl: absoluteUrl(projectPath(projectRef(orgSlug, project.slug), "/work")),
     notesUrl: `/api/v1/projects/${project.id}/notes`,
     notesCommentsUrl: `/api/v1/projects/${project.id}/notes/comments`,
-    rewardRules: parseProjectRewardConfig(project.rewardConfig, projectDefaultsFromPlatform(platform)),
+    rewardRules: rewardRules(project.rewardConfig, projectDefaultsFromPlatform(platform)),
     workflow: workflowValues(project.workflow),
     openIssueCount,
   };

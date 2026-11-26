@@ -120,6 +120,14 @@ export type NotificationEvent =
       kind: "testing";
       subject: string;
       message: string;
+    })
+  | (AgentBase & {
+      /** A project's Ziks budget is running low or has run out while issues are waiting (#project-budget). */
+      kind: "budget_alert";
+      subject: string;
+      message: string;
+      /** The project's Budget page, app-relative. */
+      budgetPath: string;
     });
 
 /** The kinds raised by agents and the platform rather than by issue edits. */
@@ -132,6 +140,7 @@ export const AGENT_NOTIFICATION_KINDS = [
   "merge_failed",
   "plan_submitted",
   "testing",
+  "budget_alert",
 ] as const;
 
 export type PlannedNotification = {
@@ -172,7 +181,8 @@ function agentTarget(event: Extract<NotificationEvent, AgentBase>, issuePath: st
     case "agent_question":
       return { path: `/questions/${event.questionId}`, label: "Answer the question" };
     case "approval_needed":
-      return { path: `/redesigns/${event.proposalId}`, label: "Review the proposal" };
+      // Designs are compared and chosen on their issue's page (#redesigns).
+      return { path: issuePath ? `${issuePath}#redesigns` : "/inbox", label: "Review the proposal" };
     case "organisation_invite":
       return { path: `/organisations?invite=${encodeURIComponent(event.inviteId)}`, label: "See the invite" };
     case "claim_offered":
@@ -185,6 +195,8 @@ function agentTarget(event: Extract<NotificationEvent, AgentBase>, issuePath: st
       return { path: issuePath ? `${issuePath}#plan` : "/home", label: "Review the plan" };
     case "testing":
       return issuePath ? { path: `${issuePath}#test-card`, label: "Open the test card" } : { path: "/inbox", label: "Open your inbox" };
+    case "budget_alert":
+      return { path: event.budgetPath, label: "Open the budget" };
   }
 }
 
@@ -244,6 +256,7 @@ function planAgentNotification(
       break;
     }
     case "testing":
+    case "budget_alert":
       subject = event.subject;
       lines = [event.message];
       break;

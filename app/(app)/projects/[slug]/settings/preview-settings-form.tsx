@@ -52,7 +52,7 @@ export function PreviewSettingsForm({
     <form action={action} className="space-y-4">
       <input type="hidden" name="slug" value={slug} />
       {result && !result.ok ? (
-        <p role="alert" className="rounded-[14px] bg-zk-bad-bg p-3 text-sm text-zk-bad-fg">
+        <p role="alert" className="rounded-xl bg-zk-bad-bg p-3 text-sm text-zk-bad-fg">
           {result.error}
         </p>
       ) : null}
@@ -80,7 +80,7 @@ export function PreviewSettingsForm({
           }`}
         >
           <span
-            className={`pointer-events-none absolute top-[3px] h-[22px] w-[22px] rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.25)] transition-[left] motion-reduce:transition-none ${
+            className={`pointer-events-none absolute top-[3px] h-[22px] w-[22px] rounded-full bg-white shadow-none transition-[left] motion-reduce:transition-none ${
               enabled ? "left-[21px]" : "left-[3px]"
             }`}
           />

@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Avatar } from "@/components/avatar";
-import { formatZ as money } from "@/lib/points/rules";
+import { formatZik as money } from "@/lib/coins/math";
 
 /**
  * One person on Ranking: their standing, then the Team details (role, active
@@ -18,8 +18,8 @@ export function RankingRow({
   pct,
   goalMet,
   solved,
-  points,
-  recentPoints,
+  ziks,
+  ziksThisWeek,
   claims,
   claimLimit,
   agentCount,
@@ -36,8 +36,8 @@ export function RankingRow({
   pct: number;
   goalMet: boolean;
   solved: number;
-  points: number;
-  recentPoints: number;
+  ziks: number;
+  ziksThisWeek: number;
   claims: number;
   claimLimit: number;
   agentCount: number;
@@ -53,7 +53,7 @@ export function RankingRow({
     <li className={last ? "" : "border-b border-zk-divider"}>
       <div
         className={`flex items-center gap-4 rounded-2xl px-4 py-3 ${
-          isYou ? "bg-[#F3F8FF] shadow-[inset_3px_0_0_#2E6FEF] dark:bg-[#13254A]" : ""
+          isYou ? "bg-zk-tint border-l-2 border-zk-blue" : ""
         }`}
       >
         <span className="w-10 text-sm font-extrabold" style={{ color: medal }}>
@@ -75,7 +75,7 @@ export function RankingRow({
           <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-zk-tint">
             <span
               className="block h-full rounded-full"
-              style={{ width: `${pct}%`, background: goalMet ? "#2E6FEF" : "#8FC9FF" }}
+              style={{ width: `${pct}%`, background: goalMet ? "var(--zk-blue)" : "var(--color-teal-300)" }}
             />
           </span>
           <span className="w-10 text-right text-xs font-bold text-zk-text2">{pct}%</span>
@@ -83,10 +83,10 @@ export function RankingRow({
         <span className="w-[70px] text-right text-sm text-zk-text2">{solved}</span>
         <span className="flex w-[110px] flex-col items-end leading-tight">
           <span className="text-[15px] font-extrabold text-zk-text" title="Earned all time">
-            {money(points)}
+            {money(ziks)}
           </span>
           <span className="text-[11px] text-zk-muted" title="Earned this week (since Monday)">
-            {money(recentPoints)} this week
+            {money(ziksThisWeek)} this week
           </span>
         </span>
         <span className="w-[90px] text-right text-sm font-semibold tabular-nums text-zk-text">

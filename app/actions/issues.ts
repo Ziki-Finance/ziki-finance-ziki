@@ -34,6 +34,7 @@ import {
   normalizeMentions,
 } from "@/lib/mentions";
 import { resolveOrganisationMentions, organisationMemberWhere } from "@/lib/organisation-mentions";
+import { assetForWork } from "@/lib/marketing/assets";
 import { parseIdeaTrack, typeFitsTrack } from "@/lib/marketing/idea-track";
 import { structureIdea } from "@/lib/idea-structuring";
 import {
@@ -87,11 +88,7 @@ import {
   NO_ORGANISATION_MESSAGE,
 } from "@/lib/organisation-context";
 import { currentOrganisationAccess } from "@/lib/organisation-access";
-import { award, solverAwardFor } from "@/lib/points/award";
-import { holdPayout } from "@/lib/points/payout";
-import { isConfirmed } from "@/lib/agent-api/confirmations";
-import { correct } from "@/lib/points/correct";
-import { VOTE_POINTS, importanceSourceKey, pointSourceKey } from "@/lib/points/rules";
+import { releasePayoutIfLive } from "@/lib/coins/issue-payout";
 import {
   checkRateLimit,
   consumeRateLimit,
@@ -99,6 +96,7 @@ import {
   RATE_LIMIT_MESSAGE,
 } from "@/lib/rate-limit";
 import { publish } from "@/lib/agent-api/events";
+import { convertSoloIdeas } from "@/lib/projects/solo";
 import { issueChangePayload, publishWebEvent } from "@/lib/agent-api/web-events";
 import { firstPullRequestLink } from "@/lib/github/pr-mention";
 import { CommentPlacementError, placeComment, type CommentPlacement } from "@/lib/comment-placement";
@@ -128,6 +126,8 @@ export type ActionResult = {
   commentId?: string;
   /** The new idea's page, when the form asked to stay where it is (`stay`). */
   href?: string;
+  /** And its number, so the page can point it out (#just-added). */
+  ideaNumber?: number;
 };
 
 /**
@@ -318,6 +318,15 @@ export async function createBugAction(
   const areaId = parsed.data.areaId && parsed.data.areaId.length > 0
     ? parsed.data.areaId
     : null;
+
+  // The marketing asset it is on (#marketing-assets): one of this organisation's, under the idea's type.
+  const assetRaw = formData.get("assetId");
+  let assetId: string | null = null;
+  try {
+    assetId = await assetForWork(prisma, organisationId, typeof assetRaw === "string" ? assetRaw.trim() : null, track, typeId, parsed.data.title);
+  } catch {
+    return fieldError("typeId", "That page or asset isn't one of this type's. Please pick another.");
+  }
   // #security-findings: a private security report. Its details go to SecurityFinding and
   // the idea keeps a placeholder, so nothing else in Ziki can show them before the fix is live.
   const security = formData.get("security") === "on" || formData.get("security") === "true";
@@ -360,6 +369,7 @@ export async function createBugAction(
           track,
           rationale,
           typeId,
+          assetId,
           // Proof links can point at the exploit, so a private finding keeps them in its description.
           proofLinks: severity ? [] : parsed.data.proofLinks,
           areaId,
@@ -415,9 +425,11 @@ export async function createBugAction(
     throw error;
   }
 
+  // #solo: in a Solo project the idea becomes an issue at once (security reports keep their own flow).
+  if (!severity) await convertSoloIdeas({ ideaId: idea.id }).catch(() => 0);
   revalidatePath("/[org]/[project]", "layout");
   // The Marketing assistant files drafts from its chat and stays on it (#marketing-assistant).
-  if (formData.get("stay") === "true") return { ok: true, href: ideaPath(refOf(targetProject), idea.number) };
+  if (formData.get("stay") === "true") return { ok: true, href: ideaPath(refOf(targetProject), idea.number), ideaNumber: idea.number };
   redirect(ideaPath(refOf(targetProject), idea.number));
 }
 
@@ -844,16 +856,9 @@ export async function updateBugAction(
           }
         }
       }
-      // #428, #rewards: resolving an issue earns its assignee the issue's reward, once,
-      // held until enough people report the work deployed (#live-payout).
-      if (data.status === "resolved" && existing.status !== "resolved") {
-        const solver = await solverAwardFor(tx, {
-          id: bugId,
-          organisationId: existing.organisationId,
-          assigneeId: data.assigneeId !== undefined ? data.assigneeId : existing.assigneeId,
-        });
-        if (solver) await holdPayout(tx, bugId, [solver]);
-      }
+      // #live-payout, #one-payment: a resolved issue's funded Ziks pay everyone who worked on it once enough people
+      // report it deployed.
+      if (data.status === "resolved" && existing.status !== "resolved") await releasePayoutIfLive(tx, bugId);
       if (pending.length > 0) {
         await tx.bugActivity.createMany({
           data: activityCreateData(
@@ -1095,8 +1100,6 @@ export async function editBugContentAction(
     // none goes missing from the history.
     const [previous] = await tx.$queryRaw<{ title: string; description: string }[]>`
       SELECT "title", "description" FROM "Bug" WHERE "id" = ${bugId} FOR UPDATE`;
-    // Read before the revision below voids the confirmations.
-    const wasConfirmed = await isConfirmed(bugId, tx);
     await tx.bugRevision.create({
       data: {
         bugId,
@@ -1106,43 +1109,11 @@ export async function editBugContentAction(
       },
     });
 
-    // #713: Editing an issue voids its confirmations and reverses any
-    // reporter points awarded for the replaced report. The entries and their
+    // #713: Editing an issue voids its confirmations. The entries and their
     // replies stay (a person wrote them), but only entries given after the
     // latest edit count (lib/issue-stage.ts), so this revision clears them:
-    // each person gives theirs again to count.
-    type OptionalTxExtensions = {
-      pointEntry?: {
-        findFirst?: (args: unknown) => Promise<{ id: string; organisationId: string; userId: string; bugId: string | null; role: "solver" | "reporter" | "reviewer"; points: number } | null>;
-        update?: (args: unknown) => Promise<unknown>;
-      };
-    };
-    const txExtensions = tx as unknown as OptionalTxExtensions;
-
-    if (wasConfirmed) {
-      const recipientId = existing.beneficiaryUserId ?? existing.reporterId;
-      const organisationId = existing.organisationId ?? (await currentOrganisationIdFor(userId));
-      if (recipientId && typeof txExtensions.pointEntry?.findFirst === "function") {
-        const entry = await txExtensions.pointEntry.findFirst({
-          where: {
-            organisationId,
-            sourceKey: pointSourceKey("reporter", bugId, recipientId),
-          },
-          select: { id: true, organisationId: true, userId: true, bugId: true, role: true, points: true },
-        });
-        if (entry) {
-          await correct(tx, { entry });
-          if (typeof txExtensions.pointEntry?.update === "function") {
-            await txExtensions.pointEntry.update({
-              where: { id: entry.id },
-              data: {
-                sourceKey: `${pointSourceKey("reporter", bugId, recipientId)}:invalidated:${entry.id}`,
-              },
-            });
-          }
-        }
-      }
-    }
+    // each person gives theirs again to count, and only counted ones are paid
+    // when the issue pays out (#one-payment).
 
     await tx.bug.update({
       where: { id: bugId },
@@ -1876,15 +1847,6 @@ export async function toggleVoteAction(
       await tx.vote.create({
         data: { userId, bugId, value: nextVote },
       });
-      // The first mark on an issue earns a point, once per person (#vote-points).
-      await award(tx, {
-        organisationId: bug.organisationId,
-        userId,
-        bugId,
-        role: "vote",
-        points: VOTE_POINTS,
-        sourceKey: importanceSourceKey(bugId, userId),
-      });
     }
 
     const voteCounts = await tx.vote.groupBy({
@@ -1965,8 +1927,9 @@ export async function deleteBugAction(bugId: string): Promise<ActionResult> {
         where: { bugId, releasedAt: null, status: { in: ["active", "offered", "planning"] } },
         data: { status: "released", releasedAt: new Date(), releaseReason: "deleted" },
       });
-      // Delete attachments associated with the issue to prevent storage bloat (#658)
-      await tx.attachment.deleteMany({ where: { bugId } });
+      // Attachments stay with the hidden issue so a restore brings them back
+      // (#596). The retention sweep removes them once the issue has been deleted
+      // for DELETED_PARENT_ATTACHMENT_TTL_MS, which still keeps storage in check (#658).
 
       await publishWebEvent(tx, { bugId, type: "issue.deleted", actorUserId: user.id });
 

@@ -1,5 +1,7 @@
 "use client";
 
+import { PRIMARY_ACTION } from "@/lib/ui-style";
+
 import { useRef, useState, useTransition } from "react";
 import { placeIssueBidAction } from "@/app/actions/issue-bids";
 
@@ -28,7 +30,7 @@ export function BidButton({ bugId, agents }: { bugId: string; agents: BidAgent[]
       <button
         type="button"
         onClick={() => dialogRef.current?.showModal()}
-        className="inline-flex h-7 items-center gap-1 rounded-full bg-electric-blue-strong px-3 text-xs font-semibold normal-case tracking-normal text-white shadow-[0_1px_2px_rgba(0,0,0,0.18)] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zk-accent focus-visible:ring-offset-2 print:hidden"
+        className="inline-flex h-7 items-center gap-1 rounded-control bg-electric-blue-strong px-3 text-xs font-semibold normal-case tracking-normal text-white transition hover:bg-zk-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zk-accent focus-visible:ring-offset-2 print:hidden"
       >
         <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
         Bid
@@ -36,7 +38,7 @@ export function BidButton({ bugId, agents }: { bugId: string; agents: BidAgent[]
       <dialog
         ref={dialogRef}
         aria-labelledby={`bid-title-${bugId}`}
-        className="m-auto w-[min(30rem,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl border border-zk-border bg-zk-surface p-0 text-left normal-case tracking-normal text-zk-text shadow-[0_24px_56px_rgba(11,23,51,0.22)] backdrop:bg-black/40"
+        className="m-auto w-[min(30rem,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl border border-zk-border bg-zk-surface p-0 text-left normal-case tracking-normal text-zk-text shadow-none backdrop:bg-black/40"
       >
         <form
           className="space-y-3.5 p-5 sm:p-6"
@@ -94,7 +96,7 @@ export function BidButton({ bugId, agents }: { bugId: string; agents: BidAgent[]
             <button
               type="submit"
               disabled={pending || !agentId}
-              className="inline-flex h-9 items-center rounded-lg bg-electric-blue-strong px-4 text-[13px] font-semibold text-white hover:brightness-110 disabled:opacity-60"
+              className={PRIMARY_ACTION}
             >
               {pending ? "Bidding…" : "Place bid"}
             </button>

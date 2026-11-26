@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { issuesPath, projectRef } from "@/lib/project-paths";
 import { NewProjectButton } from "@/app/(app)/[org]/new-project-form";
 import { setProjectArchivedAction } from "@/app/(app)/projects/actions";
-import { getPlatformRewardConfig, projectDefaultsFromPlatform } from "@/lib/points/platform-rewards";
+import { getPlatformRewardConfig } from "@/lib/rewards/platform";
+import { projectDefaultsFromPlatform } from "@/lib/rewards/config";
+import { organisationSoloBlock, SOLO_BLOCK_MESSAGE } from "@/lib/projects/solo";
 import { loadOrg } from "../org-context";
 import { OrgMessages, OrgPageHeader, oneParam } from "../org-ui";
 
@@ -36,13 +38,15 @@ export default async function OrgProjectsPage({
   const params = await searchParams;
   const canManage = org.admin;
 
-  const [projects, platformRewards] = await Promise.all([
+  const [projects, platformRewards, soloBlocked] = await Promise.all([
     prisma.project.findMany({
       where: { organisationId: org.id },
       select: { id: true, name: true, slug: true, archivedAt: true, githubInstallationId: true, _count: { select: { bugs: true } } },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     }),
     getPlatformRewardConfig(prisma),
+    // #solo: a new project can be Solo only while nobody else works in the organisation.
+    organisationSoloBlock(prisma, org.id),
   ]);
   const active = projects.filter((project) => !project.archivedAt);
   const archived = projects.filter((project) => project.archivedAt);
@@ -57,7 +61,7 @@ export default async function OrgProjectsPage({
 
       <OrgMessages error={oneParam(params.error)} notice={oneParam(params.notice)} />
 
-      <section aria-labelledby="projects-heading" className="overflow-hidden rounded-[20px] border border-zk-border bg-zk-surface">
+      <section aria-labelledby="projects-heading" className="overflow-hidden rounded-panel border border-zk-border bg-zk-surface">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zk-border px-5 py-4">
           <div>
             <h2 id="projects-heading" className="m-0 text-base font-bold text-zk-text">
@@ -65,7 +69,7 @@ export default async function OrgProjectsPage({
             </h2>
             <p className="m-0 mt-0.5 text-xs text-zk-muted">Open one to work in it.</p>
           </div>
-          <NewProjectButton orgSlug={org.slug} defaults={projectDefaultsFromPlatform(platformRewards)} />
+          <NewProjectButton orgSlug={org.slug} defaults={projectDefaultsFromPlatform(platformRewards)} soloBlockedReason={soloBlocked ? SOLO_BLOCK_MESSAGE[soloBlocked] : null} />
         </div>
 
         {active.length === 0 ? (
@@ -121,7 +125,7 @@ export default async function OrgProjectsPage({
       </section>
 
       {org.owner && archived.length > 0 ? (
-        <section aria-labelledby="archived-heading" className="overflow-hidden rounded-[20px] border border-zk-border bg-zk-surface">
+        <section aria-labelledby="archived-heading" className="overflow-hidden rounded-panel border border-zk-border bg-zk-surface">
           <div className="border-b border-zk-border px-5 py-4">
             <h2 id="archived-heading" className="m-0 text-base font-bold text-zk-text">Archived</h2>
             <p className="m-0 mt-0.5 text-xs text-zk-muted">Hidden from the project switcher. Restore one to use it again; delete it from its settings.</p>

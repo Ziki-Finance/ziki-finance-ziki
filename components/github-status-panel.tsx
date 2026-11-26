@@ -130,7 +130,7 @@ export function GitHubStatusPanel({ bugId, pullRequestUrl, issueStatus, status, 
   const chip = snapshot ? stateChip(snapshot) : null;
 
   return (
-    <section aria-label="GitHub status" data-testid="github-status" data-verdict={diagnosis?.verdict ?? "unknown"} className="flex flex-col gap-3 rounded-[20px] border border-zk-border bg-zk-surface p-5 sm:p-[22px]">
+    <section aria-label="GitHub status" data-testid="github-status" data-verdict={diagnosis?.verdict ?? "unknown"} className="flex flex-col gap-3 rounded-panel border border-zk-border bg-zk-surface p-5 sm:p-[22px]">
       <header className="flex flex-wrap items-center gap-2">
         <span className="inline-flex items-center gap-1.5 text-sm font-bold text-zk-text">
           <GitHubMark /> GitHub
@@ -331,7 +331,7 @@ function SendBackButton({ draft, disabled, onSend }: { draft: string; disabled: 
       <dialog
         ref={dialogRef}
         aria-label="Send back to fixer"
-        className="m-auto w-[min(36rem,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl border border-zk-border bg-zk-surface p-0 text-zk-text shadow-[0_24px_56px_rgba(11,23,51,0.22)] backdrop:bg-black/40"
+        className="m-auto w-[min(36rem,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl border border-zk-border bg-zk-surface p-0 text-zk-text shadow-none backdrop:bg-black/40"
       >
         <div className="flex flex-col gap-3 p-5 sm:p-6">
           <h2 className="m-0 text-base font-bold">Send back to the fixer</h2>

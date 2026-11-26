@@ -5,7 +5,7 @@ import { agentPageHref, agentsSkillHref } from "@/lib/header-nav";
 import { directoryTags, listedAgentWhere } from "@/lib/agents/directory";
 import { comparisonHref, COMPARE_HREF } from "@/lib/compare/slug";
 import { listComparisonCards } from "@/lib/compare/data";
-import { projectPath, projectRef } from "@/lib/project-paths";
+import { posts, resourceHref, RESOURCES_HREF } from "@/lib/resources/posts";
 import { getSkills } from "@/app/(app)/skills/skills-data";
 import { PUBLIC_ISSUE_STATUSES } from "@/lib/public-issues";
 import { publicIssueDetailPath } from "@/lib/public-project-paths";
@@ -17,9 +17,9 @@ import { publicIssueDetailPath } from "@/lib/public-project-paths";
  *
  *   pages.xml          the public site: home, marketing pages, the agents directory, /compare, /discover, /skills
  *   compare.xml        every indexable comparison: Ziki against each platform, and published hand-written pairs
+ *   resources.xml      /resources and every article on it
  *   skills.xml         /agents/skill/{tag} for every skill a listed agent has
  *   library.xml        /skills/{slug} for every skill in the skills library
- *   projects.xml       /<org>/<project> for every public project
  *   issues-{n}.xml     /<org>/<project>/public-issues/{number} for every issue a guest's public list shows, ISSUES_PER_FILE a file
  *   agents-{n}.xml     /agent/{username} for every listed agent, AGENTS_PER_FILE a file
  *
@@ -84,6 +84,11 @@ function urlset(entries: Entry[]): string {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>\n`;
 }
 
+const postDate = (iso: string) => new Date(`${iso}T00:00:00Z`);
+/** When the newest article was published: the resources section's last change. */
+const newestPost = (): Date | undefined =>
+  posts.length ? new Date(Math.max(...posts.map((post) => postDate(post.published).getTime()))) : undefined;
+
 /** The sections, for the index: their file names and when each last changed. */
 export async function sitemapSections(): Promise<Array<{ file: string; lastModified?: Date }>> {
   const [agentCount, newestAgent, issueCount, newestIssue] = await Promise.all([
@@ -97,9 +102,9 @@ export async function sitemapSections(): Promise<Array<{ file: string; lastModif
   return [
     { file: "pages.xml" },
     { file: "compare.xml" },
+    { file: "resources.xml", lastModified: newestPost() },
     { file: "skills.xml", lastModified: newestAgent?.updatedAt },
     { file: "library.xml" },
-    { file: "projects.xml" },
     ...Array.from({ length: issueFiles }, (_, index) => ({ file: `issues-${index + 1}.xml`, lastModified: newestIssue?.updatedAt })),
     ...Array.from({ length: agentFiles }, (_, index) => ({ file: `agents-${index + 1}.xml`, lastModified: newestAgent?.updatedAt })),
   ];
@@ -129,12 +134,19 @@ export async function sitemapSectionXml(file: string): Promise<string | null> {
   if (file === "pages.xml") {
     return urlset([
       { path: "/", changeFrequency: "weekly", priority: 1 },
-      ...["/how-it-works", "/security", "/for-agents", "/developers", "/pricing"].map((path) => ({ path, changeFrequency: "weekly" as const, priority: 0.8 })),
+      ...["/how-it-works", "/security", "/for-agents", "/developers", "/earn", "/pricing"].map((path) => ({ path, changeFrequency: "weekly" as const, priority: 0.8 })),
       // New agents join all the time.
       { path: "/agents", changeFrequency: "hourly", priority: 0.9 },
       { path: COMPARE_HREF, changeFrequency: "weekly", priority: 0.8 },
       { path: "/discover", changeFrequency: "daily", priority: 0.8 },
       { path: "/skills", changeFrequency: "daily", priority: 0.8 },
+    ]);
+  }
+  if (file === "resources.xml") {
+    // The articles and their list (#resources).
+    return urlset([
+      { path: RESOURCES_HREF, lastModified: newestPost(), changeFrequency: "weekly", priority: 0.7 },
+      ...posts.map((post) => ({ path: resourceHref(post.slug), lastModified: postDate(post.published), changeFrequency: "weekly" as const, priority: 0.7 })),
     ]);
   }
   if (file === "compare.xml") {
@@ -150,16 +162,6 @@ export async function sitemapSectionXml(file: string): Promise<string | null> {
   if (file === "library.xml") {
     const { skills } = await getSkills();
     return urlset(skills.map((skill) => ({ path: `/skills/${encodeURIComponent(skill.slug)}`, changeFrequency: "weekly" as const, priority: 0.6 })));
-  }
-  if (file === "projects.xml") {
-    // Public projects only: the same rule as their pages' metadata, which indexes nothing else.
-    const projects = await prisma.project.findMany({
-      where: { visibility: "public", archivedAt: null, organisation: { archivedAt: null } },
-      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-      take: SITEMAP_URL_LIMIT,
-      select: { slug: true, updatedAt: true, organisation: { select: { slug: true } } },
-    });
-    return urlset(projects.map((project) => ({ path: projectPath(projectRef(project.organisation.slug, project.slug)), lastModified: project.updatedAt, changeFrequency: "daily" as const, priority: 0.6 })));
   }
   const issuesMatch = /^issues-([1-9][0-9]{0,5})\.xml$/.exec(file);
   if (issuesMatch) {

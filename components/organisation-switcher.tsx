@@ -4,8 +4,8 @@ import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useSearchParams } from "next/navigation";
 import { selectOrganisationAction } from "@/app/(app)/organisations/actions";
+import { OrganisationDialog } from "@/app/(app)/organisations/organisation-dialog";
 import { avatarTone } from "@/lib/avatar";
-import { projectPath, projectRef } from "@/lib/project-paths";
 
 /** An organisation's mark: its initial on a soft tile, the same colour every time for the same name. */
 function OrganisationMark({ name, size = "sm" }: { name: string; size?: "sm" | "xs" }) {
@@ -14,7 +14,7 @@ function OrganisationMark({ name, size = "sm" }: { name: string; size?: "sm" | "
     <span
       aria-hidden="true"
       className={`inline-flex shrink-0 items-center justify-center font-bold ${avatarTone(name)} ${
-        size === "sm" ? "h-6 w-6 rounded-[7px] text-[12px]" : "h-5 w-5 rounded-md text-[10.5px]"
+        size === "sm" ? "h-6 w-6 rounded-chip text-[12px]" : "h-5 w-5 rounded-md text-[11px]"
       }`}
     >
       {initial}
@@ -77,6 +77,7 @@ export function OrganisationSwitcher({
   const formRef = useRef<HTMLFormElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   const params = useParams();
   const currentOrgSlug = params?.org ? String(params.org) : null;
@@ -144,7 +145,7 @@ export function OrganisationSwitcher({
         href={onEarnRoute ? "/earn" : "/organisations"}
         className={`inline-flex h-8 items-center rounded-lg px-2 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 ${
           chrome
-            ? "border border-surface-border bg-[#132347] text-porcelain hover:bg-[#1a2d57]"
+            ? "border border-surface-border bg-zk-chip text-porcelain hover:bg-zk-chip"
             : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
         } ${fullWidth ? "w-full" : ""} ${className}`}
       >
@@ -201,8 +202,8 @@ export function OrganisationSwitcher({
         </button>
         {open ? (
           <div
-            className={`absolute left-0 top-full z-50 mt-1 rounded-lg border p-1 shadow-sm ${
-              chrome ? "border-surface-border bg-[#142343]" : bar ? "w-60 rounded-2xl border-zk-border bg-zk-surface p-1.5 shadow-[0_16px_40px_rgba(11,23,51,0.16)]" : "border-slate-200 bg-card"
+            className={`absolute left-0 top-full z-50 mt-1 rounded-lg border p-1 shadow-none ${
+              chrome ? "border-surface-border bg-zk-chip" : bar ? "w-60 rounded-2xl border-zk-border bg-zk-surface p-1.5 shadow-none" : "border-slate-200 bg-card"
             } ${fullWidth ? "w-full" : bar ? "" : "w-max min-w-full max-w-56"}`}
           >
             <ul
@@ -243,39 +244,6 @@ export function OrganisationSwitcher({
               })}
             </ul>
 
-            {selected.projects && selected.projects.length > 0 ? (
-              <div className="mt-1 border-t border-zk-divider pt-1">
-                <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-zk-muted">Projects</p>
-                {selected.projects.map((proj) => (
-                  <Link
-                    key={proj.id}
-                    href={projectPath(projectRef(selected.slug, proj.slug))}
-                    onClick={() => setOpen(false)}
-                    className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-zk-text2 hover:bg-zk-chip hover:text-zk-text"
-                  >
-                    <span className="truncate">{proj.name}</span>
-                  </Link>
-                ))}
-              </div>
-            ) : null}
-
-            {externalProjects.length > 0 ? (
-              <div className="mt-1 border-t border-zk-divider pt-1">
-                <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-zk-muted">Joined projects</p>
-                {externalProjects.map((proj) => (
-                  <Link
-                    key={proj.id}
-                    href={projectPath(projectRef(proj.organisationSlug, proj.slug))}
-                    onClick={() => setOpen(false)}
-                    className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-xs text-zk-text2 hover:bg-zk-chip hover:text-zk-text"
-                  >
-                    <span className="truncate">{proj.name}</span>
-                    <span className="shrink-0 text-[10px] text-zk-muted">{proj.organisationName}</span>
-                  </Link>
-                ))}
-              </div>
-            ) : null}
-
             {/* Outside the listbox: a link, not an option. */}
             <div className={`mt-1 border-t pt-1 ${chrome ? "border-surface-border" : bar ? "border-zk-divider" : "border-slate-200"}`}>
               <Link
@@ -312,20 +280,26 @@ export function OrganisationSwitcher({
                 Manage organisations
               </Link>
 
-              <Link
-                href="/organisations#create-organisation"
-                onClick={() => setOpen(false)}
+              {/* Opens the create window over this page; there's no trip to the organisations page first. */}
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  setCreating(true);
+                }}
                 className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left ${bar ? "text-sm font-medium text-zk-accent hover:bg-zk-chip" : chrome ? "text-xs text-sky-tint hover:bg-white/5" : "text-xs text-teal-800 hover:bg-slate-50"}`}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
                   <path d="M12 5v14M5 12h14" />
                 </svg>
                 Add organisation
-              </Link>
+              </button>
             </div>
           </div>
         ) : null}
       </form>
+      {/* Outside the switcher's form: the create window holds a form of its own. */}
+      {creating ? <OrganisationDialog mode="create" onClose={() => setCreating(false)} /> : null}
     </div>
   );
 }

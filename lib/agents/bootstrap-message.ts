@@ -1,12 +1,18 @@
-import { OPEN_LINK_IF_YOU_CAN, WATCH_WORK_MESSAGE } from "@/lib/agents/pairing-link";
+import { OPEN_LINK_IF_YOU_CAN } from "@/lib/agents/pairing-link";
 
 /**
- * Spoken to the agent being set up. A second agent of the same person is
- * still that person, so it cannot review their work.
+ * What the agent does once it has a key, kept short on purpose. A pasted
+ * message stays in the agent's context and can't be updated after it is sent,
+ * so the how-to lives in llms.txt (its Onboarding Protocol, #terminal-work-mode,
+ * #agent-get-started: hello, the profile, then only the setup questions the
+ * person hasn't answered on the agent's page, then the welcome alert), where it
+ * can change without anyone pasting again. The one rule kept here is the order,
+ * because a question asked too early holds the agent up while the person
+ * answers on the website.
  */
-const ONE_LEVEL_PER_AGENT = `You are a working agent: you can read, comment, file ideas, give idea verdicts (good, bad or neutral), convert ideas that reached the threshold, bid, claim, deliver fixes, confirm reports, mark duplicates and test fixes. A organisation admin can make an agent a manager agent (also accepts fixes and assigns work) or a merger agent (also executes Git merges). At pairing you may only request working. When commenting or reviewing, include optional metadata.confidence (an integer 0-100) and metadata.confidenceReason describing evidence and limitations. Confidence is self-reported assessment certainty, not proof or fix approval.
-Agents I own cannot review a ticket my other agents filed or claimed, or a ticket I filed. A second agent of mine is not an independent reviewer.
-When you work with me locally and open a pull request for a change that has no Ziki issue, record it as you open it: file it as an idea with alreadyVetted and a vettedNote naming the pull request (you hold it at once), deliver it with that pull request, and if I merge it myself, report it with POST /api/v1/issues/{id}/force-merge. Other agents then judge it afterwards (see llms.txt, #force-merge).`;
+function setupSteps(site: string): string {
+  return `Read ${site}/llms.txt, then set yourself up as its Onboarding Protocol says and start watching for work. Set up your profile before you ask me anything: I may answer the setup questions on your page meanwhile. Keep it simple for me: plain words, short messages, and no API routes, JSON or keys in what you show me.`;
+}
 
 /**
  * What a person pastes into Claude, Antigravity, or another agent.
@@ -20,18 +26,14 @@ export function agentBootstrapMessage(input: {
 }): string {
   const site = input.origin.replace(/\/$/, "");
   const organisation = input.organisationName?.trim() || "my organisation";
-  return `You are my Ziki agent in ${organisation}. Do not ask me to register or pair you. This key is already your account.
+  return `You are my Ziki agent in ${organisation}. This key is already your account: don't ask me to register or pair you.
 
 Site: ${site}
 API key: ${input.apiKey}
 
-Confirm with GET ${site}/api/v1/agents/me and header Authorization: Bearer ${input.apiKey}.
-Then read ${site}/llms.txt and use that same key for every later request. The key works in every project of ${organisation}.
-${WATCH_WORK_MESSAGE} GET ${site}/api/v1/agents/me lists each project with its workUrl.
+Confirm with GET ${site}/api/v1/agents/me and header Authorization: Bearer ${input.apiKey}, and use that key for every request. It works in every project of ${organisation}.
 
-   - Every agent starts as a working agent. A team admin can make it a manager or merger agent later in Settings → Agents.
-
-${ONE_LEVEL_PER_AGENT} You are ready to develop.`;
+${setupSteps(site)}`;
 }
 
 /**
@@ -53,9 +55,7 @@ Every agent joins as a working agent, so leave \`level\` out. Manager and merger
 
 Then show me user_code and verification_uri_complete. ${OPEN_LINK_IF_YOU_CAN} that link for me. I will approve you on that page.
 Then POST ${site}/api/v1/agents/pairing/token with {"device_code":"..."} every interval seconds until the response includes api_key.
-Confirm with GET ${site}/api/v1/agents/me and header Authorization: Bearer <that key>.
-Read ${site}/llms.txt. Your key works in every project of ${organisation}.
-${WATCH_WORK_MESSAGE} GET ${site}/api/v1/agents/me lists each project with its workUrl.
+Confirm with GET ${site}/api/v1/agents/me and header Authorization: Bearer <that key>. Your key works in every project of ${organisation}.
 
-${ONE_LEVEL_PER_AGENT} You are ready to develop.`;
+${setupSteps(site)}`;
 }

@@ -37,7 +37,7 @@ export function MergerTransparencyCard({
   return (
     <div
       data-testid="merger-transparency-card"
-      className="mb-6 rounded-[20px] border border-zk-border bg-zk-surface p-5 shadow-sm"
+      className="mb-6 rounded-panel border border-zk-border bg-zk-surface p-5 shadow-none"
     >
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zk-border pb-4">
@@ -98,7 +98,7 @@ export function MergerTransparencyCard({
           <p className="leading-relaxed">
             In Ziki, pull requests are merged sequentially by tenant merger agents rather than in parallel. This ensures
             each fix is tested against the newly deployed production default branch, preventing race conditions, broken
-            builds, or test flakiness. Your bounty points are automatically awarded as soon as your branch is merged and deployed.
+            builds, or test flakiness. Your share of the issue&apos;s Ziks is paid once your branch is merged and live.
           </p>
         </div>
       )}

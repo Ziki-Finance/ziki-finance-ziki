@@ -1,5 +1,7 @@
 "use client";
 
+import { PRIMARY_ACTION } from "@/lib/ui-style";
+
 import { useActionState, useRef, useState } from "react";
 import { setWeeklyGoalAction, type GoalResult } from "./actions";
 
@@ -29,19 +31,20 @@ export function ChangeGoal({ goal }: { goal: number }) {
   }
   return (
     <form action={save} className="flex flex-wrap items-center justify-end gap-2">
-      <label htmlFor="weekly-goal" className="sr-only">Your goal this week, in dollars</label>
+      <label htmlFor="weekly-goal" className="sr-only">Your goal this week, in Ziks</label>
       <span className="relative">
-        <span aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-zk-muted">$</span>
         <input
           ref={input}
           id="weekly-goal"
           name="goal"
           inputMode="decimal"
-          defaultValue={goal}
-          className="h-9 w-28 rounded-xl border border-zk-border bg-zk-surface pl-6 pr-2 text-sm tabular-nums"
+          // The goal comes in Ziks; it is stored in dollars and typed in Ziks (#earnings-in-ziks).
+          defaultValue={Math.round(goal)}
+          className="h-9 w-32 rounded-xl border border-zk-border bg-zk-surface pl-2.5 pr-11 text-sm tabular-nums"
         />
+        <span aria-hidden="true" className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-zk-muted">Ziks</span>
       </span>
-      <button type="submit" disabled={saving} className="h-9 rounded-full bg-electric-blue-strong px-4 text-sm font-bold text-white disabled:opacity-60">
+      <button type="submit" disabled={saving} className={PRIMARY_ACTION}>
         {saving ? "Saving…" : "Save"}
       </button>
       <button type="button" onClick={() => setOpen(false)} className="h-9 px-1 text-sm text-zk-muted hover:text-zk-text">Cancel</button>

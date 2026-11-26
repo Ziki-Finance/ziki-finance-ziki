@@ -50,7 +50,7 @@ export function AttachmentList({ attachments }: { attachments: AttachmentView[] 
                 rel="noopener"
                 className="inline-flex max-w-full items-center gap-2 rounded-lg border border-zk-border bg-zk-surface px-3 py-1.5 text-sm text-zk-text hover:bg-zk-chip focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue-strong"
               >
-                <span aria-hidden="true" className="rounded bg-zk-chip px-1.5 py-0.5 text-[10px] font-semibold text-zk-text2">
+                <span aria-hidden="true" className="rounded bg-zk-chip px-1.5 py-0.5 text-[11px] font-semibold text-zk-text2">
                   {attachmentKind(a.contentType) === "pdf" ? "PDF" : "TXT"}
                 </span>
                 <span className="truncate">{a.filename}</span>

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { cleanTitle } from "@/lib/issue-title";
 import { displayNameSchema } from "@/lib/display-name";
 import { BCRYPT_MAX_PASSWORD_BYTES } from "@/lib/password";
 import { isGitHubUrl, splitProofLinkLines } from "@/lib/proof-links";
@@ -64,8 +65,9 @@ export const createBugSchema = z
     title: z
       .string()
       .trim()
-      .min(3, "Title must be at least 3 characters")
-      .max(200, "Title must be at most 200 characters"),
+      // Plain titles (#clean-titles): leading tags such as "[API]" are dropped.
+      .transform(cleanTitle)
+      .pipe(z.string().min(3, "Title must be at least 3 characters").max(200, "Title must be at most 200 characters")),
     description: z
       .string()
       .trim()
@@ -97,8 +99,9 @@ export const editBugContentSchema = z
     title: z
       .string()
       .trim()
-      .min(3, "Title must be at least 3 characters")
-      .max(200, "Title must be at most 200 characters"),
+      // Plain titles (#clean-titles): leading tags such as "[API]" are dropped.
+      .transform(cleanTitle)
+      .pipe(z.string().min(3, "Title must be at least 3 characters").max(200, "Title must be at most 200 characters")),
     description: z
       .string()
       .trim()
@@ -269,6 +272,14 @@ export const resetPasswordSchema = z
     message: "Passwords do not match",
     path: ["confirmPassword"],
   });
+
+export const addPasswordSchema = z.object({
+  password: passwordField,
+  confirmPassword: z.string().min(1, "Confirm your password"),
+  code: z.string().trim().max(32).optional(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords do not match", path: ["confirmPassword"],
+});
 
 /** Credentials required before a signed-in person can change their password. */
 export const changePasswordSchema = z

@@ -4,7 +4,6 @@ import { requireUser } from "@/lib/auth-helpers";
 import { currentOrganisationAccess } from "@/lib/organisation-access";
 import { currentOrganisationIdFor } from "@/lib/organisation-context";
 import { CreateJobForm } from "@/components/create-job-form";
-import { formatZ } from "@/lib/points/rules";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Jobs" };
@@ -27,7 +26,6 @@ export default async function JobsPage() {
           brief: true,
           dedupeKey: true,
           maxSubmissions: true,
-          pointsPerAccepted: true,
           createdAt: true,
           _count: { select: { submissions: true } },
         },
@@ -39,7 +37,7 @@ export default async function JobsPage() {
       <div>
         <h1 className="text-2xl font-extrabold tracking-tight text-zk-text">Jobs</h1>
         <p className="mt-1 text-sm text-zk-muted">
-          Post research work for agents to fill in. Accepted rows earn points.
+          Post research work for agents to fill in. Accepted rows don&apos;t pay yet: jobs aren&apos;t funded in Ziks.
           <Link href="/jobs/export" className="ml-1 font-semibold text-zk-accent hover:underline">
             Export accepted rows
           </Link>
@@ -51,17 +49,17 @@ export default async function JobsPage() {
 
       <section aria-label="Jobs list" className="space-y-3">
         {jobs.length === 0 ? (
-          <p className="rounded-[20px] border border-dashed border-zk-border bg-zk-surface p-6 text-sm text-zk-muted">
+          <p className="rounded-panel border border-dashed border-zk-border bg-zk-surface p-6 text-sm text-zk-muted">
             No jobs yet.
           </p>
         ) : (
-          <ul className="divide-y divide-zk-divider overflow-hidden rounded-[20px] border border-zk-border bg-zk-surface">
+          <ul className="divide-y divide-zk-divider overflow-hidden rounded-panel border border-zk-border bg-zk-surface">
             {jobs.map((job) => (
               <li key={job.id} className="p-4">
                 <p className="text-sm font-semibold text-zk-text">{job.brief}</p>
                 <p className="mt-1 text-xs text-zk-muted">
                   {job._count.submissions}/{job.maxSubmissions} submitted ·{" "}
-                  {formatZ(Number(job.pointsPerAccepted))} per accepted · deduped on{" "}
+                  deduped on{" "}
                   <code className="rounded bg-zk-chip px-1.5 py-0.5 font-mono text-[11px] text-zk-text2">
                     {job.dedupeKey}
                   </code>

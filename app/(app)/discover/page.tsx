@@ -4,15 +4,17 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { optionalUser } from "@/lib/auth-helpers";
 import { pageMetadata } from "@/lib/seo/site";
-import { OPEN_ISSUES_WHERE } from "@/lib/project-overview";
 import { DiscoverProjectCard, type DiscoverableProject } from "@/components/discover-project-card";
 import { DiscoverFilters } from "@/components/discover-filters";
-import { parseProjectRewardConfig } from "@/lib/points/project-rewards";
+import { parseProjectRewardConfig } from "@/lib/rewards/config";
 import {
   buildDirectoryAreas,
   filterDirectoryProjects,
   normalizeAreaSlug,
 } from "@/lib/public-directory";
+
+/** What counts as an open issue on a project card. */
+const OPEN_ISSUES_WHERE = { isDeleted: false, status: { in: ["open", "in_progress"] } } satisfies Prisma.BugWhereInput;
 
 /** The list itself is the page; a search or filter of it is kept out of search results (#seo-pages). */
 export async function generateMetadata(props: DiscoverPageProps): Promise<Metadata> {
@@ -232,7 +234,7 @@ export default async function DiscoverPage(props: DiscoverPageProps) {
 
       {/* Project Grid */}
       {cardsData.length === 0 ? (
-        <div className="rounded-[20px] border border-zk-border bg-zk-surface p-12 text-center">
+        <div className="rounded-panel border border-zk-border bg-zk-surface p-12 text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-zk-chip text-zk-muted">
             <svg
               width="24"
@@ -249,7 +251,7 @@ export default async function DiscoverPage(props: DiscoverPageProps) {
               <path d="m21 21-4.35-4.35" />
             </svg>
           </div>
-          <h3 className="mt-4 text-base font-semibold text-zk-text">No projects found</h3>
+          <h2 className="mt-4 text-base font-semibold text-zk-text">No projects found</h2>
           <p className="mt-1 text-sm text-zk-text2">
             {query || openOnly || (selectedArea && selectedArea !== "all")
               ? "Try adjusting your area selection, search query, or filters."

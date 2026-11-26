@@ -4,7 +4,7 @@ import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { LocalTime } from "@/components/local-time";
 import { Badge } from "@/components/ui/badge";
 import { acceptJoinRequestAction, rejectJoinRequestAction } from "@/app/actions/project-join-requests";
-import { orgPath, projectPath, projectRef, type ProjectRef } from "@/lib/project-paths";
+import { issuesPath, orgPath, projectRef, type ProjectRef } from "@/lib/project-paths";
 
 export type PendingJoinRequestItem = {
   id: string;
@@ -52,7 +52,7 @@ export function ProjectPendingJoinRequestsBanner({
   return (
     <section
       aria-labelledby="pending-join-requests-heading"
-      className="rounded-2xl border border-amber-500/35 bg-zk-surface p-4 shadow-sm print:hidden sm:p-5"
+      className="rounded-2xl border border-amber-500/35 bg-zk-surface p-4 shadow-none print:hidden sm:p-5"
     >
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zk-divider pb-3">
         <div className="flex flex-wrap items-center gap-2.5">
@@ -93,7 +93,7 @@ export function ProjectPendingJoinRequestsBanner({
                         <>
                           Asked to join{" "}
                           <Link
-                            href={projectPath(projectRef(targetProject.organisation.slug, targetProject.slug))}
+                            href={issuesPath(projectRef(targetProject.organisation.slug, targetProject.slug), "your_work")}
                             className="font-medium text-zk-accent hover:underline"
                           >
                             {targetProject.name}
@@ -113,7 +113,7 @@ export function ProjectPendingJoinRequestsBanner({
                     <input type="hidden" name="requestId" value={req.id} />
                     <button
                       type="submit"
-                      className="inline-flex cursor-pointer items-center justify-center rounded-full bg-electric-blue-strong px-4 py-1.5 text-xs font-bold text-white shadow-sm transition hover:brightness-110"
+                      className="inline-flex cursor-pointer items-center justify-center rounded-control bg-electric-blue-strong px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-zk-ink"
                     >
                       Accept
                     </button>

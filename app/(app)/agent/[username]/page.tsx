@@ -17,6 +17,11 @@ import { AgentKeyPanel } from "./agent-key-panel";
 import { loadOwnerKey } from "./owner-key";
 import { AgentActivationButton } from "@/app/(app)/settings/agents/agent-activation-button";
 import { LiveRefresh } from "@/components/live-refresh";
+import { workModeSettingsPath } from "@/lib/agents/work-mode";
+import { GetStartedCard } from "./get-started-card";
+import { loadGetStarted, setupWaiting } from "./get-started-data";
+import { PostingBlockCard } from "./posting-block-card";
+import { agentPostingBlockView } from "@/lib/agents/posting-block";
 
 export async function generateMetadata({ params }: { params: Promise<{ username: string }> }) {
   const { username } = await params;
@@ -58,12 +63,14 @@ export default async function AgentProfilePage({
 
   const profile = await loadAgentProfile(found.id, viewer?.id ?? null, organisationId);
   if (!profile) notFound();
-  const [reviews, ownAgents, stuckContext] = await Promise.all([
+  const [reviews, ownAgents, stuckContext, postingBlock] = await Promise.all([
     isMember ? loadReviews(found.id, profile.deliveredBugIds) : Promise.resolve([]),
     viewer ? loadOwnAgents(viewer.id, found.id) : Promise.resolve([]),
     isMember && viewer && organisationId
       ? loadAgentStuckContext({ agentId: found.id, organisationId, viewer })
       : Promise.resolve(null),
+    // #agent-posting-block: a manager agent's block on it there, for the organisation's members and its owner.
+    (isMember || isOwner) && organisationId ? loadPostingBlock(found.id, organisationId) : Promise.resolve(null),
   ]);
   const reviewCount = isMember ? reviews.length : 0;
   // #seo-agents: structured data for a public (set-up, not revoked) profile only.
@@ -72,6 +79,11 @@ export default async function AgentProfilePage({
   const viewerOrganisation = found.viewerOrganisation;
   const ownerKey =
     isOwner && !profile.agent.revokedAt && viewerOrganisation && found.activeForViewer ? await loadOwnerKey(found.id, viewerOrganisation.id) : null;
+  // #agent-get-started: its owner guides it from here too, in the organisation they are in.
+  const getStarted =
+    isOwner && !profile.agent.revokedAt && viewerOrganisation && found.activeForViewer
+      ? await loadGetStarted({ id: found.id, name: profile.agent.name }, viewerOrganisation.id)
+      : null;
   const missing = missingProfileFields({ ...profile.agent, skillCount: profile.agent.skills.length });
   const blocked = !profile.agent.revokedAt && missing.length > 0;
 
@@ -88,6 +100,12 @@ export default async function AgentProfilePage({
           <AgentTabs agents={ownAgents} currentId={found.id} />
         </div>
       </div>
+
+      {/* What its owner can do now comes first, above the profile and on a phone above the side card too. */}
+      {postingBlock ? (
+        <PostingBlockCard block={postingBlock.block} organisationName={postingBlock.organisationName} canLift={isAdmin} />
+      ) : null}
+      {getStarted ? <GetStartedCard state={getStarted} settingsHref={workModeSettingsPath(found.username)} /> : null}
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
         <div className="min-w-0 space-y-10">
@@ -147,7 +165,9 @@ export default async function AgentProfilePage({
           }
         />
       </div>
-      {stuckContext ? <LiveRefresh /> : null}
+      {/* Keeps the card current as the agent answers in its terminal and its work arrives: every few
+          seconds while a question is open in both places, so an answer there moves this page on too. */}
+      {stuckContext || getStarted ? <LiveRefresh everyMs={getStarted && setupWaiting(getStarted) ? 3_000 : undefined} /> : null}
 
       {!viewer ? (
         <p className={`${agentsSurface} p-4 text-center text-sm text-zk-text2`}>
@@ -159,4 +179,12 @@ export default async function AgentProfilePage({
       ) : null}
     </div>
   );
+}
+
+/** The agent's live posting block in the organisation the page shows it in, with that organisation's name. */
+async function loadPostingBlock(agentId: string, organisationId: string) {
+  const block = await agentPostingBlockView(agentId, organisationId);
+  if (!block) return null;
+  const organisation = await prisma.organisation.findUnique({ where: { id: organisationId }, select: { name: true } });
+  return { block, organisationName: organisation?.name ?? "this organisation" };
 }

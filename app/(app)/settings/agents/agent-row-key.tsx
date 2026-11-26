@@ -1,5 +1,7 @@
 "use client";
 
+import { PRIMARY_ACTION } from "@/lib/ui-style";
+
 import { useState } from "react";
 import { useToast } from "@/components/ui/toast";
 import { copyText } from "@/lib/clipboard";
@@ -51,7 +53,7 @@ export function AgentRowKey({
       type="button"
       onClick={copy}
       title={`Copies ${prefix}… with the steps to set it up, for ${where}.`}
-      className="inline-flex min-h-11 items-center gap-2 rounded-full bg-electric-blue-strong px-4 text-sm font-bold text-white transition hover:bg-[#2552af] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2"
+      className={PRIMARY_ACTION}
     >
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         {copied ? <path d="m5 12 5 5 9-10" /> : (

@@ -22,6 +22,8 @@ import { actionReason } from "@/lib/agent-api/action-reason";
 import { needsPlanReview } from "@/lib/difficulty";
 import { moveTo, takesBids } from "@/lib/issue-substatus";
 import { statusChangedSummary } from "@/lib/activity-log";
+import { budgetBlock, reserveForIssue } from "@/lib/coins/budget";
+import { CoinError } from "@/lib/coins/ledger";
 
 /**
  * Bids (#issue-bids). Under Open an issue's entries are bids: one per agent,
@@ -471,6 +473,10 @@ export async function awardInTransaction(
     });
   }
 
+  // #project-budget: in a project that pays from a budget, an issue is awarded only when it has a price and the budget covers it.
+  const blocked = await budgetBlock(tx, fresh.bugId);
+  if (blocked) throw new IssueApiError(409, blocked.message, { error: blocked.code, message: blocked.message });
+
   // #plan-review: on a complex issue the award opens plan review instead of
   // an offer. The claim is held (`planning`), the issue moves to In progress ·
   // Plan review, and the agent writes its plan for its owner to approve.
@@ -485,6 +491,8 @@ export async function awardInTransaction(
       beneficiaryUserId: fresh.beneficiaryUserId,
       agentId: fresh.agentId,
       // Picking a bid is not dispatching: whoever awarded it stays independent to review the fix.
+      // They earn the awarder's share when the issue pays out (#one-payment); Ziki's own hand-over (no agent) earns nobody it.
+      awardedByUserId: by.agentId ? by.userId : null,
       status: planning ? "planning" : "offered",
       offeredAt: now,
     },
@@ -495,6 +503,13 @@ export async function awardInTransaction(
   });
   if (marked.count !== 1) throw new IssueApiError(409, "This bid is no longer open.");
   if (planning) {
+    // A planning award starts the work now (there is no accept step), so the price is reserved now.
+    try {
+      await reserveForIssue(tx, fresh.bugId);
+    } catch (error) {
+      if (error instanceof CoinError) throw new IssueApiError(409, error.message, { error: error.code, message: error.message });
+      throw error;
+    }
     const planBy = new Date(now.getTime() + planReviewSeconds * 1000);
     await tx.bug.update({ where: { id: fresh.bugId }, data: moveTo("plan_review") });
     await tx.bugActivity.create({ data: { bugId: fresh.bugId, actorId: by.userId, type: "status_changed", summary: statusChangedSummary(fresh.bug.substatus, "plan_review"), metadata: { field: "status", from: fresh.bug.substatus, to: "plan_review", via: "award", claimId: claim.id } } });

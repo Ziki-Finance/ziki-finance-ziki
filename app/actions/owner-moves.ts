@@ -10,8 +10,7 @@ import { OWNER_NOTE_MAX, ownerMove } from "@/lib/owner-moves";
 import { activityCreateData, statusChangedSummary } from "@/lib/activity-log";
 import { publish } from "@/lib/agent-api/events";
 import { issueChangePayload, publishWebEvent } from "@/lib/agent-api/web-events";
-import { solverAwardFor } from "@/lib/points/award";
-import { holdPayout } from "@/lib/points/payout";
+import { releasePayoutIfLive } from "@/lib/coins/issue-payout";
 import { notifyLater } from "@/lib/notify";
 import { revalidateIssue } from "@/lib/revalidate-issue";
 import { IssueApiError } from "@/lib/agent-api/errors";
@@ -26,7 +25,7 @@ const NOT_OWNER = "Only an owner or admin of this organisation can move an issue
  * The organisation owner moves an issue from its Status chip (#owner-control):
  * one of the moves `OWNER_MOVES` offers for where it is now. Moving it out of
  * the work (back to Open, or Closed) stops the agent holding it; into Live,
- * it holds the solver's reward like any resolve. The history says it was the
+ * it pays out once reported deployed, like any resolve. The history says it was the
  * owner, with their note.
  */
 export async function ownerMoveIssueAction(bugId: string, to: Substatus, note: string): Promise<OwnerMoveResult> {
@@ -87,11 +86,8 @@ export async function ownerMoveIssueAction(bugId: string, to: Substatus, note: s
       }
     }
 
-    // Into Live: the solver's reward is held until it's confirmed deployed, as with any resolve.
-    if (target === "resolved" && existing.status !== "resolved") {
-      const solver = await solverAwardFor(tx, { id: bugId, organisationId: existing.organisationId, assigneeId: existing.assigneeId });
-      if (solver) await holdPayout(tx, bugId, [solver]);
-    }
+    // Into Live (#one-payment): the issue's funded Ziks pay out once it's reported deployed, as with any resolve.
+    if (target === "resolved") await releasePayoutIfLive(tx, bugId);
 
     await tx.bugActivity.createMany({
       data: activityCreateData([
@@ -131,6 +127,65 @@ export async function ownerMoveIssueAction(bugId: string, to: Substatus, note: s
   revalidatePath("/[org]/[project]", "layout");
   revalidateIssue();
   return { ok: true };
+}
+
+/** The most issues one Confirm all call moves; the button calls again for the rest. */
+const CONFIRM_ALL_BATCH = 200;
+
+export type ConfirmAllResult = { opened: number; remaining: number } | { error: string };
+
+/** Issues at Requires confirmation in the Work Feed's scope: the project, or every project of the organisation. */
+function awaitingConfirmationWhere(organisationId: string, projectId: string | null) {
+  return { organisationId, ...(projectId ? { projectId } : {}), isDeleted: false, track: "product" as const, substatus: "requires_confirmation" as const };
+}
+
+/**
+ * Confirm all (#bulk-confirm): an organisation owner or admin opens every issue waiting at Requires confirmation for
+ * bids, from the Work Feed, instead of one Status chip at a time. Each is the owner move "Open it for bids now"
+ * (#owner-control), recorded in its history as the owner's; it stops nobody, and nobody is notified per issue.
+ * Moves up to `CONFIRM_ALL_BATCH` a call and says how many are left.
+ */
+export async function ownerConfirmAllAction(organisationId: string, projectId: string | null): Promise<ConfirmAllResult> {
+  const user = await requireUser();
+  const access = await organisationAccessFor(user.id, organisationId, user.role);
+  if (!access.admin) return { error: "Only an owner or admin of this organisation can confirm every issue at once." };
+  if (projectId) {
+    const project = await prisma.project.findFirst({ where: { id: projectId, organisationId }, select: { id: true } });
+    if (!project) return { error: "Project not found" };
+  }
+
+  const where = awaitingConfirmationWhere(organisationId, projectId);
+  const batch = await prisma.bug.findMany({ where, orderBy: { createdAt: "asc" }, take: CONFIRM_ALL_BATCH, select: { id: true } });
+  let opened = 0;
+  for (const { id: bugId } of batch) {
+    const moved = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Bug" WHERE id = ${bugId} FOR UPDATE`;
+      // Someone may have moved it since.
+      const fresh = await tx.bug.findUniqueOrThrow({ where: { id: bugId }, select: { substatus: true } });
+      if (fresh.substatus !== "requires_confirmation") return false;
+      const data = moveTo("open");
+      await tx.bug.update({ where: { id: bugId }, data });
+      await tx.bugActivity.createMany({
+        data: activityCreateData([
+          {
+            bugId,
+            actorId: user.id,
+            type: "status_changed",
+            summary: `${statusChangedSummary("requires_confirmation", "open")} as the owner`,
+            metadata: { field: "status", from: "requires_confirmation", to: "open", note: "Confirm all" },
+          },
+        ]),
+      });
+      await publishWebEvent(tx, { bugId, type: "issue.updated", actorUserId: user.id, payload: issueChangePayload(data as Record<string, unknown>) });
+      return true;
+    });
+    if (moved) opened += 1;
+  }
+  const remaining = await prisma.bug.count({ where });
+
+  revalidatePath("/[org]/[project]", "layout");
+  revalidateIssue();
+  return { opened, remaining };
 }
 
 /** An open idea the signed-in owner may decide, with its scope; or why not. */

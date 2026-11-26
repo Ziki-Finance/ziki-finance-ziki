@@ -95,7 +95,7 @@ export function RoleAccessBadge({
           id={cardId}
           role="region"
           aria-label={`Your access as ${access.title}`}
-          className="absolute inset-x-0 top-full z-10 mt-2 rounded-2xl border border-zk-border bg-zk-surface p-4 text-left shadow-[0_16px_40px_rgba(11,23,51,0.22)] motion-safe:animate-[header-pop_120ms_ease-out]"
+          className="absolute inset-x-0 top-full z-10 mt-2 rounded-2xl border border-zk-border bg-zk-surface p-4 text-left shadow-none motion-safe:animate-[header-pop_120ms_ease-out]"
         >
           {/* The pointer to the badge. */}
           <span aria-hidden="true" className="absolute -top-1.5 left-24 h-3 w-3 rotate-45 border-l border-t border-zk-border bg-zk-surface" />

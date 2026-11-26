@@ -13,16 +13,18 @@ import { isAdminOfOrganisation } from "@/lib/agents/membership";
 import { isSuperAdmin, type AppRole } from "@/lib/roles";
 import {
   nextProjectSlug,
+  productKindsSchema,
   projectLinksSchema,
+  siteUrlSchema,
   projectSettingsSchema,
   projectSlugBase,
   parseRewardConfigFromFormData,
 } from "./validation";
-import {
-  getPlatformRewardConfig,
-  projectDefaultsFromPlatform,
-} from "@/lib/points/platform-rewards";
-import { parseProjectRewardConfig } from "@/lib/points/project-rewards";
+import { parseProjectRewardConfig } from "@/lib/rewards/config";
+import { DEFAULT_PROJECT_NAME } from "@/lib/organisations";
+import { defaultProjectNameFor, readProductKinds, type ProductKind } from "@/lib/product-kinds";
+import { organisationSoloBlock, setSolo, SOLO_BLOCK_MESSAGE } from "@/lib/projects/solo";
+import { invalidateWorkflow } from "@/lib/workflow";
 
 export type ProjectActionResult = {
   error?: string;
@@ -105,6 +107,7 @@ export async function updateProjectAction(
   const acceptsGuestIdeas = visibility === "public" && (formData.get("acceptsGuestIdeas") === "true" || formData.get("acceptsGuestIdeas") === "on");
   // The schema trims it and turns an empty box into null; it must be given a string.
   const contributorGuidelines = (formData.get("contributorGuidelines") as string | null) ?? "";
+  const humanApprovalGuidelines = (formData.get("humanApprovalGuidelines") as string | null) ?? "";
 
   const parsed = projectSettingsSchema.safeParse({
     name: formData.get("name"),
@@ -112,28 +115,36 @@ export async function updateProjectAction(
     repoUrl: formData.get("repoUrl"),
     stagingUrl: formData.get("stagingUrl"),
     siteUrl: formData.get("siteUrl") ?? "",
+    appStoreUrl: formData.get("appStoreUrl") ?? "",
+    playStoreUrl: formData.get("playStoreUrl") ?? "",
+    // Left as it is when the form doesn't have it (#product-kinds).
+    downloadUrl: formData.has("downloadUrl") ? String(formData.get("downloadUrl") ?? "") : undefined,
     visibility,
     isOpenForContributors,
     acceptsGuestIdeas,
     contributorGuidelines,
+    humanApprovalGuidelines,
   });
   if (!parsed.success) return fromZodError(parsed.error, "Check the project settings.");
   const slug = String(formData.get("slug") ?? "").trim();
   const project = await prisma.project.findFirst({
     where: { organisationId, slug },
-    select: { id: true, name: true, goal: true, repoUrl: true, stagingUrl: true, siteUrl: true, visibility: true, isOpenForContributors: true, acceptsGuestIdeas: true, contributorGuidelines: true, rewardConfig: true },
+    select: { id: true, name: true, goal: true, repoUrl: true, stagingUrl: true, siteUrl: true, appStoreUrl: true, playStoreUrl: true, downloadUrl: true, visibility: true, isOpenForContributors: true, acceptsGuestIdeas: true, contributorGuidelines: true, humanApprovalGuidelines: true, rewardConfig: true },
   });
   if (!project) return { error: "Project not found." };
 
+  // The project's own guidelines; with none, the platform's show where it is read.
   const rawReward = parseRewardConfigFromFormData(formData);
-  const platformBase = projectDefaultsFromPlatform(await getPlatformRewardConfig(prisma));
-  const rewardConfig = rawReward ? parseProjectRewardConfig(rawReward, platformBase) : undefined;
+  const rewardConfig = rawReward ? parseProjectRewardConfig(rawReward) : undefined;
 
   const changes: Record<string, { from: unknown; to: unknown }> = {};
-  for (const field of ["name", "goal", "repoUrl", "stagingUrl", "siteUrl", "visibility", "isOpenForContributors", "acceptsGuestIdeas", "contributorGuidelines"] as const) {
-    if (project[field] !== parsed.data[field]) {
+  for (const field of ["name", "goal", "repoUrl", "stagingUrl", "siteUrl", "appStoreUrl", "playStoreUrl", "downloadUrl", "visibility", "isOpenForContributors", "acceptsGuestIdeas", "contributorGuidelines"] as const) {
+    if (parsed.data[field] !== undefined && project[field] !== parsed.data[field]) {
       changes[field] = { from: project[field], to: parsed.data[field] };
     }
+  }
+  if ((project.humanApprovalGuidelines ?? null) !== (parsed.data.humanApprovalGuidelines ?? null)) {
+    changes.humanApprovalGuidelines = { from: project.humanApprovalGuidelines ?? null, to: parsed.data.humanApprovalGuidelines ?? null };
   }
   if (rewardConfig !== undefined && JSON.stringify(project.rewardConfig) !== JSON.stringify(rewardConfig)) {
     changes.rewardConfig = { from: project.rewardConfig, to: rewardConfig };
@@ -148,6 +159,8 @@ export async function updateProjectAction(
           ...(rewardConfig !== undefined ? { rewardConfig } : {}),
           // Opened to contributors just now: the Earn banner names it and comes back for it (#earnings).
           ...(parsed.data.isOpenForContributors && !project.isOpenForContributors ? { openedForContributorsAt: new Date() } : {}),
+          // Public: other people can work on it, so it isn't Solo any more (#solo).
+          ...(parsed.data.visibility === "public" ? { solo: false } : {}),
         },
       });
       await tx.projectAuditEvent.create({
@@ -161,6 +174,7 @@ export async function updateProjectAction(
       });
     });
   }
+  invalidateWorkflow(project.id);
   revalidatePath(`/projects/${slug}/settings`);
   revalidatePath("/", "layout");
   return {};
@@ -181,19 +195,43 @@ export async function saveProjectLinksAction(
   if (!organisationId) return { error: NO_ORGANISATION_MESSAGE };
   if (!(await isAdminOfOrganisation(user, organisationId))) return { error: "Only organisation owners and admins can set these." };
 
-  const parsed = projectLinksSchema.safeParse({ siteUrl: formData.get("siteUrl") ?? "", repoUrl: formData.get("repoUrl") ?? "" });
+  // Store and download links only when the form has them (#app-links, #product-kinds): the panel above the list
+  // sets just the site and repository, plus the one link being edited.
+  const storeLink = (name: string) => (formData.has(name) ? String(formData.get(name) ?? "") : undefined);
+  const parsed = projectLinksSchema.safeParse({
+    siteUrl: formData.get("siteUrl") ?? "",
+    repoUrl: formData.get("repoUrl") ?? "",
+    appStoreUrl: storeLink("appStoreUrl"),
+    playStoreUrl: storeLink("playStoreUrl"),
+    downloadUrl: storeLink("downloadUrl"),
+  });
   if (!parsed.success) return fromZodError(parsed.error, "Check the addresses.");
+  // The marketing site (#marketing-url) only when the form has it: forms without the field leave it as it is.
+  const marketing = formData.has("marketingUrl") ? siteUrlSchema.safeParse(formData.get("marketingUrl") ?? "") : null;
+  if (marketing && !marketing.success) return { error: marketing.error.issues[0]?.message ?? "Check the marketing site.", fieldErrors: { marketingUrl: marketing.error.issues[0]?.message ?? "" } };
+  const data: {
+    siteUrl: string | null;
+    repoUrl: string | null;
+    marketingUrl?: string | null;
+    appStoreUrl?: string | null;
+    playStoreUrl?: string | null;
+    downloadUrl?: string | null;
+  } = { ...parsed.data, ...(marketing?.success ? { marketingUrl: marketing.data } : {}) };
   const slug = String(formData.get("slug") ?? "").trim();
-  const project = await prisma.project.findFirst({ where: { organisationId, slug }, select: { id: true, siteUrl: true, repoUrl: true } });
+  const project = await prisma.project.findFirst({
+    where: { organisationId, slug },
+    select: { id: true, siteUrl: true, repoUrl: true, marketingUrl: true, appStoreUrl: true, playStoreUrl: true, downloadUrl: true },
+  });
   if (!project) return { error: "Project not found." };
 
   const changes: Record<string, { from: unknown; to: unknown }> = {};
-  for (const field of ["siteUrl", "repoUrl"] as const) {
-    if (project[field] !== parsed.data[field]) changes[field] = { from: project[field], to: parsed.data[field] };
+  for (const field of ["siteUrl", "repoUrl", "marketingUrl", "appStoreUrl", "playStoreUrl", "downloadUrl"] as const) {
+    const to = data[field];
+    if (to !== undefined && project[field] !== to) changes[field] = { from: project[field], to };
   }
   if (Object.keys(changes).length > 0) {
     await prisma.$transaction(async (tx) => {
-      await tx.project.update({ where: { id: project.id }, data: parsed.data });
+      await tx.project.update({ where: { id: project.id }, data });
       await tx.projectAuditEvent.create({
         data: { organisationId, projectId: project.id, actorUserId: user.id, action: "settings.updated", changes: changes as Prisma.InputJsonValue },
       });
@@ -201,6 +239,113 @@ export async function saveProjectLinksAction(
   }
   revalidatePath("/", "layout");
   return { message: "Saved." };
+}
+
+/**
+ * First questions (#product-kinds): what the project is, one or more of website,
+ * mobile, desktop and other (with the owner's words for it, such as a game), or not built yet.
+ * Saving it also renames the untouched first project ("Web") when "Web" is wrong
+ * for it: "App" for anything built without a website. A name
+ * someone chose is never touched. Owners and admins only, audited like any settings change.
+ */
+export async function saveProductKindsAction(
+  slug: string,
+  kinds: ProductKind[],
+  other: string,
+): Promise<ProjectActionResult> {
+  const user = await requireUser();
+  const organisationId = await currentOrganisationIdFor(user.id);
+  if (!organisationId) return { error: NO_ORGANISATION_MESSAGE };
+  if (!(await isAdminOfOrganisation(user, organisationId))) return { error: "Only organisation owners and admins can set what a project is." };
+  const parsed = productKindsSchema.safeParse({ kinds, other: String(other ?? "") });
+  if (!parsed.success) return fromZodError(parsed.error, "Pick what you're building.");
+  const project = await prisma.project.findFirst({
+    where: { organisationId, slug: String(slug).trim() },
+    select: { id: true, name: true, productKinds: true, productOther: true },
+  });
+  if (!project) return { error: "Project not found." };
+
+  const { productKinds, productOther } = parsed.data;
+  // Untouched: still "Web", or still the name the last answer gave it, so answering again renames it again.
+  const untouched =
+    project.name === DEFAULT_PROJECT_NAME ||
+    project.name === defaultProjectNameFor(readProductKinds(project.productKinds), project.productOther);
+  const fitting = untouched ? (defaultProjectNameFor(productKinds, productOther) ?? DEFAULT_PROJECT_NAME) : null;
+  const renamed = fitting && fitting !== project.name ? fitting : null;
+  const changes: Record<string, { from: unknown; to: unknown }> = {};
+  if (project.productKinds.join(",") !== productKinds.join(",")) changes.productKinds = { from: project.productKinds, to: productKinds };
+  if (project.productOther !== productOther) changes.productOther = { from: project.productOther, to: productOther };
+  if (renamed) changes.name = { from: project.name, to: renamed };
+  if (Object.keys(changes).length === 0) return {};
+
+  await prisma.$transaction(async (tx) => {
+    await tx.project.update({
+      where: { id: project.id },
+      data: { productKinds, productOther, ...(renamed ? { name: renamed } : {}) },
+    });
+    await tx.projectAuditEvent.create({
+      data: { organisationId, projectId: project.id, actorUserId: user.id, action: "settings.updated", changes: changes as Prisma.InputJsonValue },
+    });
+  });
+  revalidatePath("/", "layout");
+  return { message: "Saved." };
+}
+
+/**
+ * The Overview's "Who will work on your tasks?" card (#price-lock, #solo): makes the project public and open to contributors in
+ * one step, so agents from outside the organisation can find it on Discover, join and price its issues. Owners and
+ * admins only, recorded in the project's audit log like any settings change.
+ */
+export async function openProjectToAgentsAction(projectId: string): Promise<ProjectActionResult> {
+  const user = await requireUser();
+  const project = await prisma.project.findUnique({
+    where: { id: String(projectId ?? "") },
+    select: { id: true, organisationId: true, archivedAt: true, visibility: true, isOpenForContributors: true },
+  });
+  if (!project || project.archivedAt) return { error: "Project not found." };
+  if (!(await isAdminOfOrganisation(user, project.organisationId))) return { error: "Only organisation owners and admins can open a project to agents." };
+  if (project.visibility === "public" && project.isOpenForContributors) return { message: "It is already open to agents on Ziki." };
+
+  const changes: Record<string, { from: unknown; to: unknown }> = {};
+  if (project.visibility !== "public") changes.visibility = { from: project.visibility, to: "public" };
+  if (!project.isOpenForContributors) changes.isOpenForContributors = { from: false, to: true };
+  await prisma.$transaction(async (tx) => {
+    await tx.project.update({
+      where: { id: project.id },
+      // Opened to contributors just now: the Earn banner names it and comes back for it (#earnings). It is no longer
+      // Solo (#solo): other people's agents will work on it.
+      data: { visibility: "public", isOpenForContributors: true, solo: false, ...(project.isOpenForContributors ? {} : { openedForContributorsAt: new Date() }) },
+    });
+    await tx.projectAuditEvent.create({
+      data: { organisationId: project.organisationId, projectId: project.id, actorUserId: user.id, action: "settings.updated", changes: changes as Prisma.InputJsonValue },
+    });
+  });
+  invalidateWorkflow(project.id);
+  revalidatePath("/", "layout");
+  return { message: "Open. Agents on Ziki can now find this project, join it and price its issues." };
+}
+
+/**
+ * Solo (#solo): the owner works on this project with their own agents only. Turning it on is refused while someone
+ * else could work in it (lib/projects/solo.ts soloBlock). Owners and admins only, recorded in the project's audit log.
+ */
+export async function setProjectSoloAction(projectId: string, solo: boolean): Promise<ProjectActionResult> {
+  const user = await requireUser();
+  const project = await prisma.project.findUnique({ where: { id: String(projectId ?? "") }, select: { id: true, organisationId: true, archivedAt: true, solo: true } });
+  if (!project || project.archivedAt) return { error: "Project not found." };
+  if (!(await isAdminOfOrganisation(user, project.organisationId))) return { error: "Only organisation owners and admins can change how a project is worked on." };
+  if (project.solo === solo) return { message: solo ? "It is already Solo." : "It is already open to others." };
+  const result = await setSolo(project.id, solo);
+  if (!result.ok) return { error: result.error };
+  await prisma.projectAuditEvent.create({
+    data: { organisationId: project.organisationId, projectId: project.id, actorUserId: user.id, action: "settings.updated", changes: { solo: { from: !solo, to: solo } } as Prisma.InputJsonValue },
+  });
+  revalidatePath("/", "layout");
+  return {
+    message: solo
+      ? "Solo. Your tasks start straight away with your own agents: no prices, no funding."
+      : "Solo is off. Make the project public and open it to agents on Ziki to have them price and work on your tasks.",
+  };
 }
 
 /**
@@ -230,8 +375,14 @@ export async function createProjectAction(
     return { error: "Only organisation owners and admins can create projects." };
   }
 
+  // #solo: just the owner and their own agents. Only while nobody else works in the organisation, and always private.
+  const solo = formData.get("solo") === "true";
+  if (solo) {
+    const block = await organisationSoloBlock(prisma, organisationId);
+    if (block) return { error: SOLO_BLOCK_MESSAGE[block] };
+  }
   const visibilityRaw = (formData.get("visibility") as string | null)?.trim();
-  const visibility: "public" | "private" = visibilityRaw === "public" ? "public" : "private";
+  const visibility: "public" | "private" = !solo && visibilityRaw === "public" ? "public" : "private";
   const isOpenForContributors = visibility === "public" && (formData.get("isOpenForContributors") === "true" || formData.get("isOpenForContributors") === "on");
   const acceptsGuestIdeas = visibility === "public" && (formData.get("acceptsGuestIdeas") === "true" || formData.get("acceptsGuestIdeas") === "on");
   // The schema trims it and turns an empty box into null; it must be given a string.
@@ -260,8 +411,7 @@ export async function createProjectAction(
   );
 
   const rawReward = parseRewardConfigFromFormData(formData);
-  const platformBase = projectDefaultsFromPlatform(await getPlatformRewardConfig(prisma));
-  const rewardConfig = rawReward ? parseProjectRewardConfig(rawReward, platformBase) : null;
+  const rewardConfig = rawReward ? parseProjectRewardConfig(rawReward) : null;
 
   try {
     await prisma.project.create({
@@ -279,6 +429,7 @@ export async function createProjectAction(
         acceptsGuestIdeas,
         contributorGuidelines: parsed.data.contributorGuidelines,
         rewardConfig: rewardConfig ?? undefined,
+        solo,
         workflow: { create: {} },
       },
       select: { id: true },

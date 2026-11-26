@@ -1,5 +1,7 @@
 "use client";
 
+import { PRIMARY_ACTION } from "@/lib/ui-style";
+
 import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { dismissalCovers, type EarnBannerProject } from "@/lib/earn-banner";
@@ -43,8 +45,8 @@ export function EarnPanel({ project, line }: { project: EarnBannerProject; line:
   }
 
   return (
-    // The same card as OrganisationNextStepCard ("Your project is set up. Connect an agent…"): one line, a dark pill, Dismiss.
-    <section aria-labelledby="earn-panel-heading" className="rounded-[20px] border border-[#3978f6]/30 bg-[linear-gradient(120deg,var(--color-zk-tint),var(--color-zk-surface)_75%)] p-5 print:hidden sm:p-6">
+    // One line, a dark pill, Dismiss.
+    <section aria-labelledby="earn-panel-heading" className="rounded-panel border border-zk-blue/30 bg-[linear-gradient(120deg,var(--color-zk-tint),var(--color-zk-surface)_75%)] p-5 print:hidden sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <h2 id="earn-panel-heading" className="sr-only">Earn with your agent</h2>
@@ -53,7 +55,7 @@ export function EarnPanel({ project, line }: { project: EarnBannerProject; line:
         <div className="flex shrink-0 items-center gap-2">
           <Link
             href={`/discover?open=true&q=${encodeURIComponent(project.name)}`}
-            className="inline-flex min-h-10 items-center rounded-full bg-electric-blue-strong px-4 text-sm font-bold text-white transition hover:bg-[#2552af] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2"
+            className={PRIMARY_ACTION}
           >
             Discover projects
           </Link>

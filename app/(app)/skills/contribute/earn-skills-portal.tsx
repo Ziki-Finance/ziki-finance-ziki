@@ -216,7 +216,7 @@ export function EarnSkillsPortal({ user, initialSubmissions = [], loadError }: E
           {/* Action Button: Direct sync back to the Skills Library */}
           <Link
             href="/skills"
-            className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-zk-border bg-zk-surface px-6 py-2.5 text-sm font-bold text-zk-text shadow-2xs hover:bg-zk-chip hover:text-zk-accent transition active:scale-[0.98] shrink-0"
+            className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-zk-border bg-zk-surface px-6 py-2.5 text-sm font-bold text-zk-text shadow-none hover:bg-zk-chip hover:text-zk-accent transition shrink-0"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d="M4 6h16M4 10h16M4 14h16M4 18h16" />
@@ -230,7 +230,7 @@ export function EarnSkillsPortal({ user, initialSubmissions = [], loadError }: E
       <div className="flex flex-wrap items-center gap-2 pt-1">
         <button
           onClick={() => setActiveTab("submit")}
-          className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold transition shadow-xs ${
+          className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold transition shadow-none ${
             activeTab === "submit"
               ? "bg-blue-600 text-white"
               : "border border-zk-border bg-zk-surface text-zk-text2 hover:bg-zk-chip"
@@ -244,7 +244,7 @@ export function EarnSkillsPortal({ user, initialSubmissions = [], loadError }: E
 
         <button
           onClick={() => setActiveTab("submissions")}
-          className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold transition shadow-xs ${
+          className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold transition shadow-none ${
             activeTab === "submissions"
               ? "bg-blue-600 text-white"
               : "border border-zk-border bg-zk-surface text-zk-text2 hover:bg-zk-chip"
@@ -255,7 +255,7 @@ export function EarnSkillsPortal({ user, initialSubmissions = [], loadError }: E
           </svg>
           <span>My Submissions</span>
           <span
-            className={`rounded-full px-1.5 py-0.2 text-[10px] ${
+            className={`rounded-full px-1.5 py-0.2 text-[11px] ${
               activeTab === "submissions" ? "bg-white/25 text-white" : "bg-zk-chip text-zk-muted"
             }`}
           >
@@ -268,7 +268,7 @@ export function EarnSkillsPortal({ user, initialSubmissions = [], loadError }: E
       {activeTab === "submit" && (
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_320px] items-start">
           {/* Main Form Container */}
-          <div className="rounded-[24px] border border-zk-border bg-zk-surface p-7 md:p-8 shadow-xs">
+          <div className="rounded-panel border border-zk-border bg-zk-surface p-7 md:p-8 shadow-none">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <h2 className="text-base font-bold text-zk-text">Skill Specification</h2>
@@ -415,7 +415,7 @@ Confirm passing test suite`}
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-blue-600 px-8 py-3 text-sm font-bold text-white shadow-none transition-all hover:brightness-105 active:scale-[0.98] disabled:opacity-50"
+                  className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-control bg-blue-600 px-8 py-3 text-sm font-bold text-white shadow-none transition-all hover:brightness-105 disabled:opacity-50"
                 >
                   {isSubmitting ? (
                     <span>Submitting...</span>
@@ -434,7 +434,7 @@ Confirm passing test suite`}
 
           {/* Sidebar */}
           <div className="space-y-6">
-            <div className="rounded-[20px] border border-zk-border bg-zk-bg p-6 space-y-4">
+            <div className="rounded-panel border border-zk-border bg-zk-bg p-6 space-y-4">
               <h3 className="text-sm font-bold text-zk-text">Contributor Standards</h3>
               <ul className="space-y-3 text-xs text-zk-text2 leading-relaxed">
                 <li className="flex items-start gap-2.5">
@@ -457,7 +457,7 @@ Confirm passing test suite`}
 
       {/* TAB 2: MY SUBMISSIONS */}
       {activeTab === "submissions" && (
-        <div className="rounded-[24px] border border-zk-border bg-zk-surface shadow-xs overflow-hidden">
+        <div className="rounded-panel border border-zk-border bg-zk-surface shadow-none overflow-hidden">
           <div className="border-b border-zk-border bg-zk-chip px-6 py-4 flex items-center justify-between">
             <div>
               <h2 className="text-sm font-bold text-zk-text">
@@ -499,7 +499,7 @@ Confirm passing test suite`}
               <button
                 type="button"
                 onClick={() => setActiveTab("submit")}
-                className="inline-flex items-center gap-2 rounded-xl bg-zk-accent px-4 py-2 text-xs font-semibold text-white hover:opacity-90 transition shadow-sm"
+                className="inline-flex items-center gap-2 rounded-control bg-zk-accent px-4 py-2 text-xs font-semibold text-white hover:opacity-90 transition"
               >
                 Submit Your First Skill
               </button>
@@ -579,7 +579,7 @@ Confirm passing test suite`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="submission-modal-title"
-            className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-[24px] border border-zk-border bg-zk-surface p-6 sm:p-8 shadow-2xl space-y-6 focus:outline-none"
+            className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-panel border border-zk-border bg-zk-surface p-6 sm:p-8 shadow-none space-y-6 focus:outline-none"
           >
             {/* Modal Header */}
             <div className="flex items-start justify-between gap-4 border-b border-zk-divider pb-4">

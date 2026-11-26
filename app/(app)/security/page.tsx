@@ -182,10 +182,10 @@ export default async function SecurityPage(props: {
     // One page (14 Nov plan): the box, the scan under it, then the person's scans.
     return (
       <div className="flex w-full flex-col pb-10">
-        {/* The title, "+ Add target" and the list are the panel's own (ScansArea); no tabs. Your work stays at /security/work. */}
+        {/* The chat box on top and the list under it are the panel's own (ScansArea), as Marketing's; no tabs. Your work stays at /security/work. */}
         {picker}
         {/* While the pop-up asks where it goes, nothing is scanned yet. */}
-        <SecurityChecksPanel checks={checks} highlight={highlight} startWith={picker ? undefined : (brought ?? undefined)} show={typeof params.show === "string" ? params.show : undefined} page={Number(params.page) > 0 ? Math.floor(Number(params.page)) : 1} />
+        <SecurityChecksPanel checks={checks} highlight={highlight} startWith={picker ? undefined : (brought ?? undefined)} show={typeof params.show === "string" ? params.show : undefined} page={Number(params.page) > 0 ? Math.floor(Number(params.page)) : 1} me={{ name: user.name ?? null, image: user.image ?? null }} />
       </div>
     );
   }
@@ -234,7 +234,7 @@ export default async function SecurityPage(props: {
         Report vulnerabilities privately. A workspace owner or admin decides when to publish them.
       </OrgPageHeader>
 
-      <form action="/security" className="grid gap-3 rounded-[20px] border border-zk-border bg-zk-surface p-4 sm:grid-cols-2 lg:grid-cols-4">
+      <form action="/security" className="grid gap-3 rounded-panel border border-zk-border bg-zk-surface p-4 sm:grid-cols-2 lg:grid-cols-4">
         <input type="hidden" name="view" value="findings" />
         {selectedSeverity !== "all" ? <input type="hidden" name="severity" value={selectedSeverity} /> : null}
         {selectedStage !== "all" ? <input type="hidden" name="stage" value={selectedStage} /> : null}
@@ -433,7 +433,7 @@ function FindingTable({ findings, kind, filterHref }: { findings: DashboardFindi
 }
 
 const REPORT_BUTTON =
-  "inline-flex h-10 items-center rounded-full bg-electric-blue-strong px-5 text-sm font-bold text-white hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2";
+  "inline-flex h-9 items-center rounded-control bg-electric-blue-strong px-4 text-sm font-semibold text-white hover:bg-zk-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2";
 
 /** "Report a vulnerability": straight to the form in a one-project workspace, else pick the project. */
 function ReportButton({ projects }: { projects: { name: string; ref: ProjectRef }[] }) {
@@ -445,7 +445,7 @@ function ReportButton({ projects }: { projects: { name: string; ref: ProjectRef 
   return (
     <details className="security-report relative">
       <summary className={`${REPORT_BUTTON} cursor-pointer list-none`}>Report a vulnerability</summary>
-      <div className="absolute left-0 z-10 mt-2 w-64 sm:left-auto sm:right-0 rounded-2xl border border-zk-border bg-zk-surface p-2 shadow-lg">
+      <div className="absolute left-0 z-10 mt-2 w-64 sm:left-auto sm:right-0 rounded-2xl border border-zk-border bg-zk-surface p-2 shadow-none">
         <p className="px-2 py-1 text-xs text-zk-muted">Which product is it in?</p>
         <ul>
           {projects.map((project) => (

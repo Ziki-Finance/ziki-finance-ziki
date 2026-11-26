@@ -108,7 +108,7 @@ export function CreateAgentForm({
           The agent sends it as <code className="font-mono">Authorization: Bearer &lt;key&gt;</code>. If
           it&apos;s lost, regenerate the key on this page. The current key stops working immediately.
         </p>
-        <Button type="button" variant="secondary" onClick={() => setIssued(null)} className="rounded-full">
+        <Button type="button" variant="secondary" onClick={() => setIssued(null)} className="rounded-control">
           I&apos;ve saved it
         </Button>
       </div>
@@ -171,13 +171,13 @@ export function CreateAgentForm({
                 onClick={() => setLevel(option)}
                 className={`flex flex-col gap-2 rounded-2xl p-4 text-left transition ${
                   on
-                    ? "border-2 border-electric-blue-strong bg-zk-tint shadow-[0_8px_20px_rgba(46,111,239,0.15)]"
+                    ? "border-2 border-electric-blue-strong bg-zk-tint shadow-none"
                     : "m-px border border-zk-border bg-zk-surface hover:border-electric-blue/40"
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <span
-                    className={`flex h-8 w-8 items-center justify-center rounded-[10px] ${
+                    className={`flex h-8 w-8 items-center justify-center rounded-control ${
                       on ? "bg-electric-blue-strong text-white" : "bg-zk-tint text-zk-accent"
                     }`}
                   >

@@ -7,9 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { joinOpenProjectAction } from "@/app/actions/project-join-requests";
 import { ProjectJoinRequestButton } from "@/components/project-join-request-button";
-import { formatZ, REPORTER_POINTS, REVIEWER_POINTS } from "@/lib/points/rules";
-import type { ProjectRewardConfig } from "@/lib/points/project-rewards";
-import { projectPath, projectRef } from "@/lib/project-paths";
+import type { ProjectRewardConfig } from "@/lib/rewards/config";
+import { IssueSharesList } from "@/components/issue-shares-list";
+import { issuesPath, projectRef } from "@/lib/project-paths";
 
 export type DiscoverableProject = {
   id: string;
@@ -39,8 +39,6 @@ export function DiscoverProjectCard({ project }: { project: DiscoverableProject 
   const router = useRouter();
   const [joining, startJoining] = useTransition();
   const [joinError, setJoinError] = useState<string | null>(null);
-  const reporterReward = project.rewardConfig?.reporter ?? REPORTER_POINTS;
-  const reviewerReward = project.rewardConfig?.reviewer ?? REVIEWER_POINTS;
   const earningGuidelines = project.rewardConfig?.guidelines ?? null;
   // Open projects take you in straight away (#earnings): no request, no waiting, then on to its work.
   const join = () =>
@@ -53,25 +51,25 @@ export function DiscoverProjectCard({ project }: { project: DiscoverableProject 
 
   return (
     <>
-      <article className="flex flex-col justify-between self-start rounded-[20px] border border-zk-border bg-zk-surface p-5 transition hover:border-zk-border-hover sm:p-6">
+      <article className="flex flex-col justify-between self-start rounded-panel border border-zk-border bg-zk-surface p-5 transition hover:border-zk-border-hover sm:p-6">
         <div className="space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div>
               <span className="text-xs font-semibold uppercase tracking-wider text-zk-muted">
                 {project.organisation.name}
               </span>
-              <h3 className="text-lg font-bold text-zk-text">
+              <h2 className="text-lg font-bold text-zk-text">
                 <Link
-                  href={projectPath(projectRef(project.organisation.slug, project.slug))}
+                  href={issuesPath(projectRef(project.organisation.slug, project.slug), "your_work")}
                   className="hover:text-zk-accent hover:underline"
                 >
                   {project.name}
                 </Link>
-              </h3>
+              </h2>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-1.5">
               {project.isOpenForContributors ? (
-                <Badge className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-[11px] font-semibold text-emerald-400">
+                <Badge className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
                   Open for Contributors
                 </Badge>
               ) : (
@@ -116,7 +114,7 @@ export function DiscoverProjectCard({ project }: { project: DiscoverableProject 
             <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 font-semibold text-zk-text select-none [&::-webkit-details-marker]:hidden">
               <span className="flex flex-wrap items-center gap-1.5">
                 <span className="text-zk-accent">Rewards &amp; rules</span>
-                <span className=" font-normal text-zk-muted">· Earn $1–$10 / fix</span>
+                <span className=" font-normal text-zk-muted">· Earn 1,000–10,000 Ziks / fix</span>
               </span>
               <svg
                 width="14"
@@ -134,20 +132,7 @@ export function DiscoverProjectCard({ project }: { project: DiscoverableProject 
               </svg>
             </summary>
             <div className="space-y-2 border-t border-zk-divider px-3 pb-3 pt-2.5 text-zk-text2">
-              <div className="grid grid-cols-3 gap-2">
-                <div className="rounded-lg border border-zk-border bg-zk-surface px-2.5 py-1.5">
-                  <span className="block text-[11px] text-zk-muted">Solver reward</span>
-                  <span className="font-bold text-zk-text">$1–$10</span>
-                </div>
-                <div className="rounded-lg border border-zk-border bg-zk-surface px-2.5 py-1.5">
-                  <span className="block text-[11px] text-zk-muted">Reporter bounty</span>
-                  <span className="font-bold text-zk-text">{formatZ(reporterReward)}</span>
-                </div>
-                <div className="rounded-lg border border-zk-border bg-zk-surface px-2.5 py-1.5">
-                  <span className="block text-[11px] text-zk-muted">Reviewer reward</span>
-                  <span className="font-bold text-zk-text">{formatZ(reviewerReward)}</span>
-                </div>
-              </div>
+              <IssueSharesList compact />
               {earningGuidelines ? (
                 <p className="whitespace-pre-wrap text-xs text-zk-text2">
                   <span className="font-semibold text-zk-text">Earning rules: </span>
@@ -191,7 +176,7 @@ export function DiscoverProjectCard({ project }: { project: DiscoverableProject 
           <div className="flex flex-wrap items-center justify-end gap-2">
             {currentStatus === "guest" ? (
               project.isOpenForContributors ? (
-                <Link href={`/login?callbackUrl=${encodeURIComponent(projectPath(projectRef(project.organisation.slug, project.slug)))}`}>
+                <Link href={`/login?callbackUrl=${encodeURIComponent(issuesPath(projectRef(project.organisation.slug, project.slug), "your_work"))}`}>
                   <Button
                     variant="primary"
                     className="text-xs font-semibold"
@@ -200,14 +185,14 @@ export function DiscoverProjectCard({ project }: { project: DiscoverableProject 
                   </Button>
                 </Link>
               ) : (
-                <Link href={`/login?callbackUrl=${encodeURIComponent(projectPath(projectRef(project.organisation.slug, project.slug)))}`}>
+                <Link href={`/login?callbackUrl=${encodeURIComponent(issuesPath(projectRef(project.organisation.slug, project.slug), "your_work"))}`}>
                   <Button variant="secondary" className="text-xs font-semibold">
                     Sign in to ask to join
                   </Button>
                 </Link>
               )
             ) : currentStatus === "member" ? (
-              <Link href={projectPath(projectRef(project.organisation.slug, project.slug))}>
+              <Link href={issuesPath(projectRef(project.organisation.slug, project.slug), "your_work")}>
                 <Button variant="secondary" className="text-xs font-medium">
                   Open Project →
                 </Button>

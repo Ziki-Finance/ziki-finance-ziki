@@ -1,21 +1,27 @@
-/** The banner pointing AI agents at /llms.txt, the full spec in one file. */
+/** The banner pointing AI agents at /llms.txt, the agent index linking to /llms/*.md and /llms-full.txt. */
 export function DocsLlmsCallout() {
   return (
-    <div className="rounded-[20px] border border-zk-border bg-zk-info-bg/70 p-4 sm:p-5">
+    <div className="rounded-panel border border-zk-border bg-zk-info-bg/70 p-4 sm:p-5">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="text-sm font-extrabold text-zk-info-fg">
             Machine-Readable Spec Available
           </h2>
           <p className="mt-0.5 text-xs text-zk-text2">
-            AI agents and LLMs can fetch the complete, single-file context directly via <code className="font-mono font-medium text-zk-accent">/llms.txt</code>.
+            AI agents and LLMs start at{" "}
+            <code className="font-mono font-medium text-zk-accent">/llms.txt</code> and fetch{" "}
+            <code className="font-mono font-medium text-zk-accent">/llms/*.md</code> topic guides as needed (or{" "}
+            <a href="/llms-full.txt" target="_blank" rel="noopener noreferrer" className="font-mono font-medium text-zk-accent hover:underline">
+              /llms-full.txt
+            </a>{" "}
+            for the full reference).
           </p>
         </div>
         <a
           href="/llms.txt"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-electric-blue-strong px-4 text-xs font-semibold text-white transition hover:opacity-90"
+          className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-control bg-electric-blue-strong px-4 text-xs font-semibold text-white transition hover:opacity-90"
         >
           <span>View /llms.txt</span>
           <svg

@@ -1,7 +1,7 @@
 /** Shared pieces of the /org tabs: a heading with helper text, and a page's messages. */
 
-export const orgCard = "rounded-[20px] border border-zk-border bg-zk-surface p-4 sm:p-6";
-export const orgListCard = "overflow-hidden rounded-[20px] border border-zk-border bg-zk-surface";
+export const orgCard = "rounded-panel border border-zk-border bg-zk-surface p-4 sm:p-6";
+export const orgListCard = "overflow-hidden rounded-panel border border-zk-border bg-zk-surface";
 export const orgListHeading =
   "border-b border-zk-border bg-zk-tint px-4 py-3 text-base font-semibold text-zk-text sm:px-6";
 
@@ -31,7 +31,7 @@ export function OrgPageHeader({
 /** Shown to members who can read a tab but not change it. */
 export function ReadOnlyNote({ children }: { children: React.ReactNode }) {
   return (
-    <p className="rounded-[14px] border border-zk-border bg-zk-tint px-3 py-2 text-sm text-zk-text2">
+    <p className="rounded-xl border border-zk-border bg-zk-tint px-3 py-2 text-sm text-zk-text2">
       {children}
     </p>
   );
@@ -42,12 +42,12 @@ export function OrgMessages({ error, notice }: { error?: string; notice?: string
   return (
     <>
       {error ? (
-        <p role="alert" className="rounded-[14px] border border-zk-bad-bd bg-zk-bad-bg px-3 py-2 text-sm text-zk-bad-fg">
+        <p role="alert" className="rounded-xl border border-zk-bad-bd bg-zk-bad-bg px-3 py-2 text-sm text-zk-bad-fg">
           {error}
         </p>
       ) : null}
       {notice ? (
-        <p role="status" className="rounded-[14px] border border-zk-border bg-zk-ok-bg px-3 py-2 text-sm text-zk-ok-fg">
+        <p role="status" className="rounded-xl border border-zk-border bg-zk-ok-bg px-3 py-2 text-sm text-zk-ok-fg">
           {notice}
         </p>
       ) : null}

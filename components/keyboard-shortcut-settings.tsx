@@ -57,7 +57,7 @@ export function KeyboardShortcutSettings({ initialEnabled }: { initialEnabled: b
           } ${pending ? "cursor-not-allowed opacity-45" : ""}`}
         >
           <span
-            className={`pointer-events-none absolute top-[3px] h-[22px] w-[22px] rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.25)] transition-[left] motion-reduce:transition-none ${
+            className={`pointer-events-none absolute top-[3px] h-[22px] w-[22px] rounded-full bg-white shadow-none transition-[left] motion-reduce:transition-none ${
               enabled ? "left-[21px]" : "left-[3px]"
             }`}
           />
@@ -68,7 +68,7 @@ export function KeyboardShortcutSettings({ initialEnabled }: { initialEnabled: b
         {PREVIEW_SHORTCUTS.map((item) => (
           <span
             key={item.key}
-            className="inline-flex items-center gap-2 rounded-[10px] bg-zk-chip px-2.5 py-1.5 text-xs text-zk-text2"
+            className="inline-flex items-center gap-2 rounded-control bg-zk-chip px-2.5 py-1.5 text-xs text-zk-text2"
           >
             <kbd className="min-w-[18px] rounded-md border border-zk-border bg-zk-surface px-1.5 py-px text-center font-inherit font-extrabold text-zk-text">
               {item.key}

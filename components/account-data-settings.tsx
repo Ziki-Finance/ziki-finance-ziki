@@ -33,7 +33,7 @@ export function AccountDataSettings() {
 
   return (
     <div className="flex flex-col gap-4">
-      <section className="flex flex-wrap items-center justify-between gap-4 rounded-[20px] border border-zk-border bg-zk-surface p-6">
+      <section className="flex flex-wrap items-center justify-between gap-4 rounded-panel border border-zk-border bg-zk-surface p-6">
         <div className="flex min-w-0 flex-1 flex-col gap-1 sm:min-w-[320px]">
           <h2 className="m-0 text-lg font-bold text-zk-text">Download your data</h2>
           <p className="m-0 text-[13px] leading-relaxed text-zk-muted">
@@ -53,9 +53,9 @@ export function AccountDataSettings() {
         </a>
       </section>
 
-      <section className="flex flex-col gap-3.5 rounded-[20px] border border-zk-bad-bd bg-zk-bad-soft p-6">
+      <section className="flex flex-col gap-3.5 rounded-panel border border-zk-bad-bd bg-zk-bad-soft p-6">
         <div className="flex items-start gap-3.5">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-zk-bad-bg text-zk-bad-fg">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zk-bad-bg text-zk-bad-fg">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
             </svg>
@@ -73,7 +73,7 @@ export function AccountDataSettings() {
         {error ? (
           <div
             role="alert"
-            className="rounded-[14px] border border-zk-bad-bd bg-zk-surface p-3 text-sm text-zk-bad-fg"
+            className="rounded-xl border border-zk-bad-bd bg-zk-surface p-3 text-sm text-zk-bad-fg"
           >
             {error}
           </div>
@@ -93,7 +93,7 @@ export function AccountDataSettings() {
             Delete account…
           </button>
         ) : (
-          <div className="flex flex-col gap-2.5 rounded-[14px] border border-zk-bad-bd bg-zk-surface p-4">
+          <div className="flex flex-col gap-2.5 rounded-xl border border-zk-bad-bd bg-zk-surface p-4">
             <label className="flex flex-col gap-1.5 text-[13px] font-bold text-zk-text">
               Type DELETE to confirm
               <input
@@ -122,7 +122,7 @@ export function AccountDataSettings() {
                 className={`h-[42px] rounded-full border-0 px-[18px] text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zk-bad-fg focus-visible:ring-offset-2 ${
                   deleteLocked
                     ? "cursor-not-allowed bg-zk-chip text-zk-muted"
-                    : "bg-[#B4233F] text-white hover:brightness-105"
+                    : "bg-zk-bad-fg text-white hover:brightness-105"
                 }`}
               >
                 {pending ? "Deleting…" : "Permanently delete"}

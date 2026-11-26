@@ -8,7 +8,7 @@ import { statusChangedSummary } from "@/lib/activity-log";
 import { parseIssueRef } from "@/lib/issue-ref";
 import { ENVIRONMENTS, LIVE_SUBSTATUS, moveTo } from "@/lib/issue-substatus";
 import { PRODUCT_STEP_ONLY_MESSAGE, trackRules } from "@/lib/marketing/track";
-import { LIVE_REPORTS_NEEDED, liveReporters, releasePayoutIfLive } from "@/lib/points/payout";
+import { LIVE_REPORTS_NEEDED, liveReporters, releasePayoutIfLive } from "@/lib/coins/issue-payout";
 import { prodReporters } from "@/lib/live-confirm-data";
 
 /**
@@ -20,7 +20,7 @@ import { prodReporters } from "@/lib/live-confirm-data";
  *
  * #live-payout: each person's latest report is kept. Once `LIVE_REPORTS_NEEDED`
  * (3) people other than the solver have reported the work deployed, what
- * resolving it earned is paid (lib/points/payout.ts).
+ * its funded Ziks pay everyone who worked on it (lib/coins/issue-payout.ts).
  *
  * #live-confirm: the same rule decides On prod. A prod report moves the issue
  * there only once that many people other than the solver have reported prod;
@@ -31,6 +31,11 @@ export const deploymentSchema = z
     environment: z.enum(ENVIRONMENTS),
     /** What the agent checked: the URL, version or commit it saw deployed. */
     note: z.string().trim().min(1, "Say what you checked: the URL, version or commit you saw deployed.").max(2000),
+    /**
+     * The live link (#live-link): the address where the fix can be seen running, shown on the issue's card as
+     * "See it live". Optional, but merger agents add it when the issue has none yet.
+     */
+    url: z.string().trim().max(2000).regex(/^https?:\/\/\S+$/i, "url must be a web address (http or https) where the fix can be seen running.").optional(),
   })
   .strict();
 
@@ -47,7 +52,7 @@ export async function reportDeployment(
     const message = parsed.error.issues[0]?.message ?? "Invalid deployment report.";
     throw new IssueApiError(400, message, { error: "invalid_request", message });
   }
-  const { environment, note } = parsed.data;
+  const { environment, note, url } = parsed.data;
   const ref = parseIssueRef(issueRef);
   return prisma.$transaction(async (tx) => {
     const bug = await tx.bug.findFirst({
@@ -65,8 +70,9 @@ export async function reportDeployment(
     // #live-payout: this person's report counts once, and enough of them pay what resolving it earned.
     await tx.deploymentReport.upsert({
       where: { bugId_onBehalfOfUserId: { bugId: bug.id, onBehalfOfUserId: agent.ownerId } },
-      create: { bugId: bug.id, onBehalfOfUserId: agent.ownerId, agentId: agent.agentId, environment, note },
-      update: { agentId: agent.agentId, environment, note },
+      // A report without a link keeps the link this person gave before.
+      create: { bugId: bug.id, onBehalfOfUserId: agent.ownerId, agentId: agent.agentId, environment, note, url: url ?? null },
+      update: { agentId: agent.agentId, environment, note, ...(url ? { url } : {}) },
     });
     // #live-confirm: one person's prod report doesn't make it On prod.
     const prodReports = (await prodReporters(tx, bug.id, bug.assigneeId)).length;
@@ -84,7 +90,7 @@ export async function reportDeployment(
         },
       });
     }
-    const payload = { issueId: bug.id, environment, note, from: bug.substatus, to };
+    const payload = { issueId: bug.id, environment, note, ...(url ? { url } : {}), from: bug.substatus, to };
     await audit({ agentId: agent.agentId, organisationId: bug.organisationId }, "issue.deployed", `bug:${bug.id}`, payload, { bugId: bug.id, db: tx });
     if (changed) {
       await publish(tx, { organisationId: bug.organisationId, type: "issue.updated", actorAgentId: agent.agentId, bugId: bug.id, payload: { ...payload, values: moveTo(to) } });

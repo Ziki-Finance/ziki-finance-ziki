@@ -19,7 +19,7 @@ export function AgentTabs({ agents, currentId }: { agents: AgentTab[]; currentId
                 aria-current={on ? "page" : undefined}
                 className={`inline-flex min-h-10 items-center gap-2 whitespace-nowrap rounded-full py-1 pl-1 pr-4 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue ${
                   on
-                    ? "bg-zk-surface font-bold text-zk-text shadow-[0_1px_3px_rgba(21,18,31,0.12)]"
+                    ? "bg-zk-surface font-bold text-zk-text shadow-none"
                     : "font-medium text-zk-text2 hover:text-zk-text"
                 } ${agent.revoked ? "opacity-60" : ""}`}
               >

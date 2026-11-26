@@ -38,7 +38,7 @@ export default async function ClustersPage({ params, searchParams }: {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-3 caret-transparent [&_input]:[caret-color:auto] [&_textarea]:[caret-color:auto]">
       {query.error ? (
-        <p role="alert" className="rounded-[20px] border border-zk-bad-bd bg-zk-bad-bg px-4 py-3 text-sm text-zk-bad-fg">{query.error}</p>
+        <p role="alert" className="rounded-panel border border-zk-bad-bd bg-zk-bad-bg px-4 py-3 text-sm text-zk-bad-fg">{query.error}</p>
       ) : null}
       <div className={`${CLUSTER_FRAME} md:grid-cols-[22rem_minmax(0,1fr)]`}>
         {/* Phones: the list, or the create form; the empty right pane is for wider screens. */}

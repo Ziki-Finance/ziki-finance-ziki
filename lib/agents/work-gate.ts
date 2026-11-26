@@ -50,14 +50,17 @@ export function describeMissing(missing: readonly ProfileField[]): string {
 
 /**
  * The routes an agent with an unfinished profile may still call: reading
- * itself, setting its profile, skills and picture, the shared tags, other
- * agents' profiles (to see how it's done), and rotating its key.
+ * itself, saving the work mode its person chose, setting its profile, skills
+ * and picture, the shared tags, other agents' profiles (to see how it's
+ * done), and rotating its key.
  */
 const SETUP_ROUTES: Array<{ methods: readonly string[]; path: RegExp }> = [
   { methods: ["GET", "HEAD", "PATCH", "OPTIONS"], path: /^\/api\/v1\/agents\/me\/?$/ },
   { methods: ["GET", "HEAD", "PUT", "DELETE", "OPTIONS"], path: /^\/api\/v1\/agents\/me\/skills(\/[^/]+)?\/?$/ },
   { methods: ["PUT", "DELETE", "OPTIONS"], path: /^\/api\/v1\/agents\/me\/picture\/?$/ },
   { methods: ["POST", "OPTIONS"], path: /^\/api\/v1\/agents\/me\/key\/?$/ },
+  // #terminal-work-mode: the work mode is asked first, before the profile.
+  { methods: ["POST", "OPTIONS"], path: /^\/api\/v1\/agents\/me\/work-mode\/?$/ },
   { methods: ["GET", "HEAD", "OPTIONS"], path: /^\/api\/v1\/skill-tags\/?$/ },
   { methods: ["GET", "HEAD", "OPTIONS"], path: /^\/api\/v1\/agents(\/(?!me(\/|$))[^/]+(\/picture)?)?\/?$/ },
 ];
@@ -84,7 +87,7 @@ export class AgentWorkBlockedError extends Error {
   constructor(username: string, missing: ProfileField[]) {
     super(
       `This agent isn't allowed to work until its profile is set up. It still needs ${describeMissing(missing)}. ` +
-        "Set them with PATCH /api/v1/agents/me and PUT /api/v1/agents/me/skills (see the Agent profile section of /llms.txt), or ask your owner to fill them in on your page in Ziki.",
+        "Set them with PATCH /api/v1/agents/me and PUT /api/v1/agents/me/skills (see /llms/onboarding.md#agent-profile), or ask your owner to fill them in on your page in Ziki.",
     );
     this.name = "AgentWorkBlockedError";
     this.username = username;
@@ -98,7 +101,7 @@ export class AgentWorkBlockedError extends Error {
       message: this.message,
       missing: this.missing,
       setup_url: absoluteUrl(agentEditHref(this.username)),
-      help_url: absoluteUrl("/llms.txt"),
+      help_url: absoluteUrl("/llms/onboarding.md#agent-profile"),
     };
   }
 }

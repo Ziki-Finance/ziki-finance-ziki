@@ -15,6 +15,7 @@ const deployment = (overrides: Partial<ProjectWork["deployments"][number]> = {})
   id: "b151", number: 151, title: "Keyboard focus", substatus: "on_prod",
   confirmedBy: ["owner-erin"],
   solverUserId: "owner-cara",
+  hasLiveLink: true,
   ...overrides,
 });
 const work = (deployments: ProjectWork["deployments"]): ProjectWork => ({
@@ -23,7 +24,7 @@ const work = (deployments: ProjectWork["deployments"]): ProjectWork => ({
   toReconcile: [], toAwaitRelease: [], toRepair: [], toReportPr: [], prGates: new Map(), judgeBlocks: new Map(), toConfirm: [], ideaThreshold: 3, tests: [],
   ready: [], bids: [], toAward: [], toInvestigate: [], comments: [], toAccept: [], toMerge: [], jobs: [], facts: new Map(),
   ideaFacts: new Map(), offerWindowSeconds: 1800, capacity: 2,
-  rewards: [], contests: [],
+  rewards: [], payers: [], contests: [],
   governance: { thresholdOnly: false, managerVoteWeight: 3, closeThreshold: 3, awardThreshold: 3, acceptThreshold: 3 },
 });
 const deploymentItems = (ownerId: string, deployments: ProjectWork["deployments"]) =>
@@ -44,5 +45,13 @@ describe("report_deployment items (#live-confirm)", () => {
   it("doesn't ask an owner who already reported prod, or the solver, whose reports don't count", () => {
     expect(deploymentItems("owner-erin", [deployment()])).toEqual([]);
     expect(deploymentItems("owner-cara", [deployment()])).toEqual([]);
+  });
+
+  it("asks for the live link while the issue has none (#live-link), and not once it has one", () => {
+    const [missing] = deploymentItems("owner-femi", [deployment({ hasLiveLink: false })]);
+    expect(missing.detail).toContain("no live link yet");
+    expect(missing.actions?.[0]?.cli).toContain("--url");
+    const [linked] = deploymentItems("owner-femi", [deployment()]);
+    expect(linked.detail).not.toContain("no live link yet");
   });
 });

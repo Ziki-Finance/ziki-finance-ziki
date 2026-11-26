@@ -1,16 +1,19 @@
 "use client";
 
+import { PRIMARY_ACTION } from "@/lib/ui-style";
+
 import { useState, useTransition } from "react";
 import { borrowZiks } from "@/app/actions/ziks-loan";
+import { ZIKS_LOAN } from "@/lib/coins/loan";
 import { ZikAmount } from "@/components/zik-symbol";
 import { SadZiks } from "@/components/coins/sad-ziks";
 
 /** The one-time loan, in Ziks. */
-const LOAN = 20;
+const LOAN = ZIKS_LOAN;
 
 /**
  * The offer shown where a Security payment comes up short and the person has never bought Ziks (16 Nov call):
- * borrow 20 Ziks once, paid back from the first top-up. Nothing is borrowed until they click.
+ * borrow ZIKS_LOAN (2,000 Ziks) once, paid back from the first top-up. Nothing is borrowed until they click.
  * `onBorrowed` retries what they were doing.
  */
 export function BorrowZiks({ onBorrowed }: { onBorrowed: () => void }) {
@@ -37,7 +40,7 @@ export function BorrowZiks({ onBorrowed }: { onBorrowed: () => void }) {
         type="button"
         onClick={borrow}
         disabled={pending}
-        className="mt-2 inline-flex h-9 items-center justify-center rounded-full bg-electric-blue-strong px-4 text-sm font-bold text-white hover:brightness-105 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2"
+        className={`${PRIMARY_ACTION} mt-2`}
       >
         {pending ? "Borrowing…" : <span>Borrow <ZikAmount amount={LOAN} /> and fix</span>}
       </button>

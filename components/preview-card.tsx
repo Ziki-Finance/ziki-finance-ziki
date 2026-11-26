@@ -42,7 +42,7 @@ function since(iso: string, now: number): string {
 /** The browser frame every state is drawn in: an address bar, then the screen. */
 function BrowserFrame({ address, dim, children }: { address: string | null; dim?: boolean; children: React.ReactNode }) {
   return (
-    <div className={`overflow-hidden rounded-2xl border border-zk-border bg-zk-surface shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${dim ? "opacity-90" : ""}`}>
+    <div className={`overflow-hidden rounded-2xl border border-zk-border bg-zk-surface shadow-none ${dim ? "opacity-90" : ""}`}>
       <div className="flex items-center gap-2 border-b border-zk-border bg-zk-chip px-3 py-2">
         <span className="flex gap-1.5" aria-hidden="true">
           <span className="h-2.5 w-2.5 rounded-full bg-zk-border" />
@@ -143,7 +143,7 @@ function ScreenMessage({ tone, title, children }: { tone: "info" | "warn" | "bad
   const dot = tone === "bad" ? "bg-zk-bad-fg" : tone === "warn" ? "bg-zk-warn-fg motion-safe:animate-pulse" : "bg-zk-muted";
   return (
     <div className="absolute inset-0 flex items-center justify-center p-4">
-      <div className="flex max-w-[22rem] flex-col items-center gap-1.5 rounded-xl border border-zk-border bg-zk-surface/95 px-4 py-3 text-center shadow-[0_4px_16px_rgba(0,0,0,0.08)] backdrop-blur-sm">
+      <div className="flex max-w-[22rem] flex-col items-center gap-1.5 rounded-xl border border-zk-border bg-zk-surface/95 px-4 py-3 text-center shadow-none backdrop-blur-sm">
         <span className="flex items-center gap-2 text-sm font-bold text-zk-text">
           <span className={`h-2 w-2 rounded-full ${dot}`} aria-hidden="true" />
           {title}
@@ -259,7 +259,7 @@ export function PreviewCard({ bugId, pullNumber, build: initialBuild, lastReadyU
   const frame = <BrowserFrame address={shownUrl ? hostOf(shownUrl) : null}>{screen}</BrowserFrame>;
 
   return (
-    <section aria-label="Preview" data-testid="preview" data-status={build?.status ?? "none"} className="flex flex-col gap-3 rounded-[20px] border border-zk-border bg-zk-surface p-5 sm:p-[22px]">
+    <section aria-label="Preview" data-testid="preview" data-status={build?.status ?? "none"} className="flex flex-col gap-3 rounded-panel border border-zk-border bg-zk-surface p-5 sm:p-[22px]">
       <header className="flex flex-wrap items-center gap-2">
         <span className="text-sm font-bold text-zk-text">Preview</span>
         <span role="status" className={`rounded-full px-2 py-0.5 text-xs font-bold ${status.tone}`}>{status.text}</span>
@@ -275,7 +275,7 @@ export function PreviewCard({ bugId, pullNumber, build: initialBuild, lastReadyU
           className="group relative block rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zk-accent"
         >
           {frame}
-          <span className="pointer-events-none absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-electric-blue-strong px-3 py-1.5 text-xs font-bold text-white opacity-90 shadow-[0_2px_8px_rgba(0,0,0,0.2)] transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+          <span className="pointer-events-none absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-control bg-electric-blue-strong px-3 py-1.5 text-xs font-semibold text-white opacity-90 shadow-none transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
             Open preview
             <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M7 17 17 7M8 7h9v9" />

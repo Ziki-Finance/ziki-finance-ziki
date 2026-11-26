@@ -41,7 +41,7 @@ export function SettingsNav({ orgRef, orgName, pendingJoinCount = 0, owner = fal
             key={item.id}
             href={`/settings?section=${item.id}`}
             aria-current={on ? "page" : undefined}
-            className={`flex w-full items-center gap-3 rounded-[14px] px-3 py-2.5 text-left text-zk-text transition ${
+            className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-zk-text transition ${
               on ? "bg-zk-tint" : "bg-transparent hover:bg-zk-chip"
             }`}
           >
@@ -76,7 +76,7 @@ export function SettingsNav({ orgRef, orgName, pendingJoinCount = 0, owner = fal
                   <Link
                     href={href}
                     aria-current={on ? "page" : undefined}
-                    className={`flex min-h-9 items-center gap-2.5 rounded-[10px] px-2.5 text-sm transition ${
+                    className={`flex min-h-9 items-center gap-2.5 rounded-control px-2.5 text-sm transition ${
                       on ? "bg-zk-tint font-bold text-zk-accent" : "font-medium text-zk-text2 hover:bg-zk-chip hover:text-zk-text"
                     }`}
                   >
@@ -85,7 +85,7 @@ export function SettingsNav({ orgRef, orgName, pendingJoinCount = 0, owner = fal
                     </svg>
                     {item.label}
                     {item.section === "invites" && pendingJoinCount > 0 ? (
-                      <span className="ml-auto inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-electric-blue-strong px-1 text-[10px] font-bold text-white">
+                      <span className="ml-auto inline-flex h-4 min-w-4 items-center justify-center rounded-control bg-electric-blue-strong px-1 text-[11px] font-semibold text-white">
                         {pendingJoinCount}
                         <span className="sr-only"> pending join requests</span>
                       </span>

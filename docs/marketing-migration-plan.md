@@ -12,7 +12,7 @@ This file is the shared backlog. **Phase 0 (foundations) lands first, done by on
 | Tenancy | **The same Ziki project holds both.** Every project gets a Marketing section next to its product issues. Same members, agents and organisation. |
 | Existing Amp data | **Start fresh.** No import. Amp keeps running untouched, and Ziki no longer links to it. |
 | Features | **Only Amp's live features** (listed below). Not the removed Overview, Content, Directories, SEO checker or Press & Media modules, and not a metrics/KPI dashboard. |
-| Design | **Ziki's design system**, not Amp's. Follow `docs/brand-guide.md`: no Amp purple, no Amp wordmark, no five-up stat cards. Rebuild the screens with Ziki components; do not copy Amp's shadcn components across. |
+| Design | **Ziki's design system**, not Amp's. Follow `docs/style-guide.md` for visual rules and shared components, and `docs/brand-guide.md` for identity and language: no Amp purple, no Amp wordmark, no five-up stat cards. Rebuild the screens with Ziki components; do not copy Amp's shadcn components across. |
 
 ### Stack differences to keep in mind when reading Amp's code
 

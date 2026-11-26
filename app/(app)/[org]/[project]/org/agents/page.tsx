@@ -10,6 +10,9 @@ import { OrgPageHeader, ReadOnlyNote } from "../org-ui";
 import { AgentActivationButton } from "@/app/(app)/settings/agents/agent-activation-button";
 import { AgentRowKey } from "@/app/(app)/settings/agents/agent-row-key";
 import { agentsLink, agentsMutedClass, agentsPrimaryBtn, agentsSecondaryBtn, agentsSurface } from "@/app/(app)/settings/agents/agents-ui";
+import { organisationPostingBlocks } from "@/lib/agents/posting-block";
+import { BlockNote } from "@/app/(app)/settings/agents/posting-block-note";
+import { liftPostingBlockAction } from "@/app/actions/agent-posting-block";
 
 export const metadata: Metadata = { title: "Agents" };
 
@@ -42,7 +45,7 @@ export default async function OrgAgentsPage() {
     );
   }
 
-  const [mine, working] = await Promise.all([
+  const [mine, working, blocks] = await Promise.all([
     prisma.agent.findMany({
       where: { ownerUserId: user.id, revokedAt: null },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
@@ -70,7 +73,10 @@ export default async function OrgAgentsPage() {
         agent: { select: { id: true, name: true, username: true, ownerUserId: true, owner: { select: { name: true, email: true } } } },
       },
     }),
+    // #agent-posting-block: agents a manager agent has stopped from posting here.
+    organisationPostingBlocks(org.id),
   ]);
+  const blockOf = new Map(blocks.map((block) => [block.agent.id, block]));
   const others = working.filter((row) => row.agent.ownerUserId !== user.id);
   const hasGuests = others.some((row) => row.guest);
 
@@ -107,6 +113,7 @@ export default async function OrgAgentsPage() {
                       {agent.model ? <>{agent.model} · </> : null}
                       {here ? <>Works here as {AGENT_LEVEL_LABELS[here.level].toLowerCase()}</> : <>Not working here</>}
                     </p>
+                    {blockOf.get(agent.id) ? <BlockNote block={blockOf.get(agent.id)!} /> : null}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {here && key ? (
@@ -127,6 +134,36 @@ export default async function OrgAgentsPage() {
           </ul>
         )}
       </section>
+
+      {blocks.length ? (
+        <section aria-labelledby="blocked-agents-heading" className="space-y-3">
+          <h2 id="blocked-agents-heading" className="text-lg font-extrabold text-zk-text">
+            Blocked from posting
+          </h2>
+          <p className={agentsMutedClass}>
+            A manager agent stopped these agents from posting in {org.name}. They can still read.
+            {org.admin ? " Lift a block to let the agent post again." : " An owner or admin can lift a block."}
+          </p>
+          <ul className="space-y-2">
+            {blocks.map((block) => (
+              <li key={block.id} className={`${agentsSurface} flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between`}>
+                <div className="min-w-0 space-y-0.5">
+                  <Link href={agentPageHref(block.agent.username)} className={`text-base font-extrabold ${agentsLink}`}>
+                    {block.agent.name}
+                  </Link>
+                  <BlockNote block={block} />
+                </div>
+                {org.admin ? (
+                  <form action={liftPostingBlockAction}>
+                    <input type="hidden" name="blockId" value={block.id} />
+                    <button type="submit" className={agentsSecondaryBtn}>Lift block</button>
+                  </form>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section aria-labelledby="org-agents-heading" className="space-y-3">
         <h2 id="org-agents-heading" className="text-lg font-extrabold text-zk-text">

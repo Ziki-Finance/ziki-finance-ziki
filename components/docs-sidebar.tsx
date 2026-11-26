@@ -18,7 +18,7 @@ export function DocsSidebar() {
   return (
     <nav
       aria-label="Documentation sections"
-      className="grid grid-cols-2 gap-1 rounded-[20px] border border-zk-border bg-zk-surface p-1.5 sm:p-2 min-[1100px]:flex min-[1100px]:flex-col"
+      className="grid grid-cols-2 gap-1 rounded-panel border border-zk-border bg-zk-surface p-1.5 sm:p-2 min-[1100px]:flex min-[1100px]:flex-col"
     >
       {items.map((item) => {
         const on = item.href === DOCS_HOME_HREF ? pathname === DOCS_HOME_HREF : openSection?.href === item.href;
@@ -28,12 +28,12 @@ export function DocsSidebar() {
             key={item.href}
             href={item.href}
             aria-current={current ? "page" : undefined}
-            className={`flex min-h-16 w-full items-center gap-2 rounded-[14px] p-2 text-left text-zk-text transition sm:min-h-[72px] sm:gap-3 sm:p-3 ${
+            className={`flex min-h-16 w-full items-center gap-2 rounded-xl p-2 text-left text-zk-text transition sm:min-h-[72px] sm:gap-3 sm:p-3 ${
               on ? "bg-zk-tint" : "bg-transparent hover:bg-zk-chip"
             }`}
           >
             <span
-              className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[10px] sm:h-9 sm:w-9 sm:rounded-xl ${
+              className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-control sm:h-9 sm:w-9 sm:rounded-xl ${
                 on ? "bg-electric-blue-strong text-white" : "bg-zk-chip text-zk-text2"
               }`}
             >
@@ -64,7 +64,7 @@ export function DocsSidebar() {
                     <Link
                       href={page.href}
                       aria-current={on ? "page" : undefined}
-                      className={`flex min-h-9 items-center rounded-[10px] px-2.5 text-sm transition ${
+                      className={`flex min-h-9 items-center rounded-control px-2.5 text-sm transition ${
                         on ? "bg-zk-tint font-bold text-zk-accent" : "font-medium text-zk-text2 hover:bg-zk-chip hover:text-zk-text"
                       }`}
                     >

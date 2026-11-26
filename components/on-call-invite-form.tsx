@@ -118,7 +118,7 @@ export function OnCallInviteForm({ primary }: { primary: string }) {
           <ul
             id={listId}
             role="listbox"
-            className="absolute left-0 top-full z-10 mt-1 max-h-72 w-full overflow-auto rounded-md border border-zk-border bg-zk-surface shadow-lg"
+            className="absolute left-0 top-full z-10 mt-1 max-h-72 w-full overflow-auto rounded-md border border-zk-border bg-zk-surface shadow-none"
           >
             {matches.length === 0 ? (
               <li role="presentation" className="px-3 py-2 text-xs text-zk-text2">

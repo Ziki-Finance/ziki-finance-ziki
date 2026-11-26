@@ -1,5 +1,7 @@
 "use client";
 
+import { PRIMARY_ACTION } from "@/lib/ui-style";
+
 import Link from "next/link";
 import { useActionState, useState, type ReactNode } from "react";
 import { verifySecurityTarget, type VerifyState } from "@/app/actions/security-ownership";
@@ -13,10 +15,9 @@ const TAG_NAME = "ziki-verification";
 const SERVER_FILE_PATH = "/.well-known/ziki-verification.txt";
 const REPO_FILE_PATH = ".ziki-verification";
 
-const primaryBtn =
-  "inline-flex min-h-11 items-center justify-center rounded-full bg-electric-blue-strong px-6 text-sm font-bold text-white shadow-[0_8px_20px_rgba(46,111,239,0.30)] transition hover:bg-[#2552af] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none";
+const primaryBtn = PRIMARY_ACTION;
 const quietBtn =
-  "inline-flex min-h-11 items-center justify-center rounded-full px-4 text-sm font-semibold text-zk-text2 transition hover:bg-zk-chip hover:text-zk-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue";
+  "inline-flex h-9 items-center justify-center rounded-control px-4 text-sm font-semibold text-zk-text2 transition hover:bg-zk-chip hover:text-zk-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue";
 const link = "font-semibold text-zk-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue";
 
 /**
@@ -101,7 +102,7 @@ export function OwnershipSteps({
       </ul>
 
       {state.error ? (
-        <p role="alert" className="mx-4 mb-0 mt-4 rounded-[14px] border border-zk-bad-bd bg-zk-bad-bg px-3 py-2 text-sm text-zk-bad-fg sm:mx-6">
+        <p role="alert" className="mx-4 mb-0 mt-4 rounded-xl border border-zk-bad-bd bg-zk-bad-bg px-3 py-2 text-sm text-zk-bad-fg sm:mx-6">
           {state.error}
         </p>
       ) : null}

@@ -1,18 +1,12 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { BUTTON_BASE, BUTTON_VARIANTS } from "@/lib/ui-style";
 
-type Variant = "primary" | "secondary" | "ghost" | "danger" | "danger-secondary";
+type Variant = keyof typeof BUTTON_VARIANTS;
 
-const variants: Record<Variant, string> = {
-  primary:
-    "bg-teal-700 text-white hover:bg-teal-800 focus-visible:ring-teal-600",
-  secondary:
-    "bg-card text-slate-800 border border-slate-300 hover:bg-slate-50 focus-visible:ring-slate-400",
-  ghost: "bg-transparent text-slate-700 hover:bg-slate-100",
-  danger:
-    "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600",
-  "danger-secondary":
-    "bg-card text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 focus-visible:ring-red-500",
-};
+/**
+ * Ziki's buttons (#flat-buttons, docs/style-guide.md): flat, never a shadow, gradient or lift; 10px corners; the same
+ * height in every variant. Hover changes only the fill.
+ */
 
 export function Button({
   children,
@@ -25,7 +19,7 @@ export function Button({
 }) {
   return (
     <button
-      className={`inline-flex cursor-pointer items-center justify-center rounded-full px-3.5 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${className}`}
+      className={`${BUTTON_BASE} ${BUTTON_VARIANTS[variant]} ${className}`}
       {...props}
     >
       {children}

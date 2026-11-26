@@ -4,7 +4,6 @@
 import Link from "next/link";
 
 import axe from "axe-core";
-import { NewMarketingTaskForm } from "@/components/marketing/tasks/new-marketing-task-form";
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -16,17 +15,14 @@ import { CreateBugForm } from "@/components/create-issue-form";
 import { UserSearch } from "@/components/user-search";
 import { VoteButton } from "@/components/vote-button";
 import { WebhookManagement } from "@/components/webhook-management";
-import { Library } from "@/components/marketing/library/library";
-import { deliveryFiles } from "@/components/marketing/library/model";
-import { TasksBoard } from "@/components/marketing/tasks/tasks-board";
-import { TASK_TABS } from "@/components/marketing/tasks/model";
 import { RejectedIdeas } from "@/components/marketing/rejected-ideas/rejected-ideas";
 import type { RejectedIdea } from "@/components/marketing/rejected-ideas/model";
 import { MarketingDeliverablesPanel } from "@/components/marketing/marketing-deliverables-panel";
+import { WorkFeed, type WorkFeedItem } from "@/components/work-feed";
+import { IdeaFeed } from "@/components/idea-feed";
+import type { IdeaListRow } from "@/components/ideas-list";
 import { MarketingReviewsPanel } from "@/components/marketing/marketing-reviews-panel";
 import { createWebhookAction, listWebhooksAction } from "@/app/actions/webhooks";
-import { OnScreenGuide } from "@/components/support-guide/on-screen-guide";
-import { getPageGuidance, searchSupportAnswers } from "@/components/support-guide/support-guide-data";
 import { ActiveSessions } from "@/components/active-sessions";
 import { LoginHistory } from "@/components/login-history";
 import { projectRef } from "@/lib/project-paths";
@@ -44,7 +40,7 @@ vi.mock("@/app/actions/settings", () => ({
   signOutOtherSessionsAction: vi.fn(async () => ({ ok: true })),
 }));
 
-vi.mock("@/app/(app)/[org]/[project]/marketing/settings/actions", () => ({
+vi.mock("@/app/(app)/[org]/marketing/settings/actions", () => ({
   createMarketingIssueTypeAction: vi.fn(),
   deleteMarketingIssueTypeAction: vi.fn(),
   toggleMarketingIssueTypeActiveAction: vi.fn(),
@@ -57,7 +53,6 @@ vi.mock("@/app/actions/issues", () => ({
   createBugAction: vi.fn(),
   toggleVoteAction: vi.fn(),
 }));
-vi.mock("@/app/(app)/[org]/[project]/marketing/output-box/actions", () => ({ refreshLibrary: vi.fn() }));
 vi.mock("@/lib/project-route", () => ({
   requireProject: vi.fn(async () => ({
     organisationId: "organisation-1",
@@ -76,11 +71,12 @@ vi.mock("@/app/actions/idea-verdicts", () => ({
   approveIdeaAction: vi.fn(),
   rejectIdeaAction: vi.fn(),
 }));
+vi.mock("@/app/actions/human-steps", () => ({
+  approveDeliveredWorkAction: vi.fn(),
+  confirmLiveWorkAction: vi.fn(),
+}));
 vi.mock("@/app/(app)/[org]/[project]/notes/actions", () => ({ voteNoteCommentAction: vi.fn() }));
 
-vi.mock("@/app/(app)/points/disputes/actions", () => ({
-  openDisputeAction: vi.fn(),
-}));
 
 vi.mock("@/app/(app)/questions/actions", () => ({
   answerQuestionAction: vi.fn(),
@@ -292,21 +288,6 @@ describe("component accessibility (axe)", () => {
     rerender(<AgentSideCard agent={agent} />);
     expect(screen.queryByRole("status", { name: "Stuck status" })).not.toBeInTheDocument();
   });
-  it("keeps the new marketing task form accessible, with and without task types", async () => {
-    const withTypes = render(<NewMarketingTaskForm projectId="project-1" types={[{ id: "blog", name: "Blog post" }]} />);
-    await expectNoA11yViolations(withTypes.container);
-    withTypes.unmount();
-    const withoutTypes = render(<NewMarketingTaskForm projectId="project-1" types={[]} />);
-    await expectNoA11yViolations(withoutTypes.container);
-  });
-  it("keeps approved-work selection and attachment actions accessible", async () => {
-    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false })));
-    const { container } = render(<Library slug={projectRef("acme", "acme")} initial={{ ok: true, items: [{
-      id: "published", number: 42, title: "Welcome email", agent: "Content agent", summary: "An approved email sequence.", publishedAt: "2026-11-04T12:00:00Z",
-      files: deliveryFiles(["https://example.com/welcome.docx"]),
-    }] }} />);
-    await expectNoA11yViolations(container);
-  });
   it("keeps marketing settings accessible, for an admin and read-only for a member", async () => {
     const data = {
       revisionLimit: 2,
@@ -321,20 +302,6 @@ describe("component accessibility (axe)", () => {
     await expectNoA11yViolations(member.container);
   });
 
-  it("keeps the marketing tasks board's stages, steps and rows accessible", async () => {
-    const { container } = render(<TasksBoard slug={projectRef("acme", "acme")} board={{
-      tab: TASK_TABS[1],
-      counts: { ideas: 2, open: 1, "in-progress": 0, closed: 0, done: 3, live: 0 },
-      sortParam: null,
-      list: { kind: "tasks", sort: "importance", rows: [{
-        id: "task-1", number: 41, title: "Write the launch post", href: "/acme/41", status: "open", substatus: "open", closeReason: null,
-        importance: 0, reward: 4, rewardEstimates: 2, rewardFixed: false, typeName: "Blog post", agentName: null, work: null, offeredTo: null,
-        revision: null, bids: 2, comments: 1, updatedAt: new Date("2026-11-01T10:00:00Z"),
-      }] },
-      pagination: { page: 1, totalPages: 1, totalCount: 1, from: 1, to: 1 },
-    }} />);
-    await expectNoA11yViolations(container);
-  });
   it("keeps rejected marketing ideas and their verdicts accessible", async () => {
     const item: RejectedIdea = {
       id: "idea1", number: 7, title: "Write a launch post", summary: "A post about the launch.",
@@ -575,52 +542,82 @@ describe("component accessibility (axe)", () => {
     }
   }, 15000);
 
-  describe("Customer Support Guide", () => {
-    it("resolves route context guidance for homepage, issues, ideas, and tickets", () => {
-      const home = getPageGuidance("/");
-      expect(home.contextKey).toBe("home");
-      expect(home.pageName).toContain("Homepage");
+  describe("Dark Mode Semantic Tokens & Contrast", () => {
+    it("renders WorkFeed items using semantic surface tokens instead of hardcoded bg-white", () => {
+      const mockItem: WorkFeedItem = {
+        id: "item-1",
+        number: 101,
+        title: "Dark mode readability check",
+        kind: "delivered",
+        substatus: "in_progress",
+        who: "Amara",
+        at: new Date(),
+        href: "/demo/demo/issues/101",
+        projectName: "Demo",
+        reporter: "Amara",
+        summary: "Dark mode summary",
+        body: "Dark mode body description",
+        files: [],
+        decision: { label: "Approve", href: "/demo/demo/issues/101" },
+        liveUrl: null,
+        pullRequestUrl: null,
+        screenshots: [],
+        beforeScreenshots: [],
+        canApprove: true,
+        approved: false,
+        canConfirm: false,
+        confirmed: false,
+        progress: null,
+        progressBy: "step",
+        deliveredAt: new Date(),
+        addedAt: new Date(),
+        startedAt: new Date(),
+        stalledSince: null,
+        deliveredBy: "Amara",
+        justDelivered: true,
+        held: true,
+        stallReason: null,
+        mergeHold: null,
+        price: null,
+        priceHeld: 0,
+      };
 
-      const issues = getPageGuidance("/acme/issues");
-      expect(issues.contextKey).toBe("issues");
-      expect(issues.pageName).toContain("Issues");
+      const { container } = render(<WorkFeed title="Work Feed" items={[mockItem]} />);
+      const card = container.querySelector("li > div");
+      expect(card).toBeInTheDocument();
+      expect(card?.className).not.toContain("bg-white");
+      expect(card?.className).toContain("bg-zk-surface");
 
-      const ideas = getPageGuidance("/acme/ideas");
-      expect(ideas.contextKey).toBe("ideas");
-      expect(ideas.pageName).toContain("Ideas");
-
-      const ticket = getPageGuidance("/acme/123");
-      expect(ticket.contextKey).toBe("issue-detail");
+      // Verify the celebration banner does not use hardcoded cream/white gradient
+      const banner = container.querySelector(".bg-gradient-to-r");
+      expect(banner).toBeInTheDocument();
+      expect(banner?.className).not.toContain("from-[#fffbf1] to-white");
+      expect(banner?.className).toContain("from-zk-warn-bg/70 to-zk-surface");
     });
 
-    it("answers user questions about agents, issues, your call, and feeling lost", () => {
-      expect(searchSupportAnswers("I feel lost where do I start?").text).toContain("Ziki is designed for humans");
-      expect(searchSupportAnswers("What are agents doing?").text).toContain("Autonomous agents in Ziki");
-      expect(searchSupportAnswers("What does Your Call mean?").text).toContain("Your Call");
-      expect(searchSupportAnswers("How do points and rewards work?").text).toContain("Rewards in Ziki");
-    });
+    it("renders IdeaFeed items using semantic surface tokens instead of hardcoded bg-white", () => {
+      const mockIdea: IdeaListRow = {
+        id: "idea-1",
+        number: 202,
+        title: "Contrast audit for idea cards",
+        summary: "Cards should use surface tokens in dark mode.",
+        body: "Full description of idea.",
+        score: 2,
+        threshold: 3,
+        reporterName: "Dara",
+        createdAt: new Date(),
+        verdicts: 2,
+        good: 2,
+        badVotes: 0,
+        ref: projectRef("demo", "demo"),
+      };
 
-    it("returns direct page navigation shortcuts for page queries", () => {
-      const issuesNav = searchSupportAnswers("take me to issues", projectRef("demo", "demo"));
-      expect(issuesNav.actions).toBeDefined();
-      expect(issuesNav.actions?.[0].href).toBe("/demo/demo/issues/all");
-
-      const ideasNav = searchSupportAnswers("take me to ideas", projectRef("demo", "demo"));
-      expect(ideasNav.actions).toBeDefined();
-      expect(ideasNav.actions?.[0].href).toBe("/demo/demo/ideas");
-    });
-
-    it("renders the support guide with accessible ARIA label and toggle button", async () => {
-      render(<OnScreenGuide />);
-      const guide = screen.getByRole("complementary", { name: "Customer Support Guide" });
-      expect(guide).toBeInTheDocument();
-
-      const toggleBtn = screen.getByRole("button", { name: /ask support/i });
-      expect(toggleBtn).toBeInTheDocument();
-
-      fireEvent.click(toggleBtn);
-      expect(screen.getAllByText(/Ziki Support Guide/i).length).toBeGreaterThanOrEqual(1);
+      const { container } = render(<IdeaFeed slug={projectRef("demo", "demo")} ideas={[mockIdea]} />);
+      const ideaRow = container.querySelector('[data-testid="idea-row"] > div');
+      expect(ideaRow).toBeInTheDocument();
+      expect(ideaRow?.className).not.toContain("bg-white");
+      expect(ideaRow?.className).toContain("bg-zk-surface");
+      expect(ideaRow?.className).toContain("hover:bg-zk-chip");
     });
   });
-
 });

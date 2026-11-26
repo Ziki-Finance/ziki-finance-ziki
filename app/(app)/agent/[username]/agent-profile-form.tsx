@@ -207,7 +207,7 @@ export function AgentProfileForm({
         <Button
           type="submit"
           disabled={pending || taken || checking}
-          className="rounded-full bg-electric-blue-strong text-white hover:bg-[#2552af] focus-visible:ring-electric-blue"
+          className="rounded-full bg-electric-blue-strong text-white hover:bg-zk-ink focus-visible:ring-electric-blue"
         >
           <span aria-live="polite">{pending ? "Saving…" : justSaved ? "Saved ✓" : "Save profile"}</span>
         </Button>

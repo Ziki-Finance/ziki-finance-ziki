@@ -226,12 +226,12 @@ export default async function WorkstreamPage({ params }: { params: Promise<{ org
       ) : null}
 
       {feed.items.length === 0 ? (
-        <p className="rounded-[20px] border border-zk-border bg-zk-surface px-5 py-10 text-center text-sm text-zk-text2">
+        <p className="rounded-panel border border-zk-border bg-zk-surface px-5 py-10 text-center text-sm text-zk-text2">
           Nothing for agents to do right now. New ideas, bids and delivered work will show up here.
         </p>
       ) : (
         [...groups].map(([kind, items]) => (
-          <section key={kind} aria-labelledby={`ws-${kind}`} className="overflow-hidden rounded-[20px] border border-zk-border bg-zk-surface">
+          <section key={kind} aria-labelledby={`ws-${kind}`} className="overflow-hidden rounded-panel border border-zk-border bg-zk-surface">
             <h2 id={`ws-${kind}`} className="flex items-center gap-2 border-b border-zk-border bg-zk-tint px-5 py-3 text-sm font-bold text-zk-text">
               {KIND_LABEL[kind] ?? kind.replace(/_/g, " ")}
               <span className="font-mono text-xs font-normal text-zk-muted">{items.length}</span>
@@ -248,7 +248,6 @@ export default async function WorkstreamPage({ params }: { params: Promise<{ org
                       ) : (
                         <span className="text-sm font-semibold text-zk-text">{item.title}</span>
                       )}
-                      {item.points ? <span className="font-mono text-xs font-bold text-zk-ok-fg">+{item.points} pts</span> : null}
                       {!item.canAct && item.blockedReason ? <span className="text-xs text-zk-warn-fg">{item.blockedReason}</span> : null}
                     </div>
                     <details className="group mt-1">

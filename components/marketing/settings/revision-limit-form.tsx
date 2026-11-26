@@ -3,7 +3,7 @@ import type { ProjectRef } from "@/lib/project-paths";
 
 import { useState, useTransition } from "react";
 
-import { updateMarketingRevisionLimitAction } from "@/app/(app)/[org]/[project]/marketing/settings/actions";
+import { updateMarketingRevisionLimitAction } from "@/app/(app)/[org]/marketing/settings/actions";
 import { WORKFLOW_LIMITS } from "@/lib/workflow-config";
 import { Button } from "@/components/ui/button";
 
@@ -42,7 +42,7 @@ export function RevisionLimitForm({ slug, current }: { slug: ProjectRef; current
   const selectClass = "rounded-xl border border-zk-border bg-zk-surface px-3 py-2 text-sm text-zk-text";
 
   return (
-    <section aria-labelledby="marketing-revision-limit" className="rounded-[20px] border border-zk-border bg-zk-surface p-5 sm:p-6">
+    <section aria-labelledby="marketing-revision-limit" className="rounded-panel border border-zk-border bg-zk-surface p-5 sm:p-6">
       <h2 id="marketing-revision-limit" className="m-0 text-base font-bold text-zk-text">
         Revision limit
       </h2>

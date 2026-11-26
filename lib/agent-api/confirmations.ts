@@ -7,10 +7,6 @@ import { hasLevel } from "@/lib/agents/levels";
 import { IssueApiError } from "@/lib/agent-api/errors";
 import { publish } from "@/lib/agent-api/events";
 import { ENTRY_SUMMARY_MAX_CHARS, entryDescription, entrySummary } from "@/lib/agent-api/entry-fields";
-import { award, type PointAward } from "@/lib/points/award";
-import { confirmationPointsAt, confirmationReviewerSourceKey, duplicateMarkerSourceKey, pointSourceKey, triagerClearSourceKey } from "@/lib/points/rules";
-import { calculateReporterPoints } from "@/lib/points/project-rewards";
-import { getPlatformRewardConfig, getProjectRewardConfig } from "@/lib/points/platform-rewards";
 import { workflowFor } from "@/lib/workflow";
 import { parseIssueRef } from "@/lib/issue-ref";
 import { statusChangedSummary } from "@/lib/activity-log";
@@ -19,7 +15,6 @@ import { isThresholdOnly } from "@/lib/governance";
 import { linkAttachments } from "@/lib/attachment-link";
 import { MAX_ATTACHMENTS_PER_ITEM } from "@/lib/attachments";
 import { moveTo } from "@/lib/issue-substatus";
-import { penalisedConfirmationIds } from "@/lib/agent-api/confirmation-penalties";
 import { canSeeEvidenceFiles, evidenceFilesSchema, evidenceFilesView, uniqueEvidenceFiles, type EvidenceFile, type EvidenceFilesView } from "@/lib/agent-api/evidence-files";
 
 /**
@@ -39,16 +34,14 @@ import { canSeeEvidenceFiles, evidenceFilesSchema, evidenceFilesView, uniqueEvid
  *   managerVoteWeight, and with a worker agent or in the web app, counting 1.
  *   Anyone may confirm their own issue; that entry counts 1.
  * - The issue is confirmed once the weighted confirms reach the project's
- *   `confirmationsNeeded` (`readConfirmations`, the one rule), and the reporter
- *   earns their points once (#422, #428). Any agent then moves it to Open
+ *   `confirmationsNeeded` (`readConfirmations`, the one rule). Any agent then moves it to Open
  *   (`openConfirmedIssue`); in a threshold-only project the confirm that
  *   reaches the threshold opens it.
  * - Evidence: an entry may attach several files (`attachmentIds`), such as
  *   screenshots, and should name the lines of code where the issue was found.
- * - A counted confirm earns what a "real" accept plus a duplicate clearance
- *   earned before (reviewer + triager points); a duplicate reject earns the
- *   duplicate-marker points. A duplicate earns its reporter and confirmers
- *   nothing.
+ * - Pay (#one-payment): the reporter and the counted confirmers earn their
+ *   shares of the issue's funded Ziks when it pays out, once it is live
+ *   (lib/coins/issue-payout.ts). A duplicate is never fixed, so it pays nobody.
  */
 
 export const CONFIRMATION_VERDICTS = ["confirm", "reject", "neutral"] as const satisfies readonly ConfirmationVerdict[];
@@ -56,8 +49,7 @@ export const CONFIRMATION_SUMMARY_MAX_CHARS = ENTRY_SUMMARY_MAX_CHARS;
 
 const ref = z.string().trim().min(1).max(191);
 
-/** The entry's body. Summary and description follow the idea verdict rules (`ideaVerdictFields`). */
-export const confirmationSchema = z
+const confirmationFields = z
   .object({
     projectId: ref.optional(),
     verdict: z.enum(CONFIRMATION_VERDICTS),
@@ -74,15 +66,25 @@ export const confirmationSchema = z
      */
     files: evidenceFilesSchema.optional(),
   })
-  .strict()
-  .superRefine((body, ctx) => {
-    if (body.verdict === "confirm" && !(body.files && body.files.length > 0)) {
+  .strict();
+
+type ConfirmationFields = z.infer<typeof confirmationFields>;
+
+function confirmationRules(requireFiles: boolean) {
+  return (body: ConfirmationFields, ctx: z.RefinementCtx) => {
+    if (requireFiles && body.verdict === "confirm" && !(body.files && body.files.length > 0)) {
       ctx.addIssue({ code: "custom", path: ["files"], message: "A confirm needs files: the files (and lines) where you found the issue, as [{ path, lines? }]." });
     }
     if (body.duplicateOfId && body.verdict !== "reject") {
       ctx.addIssue({ code: "custom", path: ["duplicateOfId"], message: "duplicateOfId only goes with reject: this issue duplicates that one." });
     }
-  });
+  };
+}
+
+/** The entry's body. Summary and description follow the idea verdict rules (`ideaVerdictFields`). */
+export const confirmationSchema = confirmationFields.superRefine(confirmationRules(true));
+/** A bulk confirm's entries (#bulk-confirm): the manager's one judgement covers them all, so files are optional. */
+const bulkEntrySchema = confirmationFields.superRefine(confirmationRules(false));
 
 export type ConfirmationInput = z.infer<typeof confirmationSchema>;
 
@@ -128,8 +130,8 @@ function invalid(error: z.ZodError): IssueApiError {
 }
 
 /** Parses a raw body, throwing a 400 `IssueApiError` that names the field. */
-export function parseConfirmation(raw: unknown): ConfirmationInput {
-  const parsed = confirmationSchema.safeParse(raw ?? {});
+export function parseConfirmation(raw: unknown, options: { requireFiles?: boolean } = {}): ConfirmationInput {
+  const parsed = (options.requireFiles === false ? bulkEntrySchema : confirmationSchema).safeParse(raw ?? {});
   if (!parsed.success) throw invalid(parsed.error);
   return parsed.data;
 }
@@ -145,79 +147,12 @@ export async function isConfirmed(bugId: string, db: Db = prisma): Promise<boole
 }
 
 /**
- * The point awards a bug's standing confirmations earn (#539): the same
- * entries `giveConfirmation` writes, recomputed so the backfill pays any that
- * were missed. `award()`'s sourceKey makes a repeat a no-op.
- */
-export async function standingConfirmationAwards(db: Db, bugId: string): Promise<PointAward[]> {
-  const state = await confirmationStateOf(bugId, db);
-  if (!state) return [];
-  const bug = await db.bug.findUnique({
-    where: { id: bugId },
-    select: { organisationId: true, duplicateOfId: true, reporterId: true, beneficiaryUserId: true, createdByAgent: { select: { ownerUserId: true } } },
-  });
-  if (!bug) return [];
-  const platform = await getPlatformRewardConfig(db);
-  const entries: PointAward[] = [];
-  const duplicate = state.duplicate || Boolean(bug.duplicateOfId);
-  const order = paidConfirmerOrder(state.counted, bug);
-  // #confirmation-penalties: a penalised confirmation's points went to the penaliser.
-  const penalised = await penalisedConfirmationIds(db, bugId);
-  for (const entry of state.counted) {
-    const userId = entry.onBehalfOfUserId;
-    if (penalised.has(entry.id)) continue;
-    // An entry on the person's own issue counts toward the threshold but pays no confirmer points.
-    if (ownsIssue(userId, bug)) continue;
-    // Attribution: the agent that gave it, and when it was given, not when this backfill ran.
-    const earned = { agentId: entry.agentId, createdAt: entry.updatedAt };
-    if (entry.verdict === "confirm") {
-      // A confirm is the old "real" accept and the duplicate clearance in one, paid by the
-      // confirmer's place in line (#confirmation-pay): nothing for pile-ons.
-      const index = order.indexOf(userId);
-      const review = confirmationPointsAt(index, platform.confirmationReviewer);
-      if (!duplicate && review > 0) {
-        entries.push({
-          organisationId: bug.organisationId,
-          userId,
-          bugId,
-          role: "reviewer",
-          points: review,
-          sourceKey: confirmationReviewerSourceKey(bugId, userId),
-          ...earned,
-        });
-      }
-      const clear = confirmationPointsAt(index, platform.triagerClear);
-      if (clear > 0) {
-        entries.push({
-          organisationId: bug.organisationId,
-          userId,
-          bugId,
-          role: "triager",
-          points: clear,
-          sourceKey: triagerClearSourceKey(bugId, userId),
-          ...earned,
-        });
-      }
-    } else if (entry.verdict === "reject" && entry.duplicateOfId) {
-      entries.push({
-        organisationId: bug.organisationId,
-        userId,
-        bugId,
-        role: "triager",
-        points: platform.duplicateMarker,
-        sourceKey: duplicateMarkerSourceKey(bugId, userId),
-        ...earned,
-      });
-    }
-  }
-  return entries;
-}
-
-/**
  * The people paid for confirming an issue, in the order they confirmed
  * (#confirmation-pay): the counted confirms, one per person, leaving out the
- * issue's own people (their confirm counts but pays no confirmer points). A
- * confirmer's place in this list sets their share (`confirmationPayFactor`).
+ * issue's own people (their confirm counts but earns no confirmer's share; the
+ * reporter's share pays for it). A confirmer's place in this list sets their
+ * weight in the confirmers' share when the issue pays out (`confirmationPayFactor`,
+ * lib/coins/issue-payout.ts).
  */
 export function paidConfirmerOrder(
   counted: readonly { verdict: string; onBehalfOfUserId: string }[],
@@ -295,8 +230,9 @@ export async function giveConfirmation(
   scope: Scope,
   issueRef: string,
   raw: unknown,
+  options: { requireFiles?: boolean } = {},
 ): Promise<GivenConfirmation> {
-  const input = parseConfirmation(raw);
+  const input = parseConfirmation(raw, options);
   const parsedRef = parseIssueRef(issueRef);
 
   return prisma.$transaction(async (tx) => {
@@ -367,69 +303,7 @@ export async function giveConfirmation(
       confirmed && bug.substatus === "requires_confirmation" && isThresholdOnly(await workflowFor(bug.projectId, tx));
     if (opened) await moveToOpen(tx, bug.id, giver.userId, "threshold");
 
-    // Points: the same keys the backfill recomputes (`standingConfirmationAwards`).
-    const duplicate = (after?.duplicate ?? false) || Boolean(bug.duplicateOfId);
-    const platform = await getPlatformRewardConfig(tx);
-    // Confirming your own issue counts toward the threshold but earns no
-    // confirmer points: the reporter points pay for it.
-    const own = ownsIssue(giver.userId, bug);
-    const counted = !own && (after?.counted.some((entry) => entry.id === confirmation.id) ?? false);
-    // #confirmation-penalties: a penalised confirmation earns nothing, even given again.
-    const penalised = counted && (await penalisedConfirmationIds(tx, bug.id)).has(confirmation.id);
-    if (counted && !penalised && input.verdict === "confirm") {
-      // #confirmation-pay: the first three confirmers in full, the next three 1/2, 1/4, 1/8, then nothing.
-      const index = paidConfirmerOrder(after?.counted ?? [], bug).indexOf(giver.userId);
-      const clear = confirmationPointsAt(index, platform.triagerClear);
-      if (clear > 0) {
-        await award(tx, {
-          organisationId: bug.organisationId,
-          userId: giver.userId,
-          bugId: bug.id,
-          role: "triager",
-          points: clear,
-          sourceKey: triagerClearSourceKey(bug.id, giver.userId),
-          agentId: giver.agent?.id ?? null,
-        });
-      }
-      const review = confirmationPointsAt(index, platform.confirmationReviewer);
-      if (!duplicate && review > 0) {
-        await award(tx, {
-          organisationId: bug.organisationId,
-          userId: giver.userId,
-          bugId: bug.id,
-          role: "reviewer",
-          points: review,
-          sourceKey: confirmationReviewerSourceKey(bug.id, giver.userId),
-          agentId: giver.agent?.id ?? null,
-        });
-      }
-    }
-    if (counted && input.verdict === "reject" && duplicateOfId) {
-      await award(tx, {
-        organisationId: bug.organisationId,
-        userId: giver.userId,
-        bugId: bug.id,
-        role: "triager",
-        points: platform.duplicateMarker,
-        sourceKey: duplicateMarkerSourceKey(bug.id, giver.userId),
-        agentId: giver.agent?.id ?? null,
-      });
-    }
-    if (newlyConfirmed && !duplicate && bug.idea?.source !== "public") {
-      // The person the issue is for earns the reporter points (#422), once.
-      const userId = bug.beneficiaryUserId ?? bug.reporterId;
-      const rewardConfig = await getProjectRewardConfig(tx, bug.projectId);
-      await award(tx, {
-        organisationId: bug.organisationId,
-        userId,
-        bugId: bug.id,
-        role: "reporter",
-        points: calculateReporterPoints(rewardConfig),
-        sourceKey: pointSourceKey("reporter", bug.id, userId),
-        // The agent that filed the report, if one did.
-        agentId: bug.createdByAgentId,
-      });
-    }
+    // Confirming earns the confirmers' share when the issue pays out (#one-payment), not on its own.
 
     const payload = {
       confirmationId: confirmation.id,
@@ -559,7 +433,7 @@ export type ConfirmationView = {
   attachments: { id: string; filename: string; contentType: string }[];
   replies: ConfirmationReply[];
   /** The penalty another confirmer gave it (#confirmation-penalties), if any. */
-  penalty: { id: string; reason: string; points: number; byAgentName: string; createdAt: Date } | null;
+  penalty: { id: string; reason: string; byAgentName: string; createdAt: Date } | null;
   /** The agent's global reputation (#agent-reputation); null for a person's own entry. */
   agentReputation: number | null;
 } & EvidenceFilesView;
@@ -607,7 +481,7 @@ export async function listConfirmations(
         onBehalfOf: { select: { name: true } },
         attachments: { orderBy: { createdAt: "asc" }, select: { id: true, filename: true, contentType: true } },
         agent: { select: { name: true, reputation: true } },
-        penalty: { select: { id: true, reason: true, points: true, createdAt: true, agent: { select: { name: true } } } },
+        penalty: { select: { id: true, reason: true, createdAt: true, agent: { select: { name: true } } } },
         replies: {
           where: { deletedAt: null },
           orderBy: [{ createdAt: "asc" }, { id: "asc" }],
@@ -641,7 +515,7 @@ export async function listConfirmations(
       ...row,
       ...evidenceFilesView(files, canSeeEvidenceFiles(evidenceViewer, row.onBehalfOfUserId)),
       penalty: penalty
-        ? { id: penalty.id, reason: penalty.reason, points: penalty.points.toNumber(), byAgentName: penalty.agent.name, createdAt: penalty.createdAt }
+        ? { id: penalty.id, reason: penalty.reason, byAgentName: penalty.agent.name, createdAt: penalty.createdAt }
         : null,
       agentReputation: agent?.reputation ?? null,
       duplicateOf: (duplicateOfId && duplicateById.get(duplicateOfId)) || null,
@@ -657,4 +531,102 @@ export async function listConfirmations(
       })),
     })),
   };
+}
+
+/** The most issues one bulk confirm takes; call it again for the rest (`remaining`). */
+export const BULK_CONFIRM_MAX = 100;
+
+export const bulkConfirmSchema = z
+  .object({
+    /** The issues to confirm, by number or id. Leave it out for the oldest ones waiting that you haven't confirmed. */
+    issues: z.array(ref).min(1).max(BULK_CONFIRM_MAX).optional(),
+    summary: entrySummary,
+    description: entryDescription,
+    /** Optional here: files that apply to all of them. */
+    files: evidenceFilesSchema.optional(),
+  })
+  .strict();
+export type BulkConfirmInput = z.infer<typeof bulkConfirmSchema>;
+
+export type BulkConfirmResult = {
+  /** Issues this call confirmed (given or replaced the owner's manager entry). */
+  confirmed: number;
+  /** Of those, the ones now confirmed and moved to Open. */
+  opened: number;
+  /** Issues it couldn't confirm, with why. */
+  skipped: { issue: string; error: string; message: string }[];
+  /** Issues in the project still at Requires confirmation without this owner's manager confirmation. */
+  remaining: number;
+};
+
+/** The project's issues at Requires confirmation that `userId` hasn't given a manager-class confirmation yet. */
+function awaitingManagerConfirmation(scope: Scope, userId: string): Prisma.BugWhereInput {
+  return {
+    ...scope,
+    isDeleted: false,
+    track: "product",
+    substatus: "requires_confirmation",
+    confirmations: { none: { onBehalfOfUserId: userId, weightClass: "manager", undoneAt: null } },
+  };
+}
+
+/**
+ * `POST /api/v1/projects/{id}/confirmations` (manager, #bulk-confirm): a manager or merger agent confirms many issues
+ * at Requires confirmation at once, with one summary and description for them all, instead of one call per issue.
+ * Each is its owner's ordinary manager confirmation entry (it counts `managerVoteWeight`, replaces an earlier one, and
+ * is audited), and each one that is then confirmed moves on to Open. Up to `BULK_CONFIRM_MAX` per call: the issues
+ * named, or the oldest still waiting for this owner's manager confirmation. An issue that can't take it is skipped.
+ */
+export async function bulkConfirm(
+  agent: { agentId: string; ownerId: string; organisationId: string; level: AgentLevel },
+  scope: Scope,
+  raw: unknown,
+): Promise<BulkConfirmResult> {
+  if (!hasLevel(agent.level, "manager")) {
+    const message = "Only a manager or merger agent can confirm issues in bulk.";
+    throw new IssueApiError(403, message, { error: "insufficient_level", message });
+  }
+  const parsed = bulkConfirmSchema.safeParse(raw ?? {});
+  if (!parsed.success) throw invalid(parsed.error);
+  const input = parsed.data;
+
+  const refs =
+    input.issues ??
+    (
+      await prisma.bug.findMany({
+        where: awaitingManagerConfirmation(scope, agent.ownerId),
+        orderBy: { createdAt: "asc" },
+        take: BULK_CONFIRM_MAX,
+        select: { id: true },
+      })
+    ).map((bug) => bug.id);
+
+  const giver: ConfirmationGiver = { organisationId: agent.organisationId, userId: agent.ownerId, agent: { id: agent.agentId, level: agent.level } };
+  const entry = { verdict: "confirm" as const, summary: input.summary, description: input.description, ...(input.files ? { files: input.files } : {}) };
+  let confirmed = 0;
+  let opened = 0;
+  const skipped: BulkConfirmResult["skipped"] = [];
+  for (const issue of [...new Set(refs)]) {
+    try {
+      const given = await giveConfirmation(giver, scope, issue, entry, { requireFiles: false });
+      confirmed += 1;
+      if (given.opened) {
+        opened += 1;
+      } else if (given.confirmed) {
+        // Confirmed: move it on to Open, as ziki_open_issue would. Work that started first stays where it is.
+        try {
+          await openConfirmedIssue(agent, scope, issue);
+          opened += 1;
+        } catch (error) {
+          if (!(error instanceof IssueApiError)) throw error;
+        }
+      }
+    } catch (error) {
+      if (!(error instanceof IssueApiError)) throw error;
+      const body = (error.body ?? {}) as { error?: string };
+      skipped.push({ issue, error: body.error ?? "refused", message: error.message });
+    }
+  }
+  const remaining = await prisma.bug.count({ where: awaitingManagerConfirmation(scope, agent.ownerId) });
+  return { confirmed, opened, skipped, remaining };
 }

@@ -137,7 +137,7 @@ export function SkillApprovalsManager({ initialSubmissions = [] }: SkillApproval
         <div>
           <Link
             href="/skills"
-            className="inline-flex items-center gap-2 rounded-xl border border-zk-border bg-zk-surface px-4 py-2 text-xs font-semibold text-zk-text hover:bg-zk-tint transition shadow-xs"
+            className="inline-flex items-center gap-2 rounded-xl border border-zk-border bg-zk-surface px-4 py-2 text-xs font-semibold text-zk-text hover:bg-zk-tint transition shadow-none"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
@@ -159,12 +159,12 @@ export function SkillApprovalsManager({ initialSubmissions = [] }: SkillApproval
         </div>
 
         {activeItems.length === 0 ? (
-          <div className="rounded-[18px] border border-zk-border bg-zk-surface/50 p-8 text-center">
+          <div className="rounded-panel border border-zk-border bg-zk-surface/50 p-8 text-center">
             <p className="text-sm font-medium text-zk-text">Review queue is clear</p>
             <p className="mt-1 text-xs text-zk-muted">No pending skill submissions waiting for approval.</p>
           </div>
         ) : (
-          <div className="rounded-[18px] border border-zk-border bg-zk-surface shadow-xs overflow-hidden w-full">
+          <div className="rounded-panel border border-zk-border bg-zk-surface shadow-none overflow-hidden w-full">
             <table className="table-fixed w-full text-left text-sm divide-y divide-zk-border">
               <colgroup>
                 <col className="w-[36%]" />
@@ -219,7 +219,7 @@ export function SkillApprovalsManager({ initialSubmissions = [] }: SkillApproval
                       <button
                         type="button"
                         onClick={() => setInspectingItem(item)}
-                        className="rounded-lg border border-zk-border bg-zk-surface px-3 py-1.5 text-xs font-semibold text-zk-accent hover:bg-zk-tint transition shadow-xs"
+                        className="rounded-lg border border-zk-border bg-zk-surface px-3 py-1.5 text-xs font-semibold text-zk-accent hover:bg-zk-tint transition shadow-none"
                       >
                         Review Submission →
                       </button>
@@ -242,11 +242,11 @@ export function SkillApprovalsManager({ initialSubmissions = [] }: SkillApproval
         </div>
 
         {historyItems.length === 0 ? (
-          <div className="rounded-[18px] border border-zk-border bg-zk-surface/50 p-6 text-center text-xs text-zk-muted">
+          <div className="rounded-panel border border-zk-border bg-zk-surface/50 p-6 text-center text-xs text-zk-muted">
             No reviewed skill history yet.
           </div>
         ) : (
-          <div className="rounded-[18px] border border-zk-border bg-zk-surface shadow-xs overflow-hidden w-full">
+          <div className="rounded-panel border border-zk-border bg-zk-surface shadow-none overflow-hidden w-full">
             <table className="table-fixed w-full text-left text-sm divide-y divide-zk-border">
               <colgroup>
                 <col className="w-[44%]" />
@@ -314,7 +314,7 @@ export function SkillApprovalsManager({ initialSubmissions = [] }: SkillApproval
                             setInspectingItem(item);
                           }
                         }}
-                        className="rounded-lg border border-zk-border bg-zk-surface px-3 py-1 text-xs font-semibold text-zk-text2 hover:text-zk-text hover:bg-zk-tint transition shadow-xs"
+                        className="rounded-lg border border-zk-border bg-zk-surface px-3 py-1 text-xs font-semibold text-zk-text2 hover:text-zk-text hover:bg-zk-tint transition shadow-none"
                       >
                         {item.status === "rejected" ? "Feedback" : "Inspect"}
                       </button>
@@ -339,7 +339,7 @@ export function SkillApprovalsManager({ initialSubmissions = [] }: SkillApproval
           <div
             role="dialog"
             aria-modal="true"
-            className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl border border-zk-border bg-zk-surface shadow-2xl overflow-hidden"
+            className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl border border-zk-border bg-zk-surface shadow-none overflow-hidden"
           >
             {/* Header */}
             <div className="flex items-center justify-between border-b border-zk-border px-6 py-4">
@@ -452,7 +452,7 @@ export function SkillApprovalsManager({ initialSubmissions = [] }: SkillApproval
                       type="button"
                       disabled={isSubmitting}
                       onClick={() => handleApprove(inspectingItem)}
-                      className="rounded-xl bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition shadow-xs"
+                      className="rounded-xl bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition shadow-none"
                     >
                       Approve & Publish
                     </button>
@@ -483,7 +483,7 @@ export function SkillApprovalsManager({ initialSubmissions = [] }: SkillApproval
           <div
             role="dialog"
             aria-modal="true"
-            className="w-full max-w-md rounded-2xl border border-zk-border bg-zk-surface p-6 shadow-2xl space-y-4"
+            className="w-full max-w-md rounded-2xl border border-zk-border bg-zk-surface p-6 shadow-none space-y-4"
           >
             <div className="flex items-center justify-between">
               <h3 className="text-base font-semibold text-zk-text">Request Changes</h3>
@@ -520,7 +520,7 @@ export function SkillApprovalsManager({ initialSubmissions = [] }: SkillApproval
                 type="button"
                 disabled={isSubmitting}
                 onClick={confirmReject}
-                className="rounded-xl bg-amber-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition shadow-xs"
+                className="rounded-xl bg-amber-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition shadow-none"
               >
                 Send Feedback
               </button>
@@ -541,7 +541,7 @@ export function SkillApprovalsManager({ initialSubmissions = [] }: SkillApproval
           <div
             role="dialog"
             aria-modal="true"
-            className="w-full max-w-md rounded-2xl border border-zk-border bg-zk-surface p-6 shadow-2xl space-y-4"
+            className="w-full max-w-md rounded-2xl border border-zk-border bg-zk-surface p-6 shadow-none space-y-4"
           >
             <div className="flex items-center justify-between">
               <h3 className="text-base font-semibold text-zk-text">Reviewer Feedback</h3>
@@ -566,7 +566,7 @@ export function SkillApprovalsManager({ initialSubmissions = [] }: SkillApproval
               <button
                 type="button"
                 onClick={() => setSelectedHistoryNote(null)}
-                className="rounded-xl bg-zk-accent px-4 py-2 text-xs font-semibold text-white hover:opacity-90 transition shadow-sm"
+                className="rounded-control bg-zk-accent px-4 py-2 text-xs font-semibold text-white hover:opacity-90 transition"
               >
                 Done
               </button>

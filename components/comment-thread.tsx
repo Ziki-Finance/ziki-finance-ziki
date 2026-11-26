@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
 import { EntryReplyForm } from "@/components/entry-reply-form";
 import { LocalTime } from "@/components/local-time";
 import { truncateCommentBody, type CommentNode } from "@/lib/comments";
@@ -86,7 +86,7 @@ function CommentActionsMenu({ deleting, onDelete }: { deleting: boolean; onDelet
       {open ? (
         <span
           id={panelId}
-          className="absolute right-0 top-7 z-20 min-w-28 overflow-hidden rounded-lg border border-zk-border bg-zk-surface py-1 shadow-lg"
+          className="absolute right-0 top-7 z-20 min-w-28 overflow-hidden rounded-lg border border-zk-border bg-zk-surface py-1 shadow-none"
         >
           <button
             type="button"
@@ -107,7 +107,7 @@ function CommentActionsMenu({ deleting, onDelete }: { deleting: boolean; onDelet
 
 /**
  * A comment's upvotes (#comment-votes): a small button with the count. Each
- * upvote from another person earns the comment's author 1 point. People
+ * upvote from another person raises the comment's agent's reputation. People
  * upvote once each, and never their own comment;
  * otherwise the count shows on its own.
  */
@@ -141,7 +141,7 @@ function CommentUpvote({
   const label = `${votes} ${votes === 1 ? "upvote" : "upvotes"}`;
   if (!canVote || own) {
     return (
-      <span className="inline-flex items-center gap-1.5 text-[13px] tabular-nums text-zk-text2" title={own ? "Others upvote your comment; each upvote earns you $0.01." : label}>
+      <span className="inline-flex items-center gap-1.5 text-[13px] tabular-nums text-zk-text2" title={own ? "Others upvote your comment; each upvote earns you 10 Ziks." : label}>
         <UpArrow filled={false} />
         <span>{votes}</span>
         <span className="sr-only">{votes === 1 ? " upvote" : " upvotes"}</span>
@@ -154,7 +154,7 @@ function CommentUpvote({
       disabled={pending || voted}
       aria-pressed={voted}
       aria-label={voted ? `You upvoted this comment, ${label}` : `Upvote this comment, ${label}`}
-      title={voted ? "You upvoted this comment" : "Upvote a helpful comment: its author earns $0.01"}
+      title={voted ? "You upvoted this comment" : "Upvote a helpful comment: its author earns 10 Ziks"}
       onClick={() => {
         startTransition(async () => {
           const result = await upvoteCommentAction(commentId);
@@ -425,9 +425,15 @@ export function CommentThread({ comments, ...props }: ThreadProps) {
 export function IssueComments({
   count,
   composer,
+  agentActivity,
+  agentActivityCount = 0,
   children,
   ...props
 }: ThreadProps & {
+  /** The agents' steps on the issue (award, bids, deliveries), at the top of the Agents tab. */
+  agentActivity?: ReactNode;
+  /** How many entries those steps hold; the Agents tab counts them with the agents' comments. */
+  agentActivityCount?: number;
   /** Top-level comments. */
   count: number;
   /** The comment box, shown only while the issue takes comments. */
@@ -435,17 +441,58 @@ export function IssueComments({
   /** Shown under the comments, e.g. "Show earlier". */
   children?: ReactNode;
 }) {
-  if (count === 0 && !composer) return null;
+  // Two tabs (#comment-tabs): People, the default and first, and Agents. A thread goes where its first comment's author
+  // is; its replies stay with it. A link to an agent's comment opens the Agents tab.
+  const people = props.comments.filter((comment) => !comment.agentId);
+  const agents = props.comments.filter((comment) => comment.agentId);
+  const hash = useSyncExternalStore(subscribeHash, () => window.location.hash, () => "");
+  const linkedToAgents = hash === "#conversation" || (hash.startsWith("#comment-") && containsComment(agents, hash.slice("#comment-".length)));
+  const [chosen, setChosen] = useState<"people" | "agents" | null>(null);
+  const tab = chosen ?? (linkedToAgents ? "agents" : "people");
+  if (count === 0 && !composer && !agentActivity) return null;
+  const tabClass = (current: boolean) =>
+    `inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full px-3 text-[12.5px] transition ${current ? "bg-zk-surface font-semibold text-zk-text shadow-none" : "font-medium text-zk-muted hover:text-zk-text"}`;
   return (
-    <section aria-labelledby="comments-heading" className="mt-5" data-testid="issue-comments">
-      <h3 id="comments-heading" className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.08em] text-zk-muted">
-        Comments
-        <span className="font-mono font-normal normal-case tracking-normal">{count}</span>
-      </h3>
-      {composer}
-      <CommentThread {...props} />
+    <section aria-labelledby="comments-heading" className="mt-5 first:mt-0" data-testid="issue-comments">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h3 id="comments-heading" className="m-0 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.08em] text-zk-muted">
+          Comments
+          <span className="font-mono font-normal normal-case tracking-normal">{count}</span>
+        </h3>
+        <div role="tablist" aria-label="Whose comments" className="flex gap-0.5 rounded-full bg-zk-bg p-0.5">
+          <button type="button" role="tab" aria-selected={tab === "people"} onClick={() => setChosen("people")} className={tabClass(tab === "people")}>
+            People <span className="tabular-nums text-zk-muted">{people.length}</span>
+          </button>
+          <button type="button" role="tab" aria-selected={tab === "agents"} onClick={() => setChosen("agents")} className={tabClass(tab === "agents")}>
+            Agents <span className="tabular-nums text-zk-muted">{agents.length + agentActivityCount}</span>
+          </button>
+        </div>
+      </div>
+      {tab === "people" ? (
+        <div role="tabpanel" aria-label="People's comments">
+          {composer}
+          <CommentThread {...props} comments={people} />
+          {people.length === 0 && !composer ? <p className="m-0 text-sm text-zk-muted">No comments from people yet.</p> : null}
+        </div>
+      ) : (
+        <div role="tabpanel" aria-label="Agents' comments">
+          {agentActivity}
+          <CommentThread {...props} comments={agents} />
+          {agents.length === 0 && !agentActivity ? <p className="m-0 text-sm text-zk-muted">No comments from agents yet.</p> : null}
+        </div>
+      )}
       {children}
     </section>
   );
+}
+
+function subscribeHash(onChange: () => void): () => void {
+  window.addEventListener("hashchange", onChange);
+  return () => window.removeEventListener("hashchange", onChange);
+}
+
+/** Whether a comment, or a reply under it, has this id. */
+function containsComment(comments: CommentNode[], id: string): boolean {
+  return comments.some((comment) => comment.id === id || containsComment(comment.children, id));
 }
 

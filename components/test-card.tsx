@@ -22,7 +22,7 @@ function Square({ square }: { square: CardSquare }) {
       {square.state === "passed" || square.state === "failed" ? (
         <span
           style={{ "--tilt": tilt(square.key) } as React.CSSProperties}
-          className={`card-stamp rounded border-2 px-1 py-px font-mono text-[10px] font-black tracking-wider ${square.state === "passed" ? "border-zk-ok-fg text-zk-ok-fg" : "border-zk-bad-fg text-zk-bad-fg"}`}
+          className={`card-stamp rounded border-2 px-1 py-px font-mono text-[11px] font-black tracking-wider ${square.state === "passed" ? "border-zk-ok-fg text-zk-ok-fg" : "border-zk-bad-fg text-zk-bad-fg"}`}
         >
           {square.state === "passed" ? "PASSED" : "FAILED"}
         </span>
@@ -40,7 +40,7 @@ function Routed({ row }: { row: CardRow }) {
   return (
     <span
       title={row.route === "ci" ? "Waiting on the deliverer's automated test, not on testers" : "Waiting on the project's owners, not on testers"}
-      className={`grid h-11 w-full place-items-center rounded-lg border-2 font-mono text-[10px] font-black tracking-wider ${settled ? "border-zk-border bg-zk-chip text-zk-muted" : "border-dashed border-zk-warn-bd bg-zk-warn-bg text-zk-warn-fg"}`}
+      className={`grid h-11 w-full place-items-center rounded-lg border-2 font-mono text-[11px] font-black tracking-wider ${settled ? "border-zk-border bg-zk-chip text-zk-muted" : "border-dashed border-zk-warn-bd bg-zk-warn-bg text-zk-warn-fg"}`}
     >
       {label}
     </span>
@@ -75,7 +75,7 @@ export function TestCardPanel({
   const bench = card.rows.filter((r) => r.bench);
   const blackout = card.total > 0 && card.stamped === card.total;
   return (
-    <section id="test-card" aria-labelledby="test-card-heading" className="scroll-mt-24 rounded-[20px] border border-zk-border bg-zk-surface p-5 sm:p-[22px]">
+    <section id="test-card" aria-labelledby="test-card-heading" className="scroll-mt-24 rounded-panel border border-zk-border bg-zk-surface p-5 sm:p-[22px]">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <h2 id="test-card-heading" className="m-0 text-xs font-bold tracking-[0.08em] text-zk-muted uppercase">
           Test card
@@ -106,9 +106,9 @@ export function TestCardPanel({
               <span className="flex min-w-0 flex-col justify-center pr-2 text-[13px] leading-snug text-zk-text">
                 <span title={row.why ?? undefined}>
                   {row.text}
-                  {row.squares[0]?.needed > 1 ? <span title="Risky: two testers must prove it" className="ml-1 rounded bg-zk-chip px-1 text-[10px] font-bold text-zk-text2">×2</span> : null}
+                  {row.squares[0]?.needed > 1 ? <span title="Risky: two testers must prove it" className="ml-1 rounded bg-zk-chip px-1 text-[11px] font-bold text-zk-text2">×2</span> : null}
                 </span>
-                <span className="mt-0.5 flex flex-wrap gap-1 text-[10px] font-bold">
+                <span className="mt-0.5 flex flex-wrap gap-1 text-[11px] font-bold">
                   <span className={`rounded px-1 ${TAG[row.source].tone}`}>{TAG[row.source].label}</span>
                   {row.kind ? <span title={ROW_KINDS[row.kind].tip} className="rounded bg-zk-warn-bg px-1 text-zk-warn-fg">{ROW_KINDS[row.kind].label}</span> : null}
                   {row.proof !== "screen" ? <span className="rounded bg-zk-chip px-1 text-zk-text2">{row.proof === "test" ? "Test run" : "Logs"}</span> : null}
@@ -131,7 +131,7 @@ export function TestCardPanel({
               )}
               <span className="grid place-items-center">
                 {!row.route && row.squares.every((s) => s.state === "passed") ? (
-                  <span title="Every square in this row is stamped" className="card-bingo rounded-full bg-zk-ok-fg px-1.5 py-0.5 text-[10px] font-black tracking-wide text-zk-surface">BINGO</span>
+                  <span title="Every square in this row is stamped" className="card-bingo rounded-full bg-zk-ok-fg px-1.5 py-0.5 text-[11px] font-black tracking-wide text-zk-surface">BINGO</span>
                 ) : null}
               </span>
             </div>

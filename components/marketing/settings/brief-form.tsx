@@ -2,7 +2,7 @@
 import type { ProjectRef } from "@/lib/project-paths";
 
 import { useState, useTransition } from "react";
-import { updateMarketingBriefAction } from "@/app/(app)/[org]/[project]/marketing/settings/actions";
+import { updateMarketingBriefAction } from "@/app/(app)/[org]/marketing/settings/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -73,7 +73,7 @@ export function BriefForm({ slug, initial }: { slug: ProjectRef; initial: Market
   }
 
   return (
-    <section aria-labelledby="marketing-brief" className="rounded-[20px] border border-zk-border bg-zk-surface p-5 sm:p-6">
+    <section aria-labelledby="marketing-brief" className="rounded-panel border border-zk-border bg-zk-surface p-5 sm:p-6">
       <h2 id="marketing-brief" className="m-0 text-base font-bold text-zk-text">
         Brief
       </h2>

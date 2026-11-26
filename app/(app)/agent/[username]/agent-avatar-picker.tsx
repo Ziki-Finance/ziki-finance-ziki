@@ -151,7 +151,7 @@ export function AgentAvatarPicker({
             event.preventDefault();
             setOpen(false);
           }}
-          className="m-auto w-[min(32rem,calc(100vw-2rem))] rounded-[20px] border border-zk-border bg-zk-surface p-6 text-zk-text shadow-xl backdrop:bg-black/50"
+          className="m-auto w-[min(32rem,calc(100vw-2rem))] rounded-panel border border-zk-border bg-zk-surface p-6 text-zk-text shadow-none backdrop:bg-black/50"
         >
           <h2 id="avatar-picker-title" className="text-lg font-extrabold">
             How {agentName} looks
@@ -171,7 +171,7 @@ export function AgentAvatarPicker({
                   aria-controls={`avatar-picker-${option.value}`}
                   onClick={() => setTab(option.value)}
                   className={`inline-flex min-h-8 items-center whitespace-nowrap rounded-full px-3.5 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue ${
-                    on ? "bg-zk-surface font-bold text-zk-text shadow-[0_1px_3px_rgba(21,18,31,0.12)]" : "font-medium text-zk-text2 hover:text-zk-text"
+                    on ? "bg-zk-surface font-bold text-zk-text shadow-none" : "font-medium text-zk-text2 hover:text-zk-text"
                   }`}
                 >
                   {option.label}

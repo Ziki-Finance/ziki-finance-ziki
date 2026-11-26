@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
-import { withdrawableOf } from "./ledger";
+import { roundZik, withdrawableOf, zikOf } from "./ledger";
+import { TEST_CURRENCY } from "./test-mode";
 
 /**
  * The money page's numbers (#ziki-coins), read straight off the ledger.
@@ -8,6 +9,8 @@ import { withdrawableOf } from "./ledger";
 
 export type MoneyTotals = {
   bought: number;
+  /** Ziks moved in from people's points earnings and welcome bonuses (#earnings-in-ziks): like a purchase, they come into the ledger from outside. */
+  fromEarnings: number;
   inEscrow: number;
   owedToEarners: number;
   /** Ziks people hold that they bought or were refunded and can only spend. */
@@ -21,7 +24,9 @@ export type MoneyTotals = {
   subscriptionCents: number;
   /** How many plan invoices that is. */
   subscriptionPayments: number;
-  /** Everything the ledger holds in accounts: wallets + escrow + revenue. */
+  /** Ziks owners have put behind whole projects, not yet reserved for an issue (#project-budget). */
+  inBudgets: number;
+  /** Everything the ledger holds in accounts: wallets + escrow + revenue + project budgets. */
   inLedger: number;
 };
 
@@ -35,31 +40,33 @@ export async function moneyTotals(db: PrismaClient): Promise<MoneyTotals> {
     db.coinPurchase.aggregate({ where: { planId: { not: null } }, _sum: { amountCents: true }, _count: true }),
   ]);
   /** Wallet rows by kind: purchases, withdrawals and their reversals only ever touch a wallet. */
-  const kind = (name: string) => byKind.find((row) => row.kind === name)?._sum.amount ?? 0;
-  const revenueOf = (name: string) => revenueByKind.find((row) => row.kind === name)?._sum.amount ?? 0;
-  const account = (name: string) => byAccount.find((row) => row.account === name)?._sum.amount ?? 0;
+  const kind = (name: string) => zikOf(byKind.find((row) => row.kind === name)?._sum.amount);
+  const revenueOf = (name: string) => zikOf(revenueByKind.find((row) => row.kind === name)?._sum.amount);
+  const account = (name: string) => zikOf(byAccount.find((row) => row.account === name)?._sum.amount);
 
   const people = new Map<string, { balance: number; earned: number }>();
   for (const row of wallets) {
     if (!row.userId) continue;
     const entry = people.get(row.userId) ?? { balance: 0, earned: 0 };
-    const amount = row._sum.amount ?? 0;
-    entry.balance += amount;
-    if (row.kind === "release" || row.kind === "withdrawal" || row.kind === "withdrawal_reversal") entry.earned += amount;
+    const amount = zikOf(row._sum.amount);
+    entry.balance = roundZik(entry.balance + amount);
+    if (row.kind === "release" || row.kind === "earning" || row.kind === "withdrawal" || row.kind === "withdrawal_reversal") entry.earned = roundZik(entry.earned + amount);
     people.set(row.userId, entry);
   }
   let owedToEarners = 0;
   let spendable = 0;
   for (const { balance, earned } of people.values()) {
     const withdrawable = withdrawableOf(balance, earned);
-    owedToEarners += withdrawable;
-    spendable += Math.max(0, balance) - withdrawable;
+    owedToEarners = roundZik(owedToEarners + withdrawable);
+    spendable = roundZik(spendable + Math.max(0, balance) - withdrawable);
   }
 
   // A reversal puts Ziks back, so withdrawn is what left less what came back.
-  const withdrawn = -kind("withdrawal") - kind("withdrawal_reversal");
+  const withdrawn = roundZik(-kind("withdrawal") - kind("withdrawal_reversal"));
   return {
     bought: kind("purchase"),
+    // Welcome bonuses come in from the points ledger too; they are spendable, not earned (counted in `spendable`).
+    fromEarnings: roundZik(kind("earning") + kind("bonus")),
     inEscrow: account("escrow"),
     owedToEarners,
     spendable,
@@ -67,21 +74,23 @@ export async function moneyTotals(db: PrismaClient): Promise<MoneyTotals> {
     revenue: account("revenue"),
     revenueFromFees: revenueOf("fee"),
     revenueFromChecks: revenueOf("check_payment"),
-    pendingWithdrawals: pending._sum.zik ?? 0,
+    pendingWithdrawals: zikOf(pending._sum.zik),
     subscriptionCents: plans._sum.amountCents ?? 0,
     subscriptionPayments: plans._count,
-    inLedger: account("wallet") + account("escrow") + account("revenue"),
+    inBudgets: account("budget"),
+    inLedger: roundZik(account("wallet") + account("escrow") + account("revenue") + account("budget")),
   };
 }
 
 /**
  * The ledger balances when what is in its accounts is exactly what was bought
- * less what was withdrawn. Every other row moves Ziks between accounts, so any
- * difference means a row was written on one side only.
+ * or moved in from earnings, less what was withdrawn. Every other row moves
+ * Ziks between accounts, so any difference means a row was written on one side
+ * only.
  */
-export function ledgerBalances(totals: Pick<MoneyTotals, "bought" | "withdrawn" | "inLedger">): { expected: number; difference: number } {
-  const expected = totals.bought - totals.withdrawn;
-  return { expected, difference: totals.inLedger - expected };
+export function ledgerBalances(totals: Pick<MoneyTotals, "bought" | "fromEarnings" | "withdrawn" | "inLedger">): { expected: number; difference: number } {
+  const expected = roundZik(totals.bought + totals.fromEarnings - totals.withdrawn);
+  return { expected, difference: roundZik(totals.inLedger - expected) };
 }
 
 export type Reconciliation = {
@@ -106,7 +115,8 @@ export async function reconcile(
   readBalance: () => Promise<{ availableCents: number; pendingCents: number }>,
 ): Promise<Reconciliation> {
   const [purchases, transfers] = await Promise.all([
-    db.coinPurchase.aggregate({ _sum: { amountCents: true, stripeFeeCents: true } }),
+    // Test-mode purchases (lib/coins/test-mode.ts) never went through Stripe, so they are not part of what it should hold.
+    db.coinPurchase.aggregate({ where: { currency: { not: TEST_CURRENCY } }, _sum: { amountCents: true, stripeFeeCents: true } }),
     db.withdrawal.aggregate({ where: { status: { in: ["pending", "paid"] } }, _sum: { amountCents: true } }),
   ]);
   const expectedCents = (purchases._sum.amountCents ?? 0) - (purchases._sum.stripeFeeCents ?? 0) - (transfers._sum.amountCents ?? 0);

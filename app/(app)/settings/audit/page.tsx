@@ -1,3 +1,4 @@
+import { PRIMARY_ACTION } from "@/lib/ui-style";
 import Link from "next/link";
 import { forbidden } from "next/navigation";
 import { requireUser } from "@/lib/auth-helpers";
@@ -140,7 +141,7 @@ export default async function AuditLogPage({ searchParams }: Props) {
         </p>
       </div>
 
-      <form method="get" className="flex flex-wrap items-end gap-3 rounded-[20px] border border-zk-border bg-zk-surface p-5">
+      <form method="get" className="flex flex-wrap items-end gap-3 rounded-panel border border-zk-border bg-zk-surface p-5">
         <label className="text-sm">
           <span className="block font-bold text-zk-text">Agent</span>
           <select
@@ -177,7 +178,7 @@ export default async function AuditLogPage({ searchParams }: Props) {
         </label>
         <button
           type="submit"
-          className="min-h-11 rounded-full bg-electric-blue-strong px-4 text-sm font-bold text-white hover:brightness-105"
+          className={PRIMARY_ACTION}
         >
           Filter
         </button>
@@ -188,7 +189,7 @@ export default async function AuditLogPage({ searchParams }: Props) {
         ) : null}
       </form>
 
-      <section className="rounded-[20px] border border-zk-border bg-zk-surface px-5">
+      <section className="rounded-panel border border-zk-border bg-zk-surface px-5">
         <AuditLog
           rows={rows}
           isAdminOfOrganisation={access.kind === "all"}

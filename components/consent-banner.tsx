@@ -1,5 +1,7 @@
 "use client";
 
+import { PRIMARY_ACTION } from "@/lib/ui-style";
+
 import { useEffect, useState } from "react";
 import Script from "next/script";
 
@@ -90,7 +92,7 @@ window.dataLayer.push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });`}
           aria-modal="false"
           aria-labelledby="consent-heading"
           aria-describedby="consent-text"
-          className="fixed inset-x-4 bottom-4 z-[60] mx-auto max-w-2xl rounded-[20px] border border-zk-border bg-zk-surface p-5 text-zk-text shadow-[0_12px_40px_rgba(21,18,31,0.18)] sm:p-6"
+          className="fixed inset-x-4 bottom-4 z-[60] mx-auto max-w-2xl rounded-panel border border-zk-border bg-zk-surface p-5 text-zk-text shadow-[0_12px_40px_rgba(21,18,31,0.18)] sm:p-6"
         >
           <h2 id="consent-heading" className="text-base font-extrabold">
             Cookies on Ziki
@@ -110,7 +112,7 @@ window.dataLayer.push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });`}
             <button
               type="button"
               onClick={() => decide("granted")}
-              className="inline-flex min-h-10 items-center rounded-full bg-electric-blue-strong px-5 text-sm font-bold text-white transition hover:bg-[#2552af] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2"
+              className={PRIMARY_ACTION}
             >
               Accept
             </button>

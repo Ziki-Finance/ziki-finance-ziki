@@ -124,18 +124,18 @@ export default async function MergeHistoryPage({ params: routeParams, searchPara
 
   return (
     <div className="merge-history mx-auto max-w-[1160px]">
-      <div className="overflow-hidden rounded-[22px] border border-zk-divider bg-zk-surface">
+      <div className="overflow-hidden rounded-panel border border-zk-divider bg-zk-surface">
         <div className="flex items-center justify-between gap-3 border-b border-zk-divider px-6 py-4 max-sm:px-4">
           <h1 className="text-[15px] font-semibold text-zk-text">Merge history</h1>
         </div>
 
         <div className="merge-tabs flex items-center justify-between gap-3 px-6 pb-3.5 pt-5 max-sm:px-4">
           <div className="flex flex-none gap-2">
-            <Link href={issuesPath(project.ref, "all")} className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-zk-chip px-3.5 text-[14px] font-medium text-zk-text2 hover:bg-zk-seg">
+            <Link href={issuesPath(project.ref, "all")} className="inline-flex h-10 items-center gap-2 rounded-control bg-zk-chip px-3.5 text-[14px] font-medium text-zk-text2 hover:bg-zk-seg">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2" /><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z" /></svg>
               Inbox
             </Link>
-            <span aria-current="page" className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-electric-blue-strong px-3.5 text-[14px] font-semibold text-white">
+            <span aria-current="page" className="inline-flex h-9 items-center gap-2 rounded-control bg-electric-blue-strong px-3.5 text-[14px] font-semibold text-white">
               <MergeIcon size={16} />
               <span className="max-sm:sr-only">Merge history</span>
             </span>
@@ -148,7 +148,7 @@ export default async function MergeHistoryPage({ params: routeParams, searchPara
                   key={value}
                   href={href({ stage: value })}
                   aria-current={current ? "page" : undefined}
-                  className={`inline-flex h-[34px] flex-none items-center gap-2 whitespace-nowrap rounded-[10px] px-3 text-[14px] ${
+                  className={`inline-flex h-[34px] flex-none items-center gap-2 whitespace-nowrap rounded-control px-3 text-[14px] ${
                     current ? "bg-electric-blue-strong font-semibold text-white" : "font-medium text-zk-text2 hover:bg-zk-seg"
                   }`}
                 >
@@ -164,7 +164,7 @@ export default async function MergeHistoryPage({ params: routeParams, searchPara
         </div>
 
         <div className="merge-vbar flex items-center justify-between gap-3 px-6 pb-4 max-sm:flex-col max-sm:items-stretch max-sm:px-4">
-          <div role="group" aria-label="View" className="inline-flex gap-0.5 self-start rounded-[10px] bg-zk-chip p-[3px]">
+          <div role="group" aria-label="View" className="inline-flex gap-0.5 self-start rounded-control bg-zk-chip p-[3px]">
             {[{ view: null, label: "By issue" }, { view: "release" as const, label: "By release PR" }].map(({ view, label }) => {
               const current = (view === "release") === releaseView;
               return (
@@ -172,7 +172,7 @@ export default async function MergeHistoryPage({ params: routeParams, searchPara
                   key={label}
                   href={href({ view })}
                   aria-current={current ? "page" : undefined}
-                  className={`inline-flex h-[30px] items-center rounded-lg px-3 text-[13px] ${current ? "bg-zk-surface font-semibold text-zk-accent shadow-sm" : "font-medium text-zk-text2"}`}
+                  className={`inline-flex h-[30px] items-center rounded-lg px-3 text-[13px] ${current ? "bg-zk-surface font-semibold text-zk-accent shadow-none" : "font-medium text-zk-text2"}`}
                 >
                   {label}
                 </Link>
@@ -191,7 +191,7 @@ export default async function MergeHistoryPage({ params: routeParams, searchPara
         </div>
 
         {rows.length === 0 || (releaseView && releases.length === 0) ? (
-          <p className="mx-6 mb-6 rounded-[14px] border border-zk-divider px-5 py-10 text-center text-sm text-zk-muted max-sm:mx-4">
+          <p className="mx-6 mb-6 rounded-xl border border-zk-divider px-5 py-10 text-center text-sm text-zk-muted max-sm:mx-4">
             {bucket === "staging" || bucket === "production"
               ? "Nothing recorded here yet. Staging and production show up once the merger agent records those merges."
               : rows.length === 0
@@ -201,7 +201,7 @@ export default async function MergeHistoryPage({ params: routeParams, searchPara
         ) : releaseView ? (
           <div className="mx-6 mb-6 flex flex-col gap-3 max-sm:mx-4">
             {releases.map(({ movement, rows: carried }) => (
-              <section key={`${movement.repo}#${movement.prNumber}`} aria-label={`PR #${movement.prNumber}`} className="overflow-hidden rounded-[14px] border border-zk-divider">
+              <section key={`${movement.repo}#${movement.prNumber}`} aria-label={`PR #${movement.prNumber}`} className="overflow-hidden rounded-xl border border-zk-divider">
                 <div className="flex flex-wrap items-center gap-2.5 bg-zk-bg px-[18px] py-3.5">
                   <MovementIcon movement={movement} size={26} />
                   <PrLink movement={movement} className="text-[14.5px] font-semibold" />
@@ -226,7 +226,7 @@ export default async function MergeHistoryPage({ params: routeParams, searchPara
             ))}
           </div>
         ) : (
-          <div className="mx-6 overflow-hidden rounded-[14px] border border-zk-divider max-sm:mx-4">
+          <div className="mx-6 overflow-hidden rounded-xl border border-zk-divider max-sm:mx-4">
             <div className="merge-row merge-head bg-zk-bg text-[13.5px] text-zk-text2" aria-hidden="true">
               <span>Completed issue</span><span>Path</span><span>Latest movement</span><span />
             </div>

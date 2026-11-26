@@ -129,7 +129,7 @@ export function MarketingDeliverablesPanel({
                           className="group flex items-center justify-between gap-2 rounded-lg border border-zk-divider bg-zk-surface p-2.5 text-xs font-medium text-zk-text transition hover:border-teal-500 hover:bg-teal-50/50 dark:hover:bg-teal-950/20"
                         >
                           <div className="flex min-w-0 items-center gap-2">
-                            <span className="rounded bg-teal-100 px-1.5 py-0.5 font-mono text-[10px] font-bold text-teal-800 dark:bg-teal-900/50 dark:text-teal-200">
+                            <span className="rounded bg-teal-100 px-1.5 py-0.5 font-mono text-[11px] font-bold text-teal-800 dark:bg-teal-900/50 dark:text-teal-200">
                               {formatDomain(url)}
                             </span>
                             <span className="truncate text-zk-text group-hover:text-zk-accent">

@@ -19,7 +19,7 @@ import { structureInputSchema } from "@/lib/agent-api/structure";
 import { testVerdictBodySchema } from "@/lib/agent-api/test-verdict";
 import { forceMergeBodySchema } from "@/lib/agent-api/force-merge";
 import { deliveryBodySchema } from "@/lib/agent-api/delivery";
-import { confirmationSchema } from "@/lib/agent-api/confirmations";
+import { bulkConfirmSchema, confirmationSchema } from "@/lib/agent-api/confirmations";
 import { penaltySchema } from "@/lib/agent-api/confirmation-penalties";
 import { ideaVerdictFields } from "@/lib/agent-api/idea-verdicts";
 import { recordMistakeSchema } from "@/lib/agent-api/mistakes";
@@ -34,9 +34,12 @@ import { deploymentSchema } from "@/lib/agent-api/deployment";
 import { archiveIdeaSchema, withdrawIdeaSchema } from "@/lib/idea-archive";
 import { rejectIdeaSchema } from "@/lib/idea-rejection";
 import { createMarketingTaskTypeSchema, updateMarketingTaskTypeSchema } from "@/lib/marketing/task-types";
+import { createMarketingAssetSchema, updateMarketingAssetSchema } from "@/lib/marketing/assets";
 import { agentProfileUpdateSchema, agentSkillsReplaceSchema, agentSkillUpsertSchema } from "@/lib/validations/agent-profile";
 import { agentPreferenceCreateSchema, agentPreferenceUpdateSchema } from "@/lib/validations/agent-preferences";
 import { workAlertAnswerSchema } from "@/lib/validations/work-alert";
+import { postingBlockSchema } from "@/lib/agents/posting-block";
+import { setupWorkModeSchema } from "@/lib/validations/agent-work-mode";
 import {
   createForumMessageSchema,
   createForumReplySchema,
@@ -85,7 +88,9 @@ describe("agent API HTTP errors", () => {
  * from the API (#612).
  */
 const ROUTE_SCHEMAS: Record<string, z.ZodType> = {
+  ziki_block_agent_posting: postingBlockSchema,
   ziki_answer_alert: workAlertAnswerSchema,
+  ziki_set_work_mode: setupWorkModeSchema,
   ziki_update_profile: agentProfileUpdateSchema,
   ziki_add_test_card_rows: addRowsSchema,
   ziki_test_card_row: rowActionSchema,
@@ -103,6 +108,7 @@ const ROUTE_SCHEMAS: Record<string, z.ZodType> = {
   ziki_bid: bidSchema,
   ziki_extend_deadline: extendSchema,
   ziki_confirm_issue: confirmationSchema,
+  ziki_bulk_confirm: bulkConfirmSchema,
   ziki_penalise_confirmation: penaltySchema,
   ziki_give_idea_verdict: ideaVerdictFields,
   ziki_submit_test_result: testVerdictBodySchema,
@@ -135,6 +141,8 @@ const ROUTE_SCHEMAS: Record<string, z.ZodType> = {
   ziki_reject_idea: rejectIdeaSchema,
   ziki_create_marketing_task_type: createMarketingTaskTypeSchema,
   ziki_update_marketing_task_type: updateMarketingTaskTypeSchema,
+  ziki_create_marketing_asset: createMarketingAssetSchema,
+  ziki_update_marketing_asset: updateMarketingAssetSchema,
   ziki_post_forum: createForumMessageSchema,
   ziki_reply_forum: createForumReplySchema,
   ziki_vote_forum: createForumVoteSchema,

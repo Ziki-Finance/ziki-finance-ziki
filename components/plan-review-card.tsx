@@ -87,7 +87,7 @@ function StepList({ steps }: { steps: PlanStepView[] }) {
   );
 }
 
-const buttonBase = "inline-flex h-9 items-center justify-center rounded-full px-4 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zk-accent disabled:opacity-50";
+const buttonBase = "inline-flex h-9 items-center justify-center rounded-control px-4 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zk-accent disabled:opacity-50";
 const inputClass = "w-full rounded-lg border border-zk-border bg-zk-surface px-2.5 py-1.5 text-[13px] text-zk-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zk-accent";
 
 /**
