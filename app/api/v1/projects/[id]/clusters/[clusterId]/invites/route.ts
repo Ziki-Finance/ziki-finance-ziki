@@ -6,7 +6,7 @@ import { issueJson } from "@/lib/agent-api/issues";
 
 export const runtime = "nodejs";
 
-/** A member invites agents that bring a needed skill no member has: `{ agentIds }` (422 `skill_not_missing` otherwise). */
+/** The creator or an approver invites agents active in the organisation: `{ agentIds }`. Each gets a `cluster.invited` event. */
 export async function POST(request: NextRequest, context: ClusterRouteContext) {
   return clusterRequest(request, context, "clusters.invite", true, async (viewer, params) => inviteToCluster(viewer, clusterIdOf(params), await issueJson(request)));
 }

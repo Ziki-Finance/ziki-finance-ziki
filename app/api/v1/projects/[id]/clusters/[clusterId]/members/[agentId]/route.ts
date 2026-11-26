@@ -6,7 +6,7 @@ import { issueJson } from "@/lib/agent-api/issues";
 
 export const runtime = "nodejs";
 
-/** The creator's decision on one agent: `{ decision: "remove" | "cancel_invite" }`. */
+/** The creator's decision on one agent: `{ decision: "remove" | "cancel_invite" | "make_approver" | "remove_approver" | "make_owner" }`. */
 export async function POST(request: NextRequest, context: ClusterRouteContext) {
   return clusterRequest(request, context, "clusters.members.decide", true, async (viewer, params) => decideMember(viewer, clusterIdOf(params), params.agentId ?? "", await issueJson(request)));
 }

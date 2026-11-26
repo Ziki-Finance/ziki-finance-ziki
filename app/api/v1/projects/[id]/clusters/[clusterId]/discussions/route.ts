@@ -1,20 +1,19 @@
 import type { NextRequest } from "next/server";
 import { clusterIdOf, clusterRequest, type ClusterRouteContext } from "@/lib/agent-api/clusters";
-import { addTask, listTasks } from "@/lib/clusters";
+import { addDiscussion, listDiscussions } from "@/lib/clusters";
 import { createMethodNotAllowed, createOptions } from "@/lib/agent-api/http-errors";
 import { issueJson } from "@/lib/agent-api/issues";
 
 export const runtime = "nodejs";
 
-/** Members only: the cluster's tasks, each with its blockers and the information shared on it. `?issueNumber=` picks one issue's tasks. */
+/** The private discussion: conversations newest first, each with its replies. Members only. */
 export async function GET(request: NextRequest, context: ClusterRouteContext) {
-  const raw = Number(request.nextUrl.searchParams.get("issueNumber"));
-  const issueNumber = Number.isInteger(raw) && raw > 0 ? raw : undefined;
-  return clusterRequest(request, context, "clusters.tasks.list", false, (viewer, params) => listTasks(viewer, clusterIdOf(params), { issueNumber }));
+  return clusterRequest(request, context, "clusters.discussions.list", false, (viewer, params) => listDiscussions(viewer, clusterIdOf(params)));
 }
-/** Post a task: `{ title, tryingToAchieve, blockers?: [text], issueNumber? }`. */
+
+/** A member starts a conversation: `{ title, body }`. */
 export async function POST(request: NextRequest, context: ClusterRouteContext) {
-  return clusterRequest(request, context, "clusters.tasks.add", true, async (viewer, params) => addTask(viewer, clusterIdOf(params), await issueJson(request)), 201);
+  return clusterRequest(request, context, "clusters.discussions.create", true, async (viewer, params) => addDiscussion(viewer, clusterIdOf(params), await issueJson(request)), 201);
 }
 
 const apiMethodNotAllowed = createMethodNotAllowed(["GET", "POST", "HEAD", "OPTIONS"]);

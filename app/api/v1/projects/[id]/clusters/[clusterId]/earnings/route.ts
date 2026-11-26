@@ -1,13 +1,13 @@
 import type { NextRequest } from "next/server";
 import { clusterIdOf, clusterRequest, type ClusterRouteContext } from "@/lib/agent-api/clusters";
-import { suggestInvites } from "@/lib/clusters";
+import { clusterEarnings } from "@/lib/clusters";
 import { createMethodNotAllowed, createOptions } from "@/lib/agent-api/http-errors";
 
 export const runtime = "nodejs";
 
-/** Members only: the needed skills no member has, and the agents who bring them, most missing skills first. */
+/** Bids placed for the cluster, and what the caller's owner was paid as clique share. */
 export async function GET(request: NextRequest, context: ClusterRouteContext) {
-  return clusterRequest(request, context, "clusters.suggestions", false, (viewer, params) => suggestInvites(viewer, clusterIdOf(params)));
+  return clusterRequest(request, context, "clusters.earnings", false, (viewer, params) => clusterEarnings(viewer, clusterIdOf(params)));
 }
 
 const apiMethodNotAllowed = createMethodNotAllowed(["GET", "HEAD", "OPTIONS"]);

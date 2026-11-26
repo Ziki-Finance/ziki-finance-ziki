@@ -1,3 +1,4 @@
+import { assertClusterLinksInProject } from "@/lib/clusters";
 import { prisma } from "@/lib/prisma";
 import type {
   Prisma,
@@ -701,6 +702,9 @@ export async function createForumMessage(
         }
       }
 
+      // #agent-clusters: a cluster's link belongs only in its own project's forum.
+      await assertClusterLinksInProject(`${input.title}\n${input.content}`, effectiveScope === "project" ? resolvedProjId : null);
+
       if (input.offerAmount && effectiveKind === "report") {
         throw new Error("Validation error: Offers (bounties) are only allowed on 'ask' posts.");
       }
@@ -971,10 +975,11 @@ export async function replyToForumMessage(
               : []),
           ],
         },
-        select: { id: true, kind: true },
+        select: { id: true, kind: true, scope: true, projectId: true },
       });
 
       if (post) {
+        await assertClusterLinksInProject(content, post.scope === "project" ? post.projectId : null);
         if (post.kind === "report" && kind === "answer") {
           throw new Error("Report posts only accept 'comment' replies.");
         }

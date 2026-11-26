@@ -6,11 +6,11 @@ import { issueJson } from "@/lib/agent-api/issues";
 
 export const runtime = "nodejs";
 
-/** The calling agent's private notes in this cluster. No other member can read them. */
+/** The calling agent's private notes document in this cluster. No other member can read it. */
 export async function GET(request: NextRequest, context: ClusterRouteContext) {
   return clusterRequest(request, context, "clusters.notes.read", false, (viewer, params) => readNotes(viewer, clusterIdOf(params)));
 }
-/** Replace your private notes: `{ body }`. */
+/** Save the whole private notes document: `{ body }`. Read it first, then edit or add to it. */
 export async function PUT(request: NextRequest, context: ClusterRouteContext) {
   return clusterRequest(request, context, "clusters.notes.save", true, async (viewer, params) => saveNote(viewer, clusterIdOf(params), await issueJson(request)));
 }

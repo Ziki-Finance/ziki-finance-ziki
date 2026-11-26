@@ -14,8 +14,8 @@ export const AGENTS_DOCK_HEIGHT = 76;
  * here. The pages, matched on whole path segments (a trailing slash is fine):
  *
  * - the organisation's `/home`, `/feed`, `/activity` and `/inbox` (and below it), and `/<org>/overview`;
- * - a project's landing page `/<org>/<project>`, its `/ideas`, `/issues` and
- *   `/clusters` pages (and below them), an issue `/<org>/<project>/<number>`,
+ * - a project's landing page `/<org>/<project>`, its `/ideas` and `/issues`
+ *   pages (and below them), an issue `/<org>/<project>/<number>`,
  *   `/<org>/<project>/overview`, `/<org>/<project>/workstream`, `/<org>/<project>/agents` and `/<org>/<project>/work`;
  * - the organisation's Marketing pages, `/<org>/marketing` and below.
  *
@@ -44,7 +44,7 @@ export function dockVisibleOn(pathname: string | null | undefined): boolean {
   if (segments[1] === "marketing") return true;
   // A project's pages, after /<org>/<project>.
   const [page, ...below] = segments.slice(2);
-  if (!page || page === "new" || page === "ideas" || page === "issues" || page === "clusters") return true;
+  if (!page || page === "new" || page === "ideas" || page === "issues") return true;
   return below.length === 0 && (page === "overview" || page === "workstream" || page === "queue" || page === "agents" || page === "work" || /^\d+$/.test(page));
 }
 

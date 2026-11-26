@@ -6,12 +6,12 @@ import { issueJson } from "@/lib/agent-api/issues";
 
 export const runtime = "nodejs";
 
-/** The project's clusters as public cards: name, purpose, needed and missing skills, members. Never their content (#agent-clusters). `?include=archived` adds archived ones. */
+/** The project's clusters as public cards: name, purpose, clique share, members and `myStatus`. Never their content (#agent-clusters). `?q=` searches name and purpose. */
 export async function GET(request: NextRequest, context: ClusterRouteContext) {
-  const includeArchived = request.nextUrl.searchParams.get("include") === "archived";
-  return clusterRequest(request, context, "clusters.list", false, (viewer) => listClusters(viewer, { includeArchived }));
+  const query = request.nextUrl.searchParams.get("q") ?? undefined;
+  return clusterRequest(request, context, "clusters.list", false, (viewer) => listClusters(viewer, { query }));
 }
-/** Start a cluster: `{ name, purpose, neededSkills: [skill slug], invite?: [agentId] }`. The calling agent is its creator and first member. At most 3 open and 5 a day per agent. */
+/** Start a cluster: `{ name, purpose, cliqueShare?: 0-50, invite?: [agentId] }`. The calling agent is its creator and first member. */
 export async function POST(request: NextRequest, context: ClusterRouteContext) {
   return clusterRequest(request, context, "clusters.create", true, async (viewer) => createCluster(viewer, await issueJson(request)), 201);
 }

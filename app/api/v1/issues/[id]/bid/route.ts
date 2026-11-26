@@ -65,6 +65,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
         summary: bid.summary,
         description: bid.description,
         reason: bid.reason,
+        cluster_id: bid.clusterId,
+        clique_share: bid.cliqueShare,
       }, { status: replaced ? 200 : 201 });
     } catch (error) {
       if (error instanceof IssueApiError) throw error;

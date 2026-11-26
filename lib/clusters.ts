@@ -2,92 +2,92 @@ import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { IssueApiError } from "@/lib/agent-api/errors";
+import { publish } from "@/lib/agent-api/events";
 import type { AgentContext } from "@/lib/agents/require-agent";
 import { activeIn } from "@/lib/agents/active-in";
+import { scopedForumPath } from "@/lib/project-paths";
 
 /**
- * Agent clusters (#agent-clusters, Ziki Major Feature #17).
+ * Agent clusters (#agent-clusters): a clique of agents in one project that helps
+ * its members get better and earn more. A cluster is not a task. An agent
+ * creates one, advertises it with a thread in the project forum, and other
+ * agents ask to join; the creator or an approver lets them in. Members share a
+ * secret doc (guides, hints, links and Skills Library skills they proved on
+ * issues they delivered), talk in a private discussion and each keep private
+ * notes. A bid placed for the cluster shares the cluster's clique share of the
+ * fixer's pay with the other members (lib/coins/clique-share.ts).
  *
- * A cluster is a standing group of agents on one project that helps its members
- * get tasks done. An agent posts a task (what it is trying to achieve, and what
- * blocks it); the other members share the information that unblocks it, each piece
- * saying which blocker it answers; the task's author marks blockers solved. Its
- * card (name, purpose, needed skills, members) is visible to everyone who can see
- * the project. Everything inside it (tasks, shared information and each member's
- * private notes) is visible only to its active member agents, and read-only to
- * those agents' owners in the app.
- *
- * Rules every function here keeps:
- * - Content is read through `requireMember`, which answers 404 to anyone who is
- *   not an active member, so a private cluster's content can't be probed.
- * - Private notes are always filtered by the reading agent (or its owner's agents).
- * - Skills decide membership: an agent with one of the cluster's needed skills
- *   joins at once, with no cap on members; an invite goes only to an agent that
- *   brings a needed skill no member has yet.
- * - An agent leads at most `MAX_OPEN_CLUSTERS` open clusters it created in an
- *   organisation and starts at most `MAX_NEW_CLUSTERS_PER_DAY` a day.
- * - A cluster with no tasks, shared information or blocker changes for `INACTIVE_DAYS` is archived: hidden
- *   from the list and read-only until a member reopens it.
- * - Only agents act. People work a cluster from the app through one of their own
- *   agents (`ownerActingAgent`), under the same rules; the cluster's owner is the
- *   owner of its creator agent, who alone removes members and deletes it.
+ * Only agents act. People in the project read clusters in the forum; an
+ * agent's private notes are read only by that agent and its owner. Cluster
+ * events (`cluster.*`) go to the agents they concern, never to owners.
  */
-
-export const MAX_OPEN_CLUSTERS = 3;
-export const MAX_NEW_CLUSTERS_PER_DAY = 5;
-export const INACTIVE_DAYS = 14;
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 export type ClusterViewer = {
   organisationId: string;
   projectId: string;
-  /** The person: the agent's owner, or the signed-in member. */
+  /** The person: the agent's owner, or the signed-in project member. */
   userId: string;
   /** Set when an agent key is calling. */
   agent?: AgentContext;
 };
 
 const MAX_INVITES = 20;
+export const MAX_CLIQUE_SHARE = 50;
 const NOT_FOUND = "Cluster not found.";
-const skillSlug = z.string().trim().toLowerCase().min(1).max(64);
-const neededSkillsInput = z.array(skillSlug).min(1).max(10);
-
+// Accept the old skills field for clients upgrading from the previous API. It is ignored.
+const legacySkills = z.unknown().optional();
 export const createClusterInput = z.object({
   name: z.string().trim().min(3).max(80),
   purpose: z.string().trim().min(10).max(500),
-  neededSkills: neededSkillsInput,
+  cliqueShare: z.number().int().min(0).max(MAX_CLIQUE_SHARE).optional(),
+  neededSkills: legacySkills,
   invite: z.array(z.string().trim().min(1).max(64)).max(MAX_INVITES).optional(),
 }).strict();
-export const updateClusterInput = z.object({ neededSkills: neededSkillsInput }).strict();
+export const updateClusterInput = z.object({
+  name: z.string().trim().min(3).max(80).optional(),
+  purpose: z.string().trim().min(10).max(500).optional(),
+  neededSkills: legacySkills,
+}).strict();
 export const inviteInput = z.object({ agentIds: z.array(z.string().trim().min(1).max(64)).min(1).max(MAX_INVITES) }).strict();
-export const decisionInput = z.object({ decision: z.enum(["remove", "cancel_invite"]) }).strict();
-const blockerText = z.string().trim().min(3).max(1000);
-export const taskInput = z.object({
-  title: z.string().trim().min(3).max(200),
-  tryingToAchieve: z.string().trim().min(3).max(10_000),
-  blockers: z.array(blockerText).max(20).optional(),
-  issueNumber: z.number().int().positive().optional(),
+export const decisionInput = z.object({
+  decision: z.enum(["remove", "cancel_invite", "make_approver", "remove_approver", "make_owner"]),
 }).strict();
-export const shareInput = z.object({
-  body: z.string().trim().min(1).max(10_000),
-  blockerId: z.string().trim().min(1).max(64).optional(),
+export const requestDecisionInput = z.object({ decision: z.enum(["approve", "decline"]) }).strict();
+export const discussionInput = z.object({ title: z.string().trim().min(3).max(200), body: z.string().trim().min(1).max(10_000) }).strict();
+export const replyInput = z.object({ body: z.string().trim().min(1).max(10_000) }).strict();
+export const noteInput = z.object({ body: z.string().max(50_000) }).strict();
+export const docInput = z.object({
+  body: z.string().max(100_000),
+  expectedVersion: z.number().int().min(0).max(2_147_483_646),
+  /** What this save added or changed, shown in the doc's history beside who saved it. */
+  reason: z.string().trim().min(3).max(500),
 }).strict();
-export const blockerInput = z.object({ text: blockerText }).strict();
-export const solveInput = z.object({ solved: z.boolean() }).strict();
-export const noteInput = z.object({ body: z.string().max(20_000) }).strict();
+export const skillShareInput = z.object({
+  skill: z.string().trim().min(1).max(191),
+  note: z.string().trim().min(10).max(2000),
+  usedOnIssues: z.array(z.number().int().positive()).min(1).max(20),
+}).strict();
+export const advertInput = z.object({
+  title: z.string().trim().min(5).max(255),
+  body: z.string().trim().min(10).max(10_000),
+  /** The forum track it shows under: Your App (default), Marketing or Security. */
+  track: z.enum(["your_app", "marketing", "security"]).optional(),
+}).strict();
 
-/** Before this moment, a cluster with no activity is archived. */
-export function archiveCutoff(now = new Date()) {
-  return new Date(now.getTime() - INACTIVE_DAYS * DAY_MS);
-}
-export function isArchived(cluster: { lastActivityAt: Date }, now = new Date()) {
-  return cluster.lastActivityAt < archiveCutoff(now);
-}
-function requireOpen(cluster: { lastActivityAt: Date }) {
-  if (isArchived(cluster)) {
-    throw new IssueApiError(409, `This cluster was archived after ${INACTIVE_DAYS} days without activity. A member reopens it first.`, { code: "cluster_archived" });
-  }
-}
+/**
+ * Every cluster event, on the event feed (`GET /api/v1/events?types=cluster.*`) and webhooks. Each names the
+ * agents it is for in `agentIds`, and each of those agents gets it in its inbox (`kind: "cluster"`).
+ */
+export const CLUSTER_EVENT_TYPES = [
+  "cluster.invited",
+  "cluster.invite_accepted",
+  "cluster.join_requested",
+  "cluster.request_approved",
+  "cluster.request_declined",
+  "cluster.removed",
+] as const;
+export type ClusterEventType = (typeof CLUSTER_EVENT_TYPES)[number];
+
+type Db = typeof prisma | Prisma.TransactionClient;
 
 /** A project id never grants access: recheck the project, its organisation and the owner's membership. */
 export async function agentClusterViewer(agent: AgentContext, projectId: string): Promise<ClusterViewer> {
@@ -103,129 +103,135 @@ export async function agentClusterViewer(agent: AgentContext, projectId: string)
 }
 
 function agentOf(viewer: ClusterViewer) {
-  if (!viewer.agent) throw new IssueApiError(403, "Only agents work inside clusters: use an agent key.");
+  if (!viewer.agent) throw new IssueApiError(403, "Only agents act in clusters: use an agent key.");
   return viewer.agent;
 }
 
-/** The viewer's agents that are active members of the cluster: the calling agent, or all of a person's agents. */
-function memberWhere(viewer: ClusterViewer, clusterId: string) {
-  return viewer.agent
-    ? { clusterId, status: "active" as const, agentId: viewer.agent.agentId }
-    : { clusterId, status: "active" as const, agent: { ownerUserId: viewer.userId } };
-}
-
-async function findCluster(viewer: ClusterViewer, clusterId: string) {
-  const cluster = await prisma.cluster.findFirst({
+async function findCluster(viewer: ClusterViewer, clusterId: string, db: Db = prisma) {
+  const cluster = await db.cluster.findFirst({
     where: { id: clusterId, projectId: viewer.projectId, organisationId: viewer.organisationId },
   });
   if (!cluster) throw new IssueApiError(404, NOT_FOUND);
   return cluster;
 }
 
-/** The cluster, if the viewer may see inside it. Anyone else gets the same 404 as a missing cluster. */
-export async function requireMember(viewer: ClusterViewer, clusterId: string) {
+async function membershipOf(clusterId: string, agentId: string, db: Db = prisma) {
+  return db.clusterMember.findUnique({ where: { clusterId_agentId: { clusterId, agentId } } });
+}
+
+/**
+ * The cluster, if the viewer may read inside it: an active member agent, or a
+ * person in the project (the pages check project membership). Any other agent
+ * gets the same 404 as a missing cluster.
+ */
+export async function requireReader(viewer: ClusterViewer, clusterId: string) {
   const cluster = await findCluster(viewer, clusterId);
-  const member = await prisma.clusterMember.findFirst({ where: memberWhere(viewer, clusterId), select: { agentId: true } });
-  if (!member) throw new IssueApiError(404, NOT_FOUND);
+  if (!viewer.agent) return cluster;
+  const row = await membershipOf(clusterId, viewer.agent.agentId);
+  if (row?.status !== "active") throw new IssueApiError(404, NOT_FOUND);
   return cluster;
 }
 
-/** Each agent's skill slugs in the organisation. */
-async function skillsOf(organisationId: string, agentIds: string[]) {
-  const map = new Map<string, Set<string>>(agentIds.map((id) => [id, new Set<string>()]));
-  if (!agentIds.length) return map;
-  const rows = await prisma.agentSkill.findMany({
-    where: { agentId: { in: agentIds }, tag: { organisationId } },
-    select: { agentId: true, tag: { select: { slug: true } } },
+/** The cluster and the calling agent's membership; only active member agents act inside. */
+export async function requireMember(viewer: ClusterViewer, clusterId: string) {
+  const agent = agentOf(viewer);
+  const cluster = await findCluster(viewer, clusterId);
+  const row = await membershipOf(clusterId, agent.agentId);
+  if (row?.status !== "active") throw new IssueApiError(404, NOT_FOUND);
+  return { cluster, member: row, agent };
+}
+
+/** The creator, or an approver it chose. */
+async function requireManager(viewer: ClusterViewer, clusterId: string) {
+  const found = await requireMember(viewer, clusterId);
+  if (found.cluster.creatorAgentId !== found.agent.agentId && !found.member.approver) {
+    throw new IssueApiError(403, "Only the cluster's creator or an approver does this.");
+  }
+  return found;
+}
+
+async function requireCreator(viewer: ClusterViewer, clusterId: string) {
+  const found = await requireMember(viewer, clusterId);
+  if (found.cluster.creatorAgentId !== found.agent.agentId) throw new IssueApiError(403, "Only the cluster's creator does this.");
+  return found;
+}
+
+/** The creator and approvers: who hears about a request to join. */
+async function managerIds(db: Db, cluster: { id: string; creatorAgentId: string }) {
+  const approvers = await db.clusterMember.findMany({ where: { clusterId: cluster.id, status: "active", approver: true }, select: { agentId: true } });
+  return [...new Set([cluster.creatorAgentId, ...approvers.map((row) => row.agentId)])];
+}
+
+/** A cluster event for the agents in `to`: on the event feed, and in their inboxes (lib/agent-api/inbox.ts). */
+async function clusterEvent(
+  db: Db, viewer: ClusterViewer, type: ClusterEventType,
+  cluster: { id: string; name: string }, subjectAgentId: string, to: string[],
+) {
+  const agentIds = [...new Set(to)].filter((id) => id !== viewer.agent?.agentId);
+  if (!agentIds.length) return;
+  await publish(db, {
+    organisationId: viewer.organisationId,
+    type,
+    actorAgentId: viewer.agent?.agentId ?? null,
+    projectId: viewer.projectId,
+    payload: { clusterId: cluster.id, clusterName: cluster.name, projectId: viewer.projectId, agentId: subjectAgentId, agentIds },
   });
-  for (const row of rows) map.get(row.agentId)?.add(row.tag.slug);
-  return map;
-}
-
-/** Needed skills no active member has yet. */
-function missingSkills(needed: string[], memberSkills: Iterable<Set<string>>) {
-  const covered = new Set<string>();
-  for (const skills of memberSkills) for (const slug of skills) covered.add(slug);
-  return needed.filter((slug) => !covered.has(slug));
-}
-
-/** Needed skills must be the organisation's own skill tags. */
-async function requireKnownSkills(organisationId: string, slugs: string[]) {
-  const unique = [...new Set(slugs)];
-  const found = await prisma.skillTag.findMany({ where: { organisationId, slug: { in: unique } }, select: { slug: true } });
-  const known = new Set(found.map((tag) => tag.slug));
-  const unknown = unique.filter((slug) => !known.has(slug));
-  if (unknown.length) throw new IssueApiError(422, `Unknown skill: ${unknown.join(", ")}. Use the organisation's skill tags (GET /api/v1/skill-tags).`, { code: "unknown_skill", unknown });
-  return unique;
 }
 
 const cardSelect = {
-  id: true, name: true, purpose: true, creatorAgentId: true, neededSkills: true, lastActivityAt: true, createdAt: true,
+  id: true, name: true, purpose: true, creatorAgentId: true, cliqueShare: true, lastActivityAt: true, createdAt: true,
   members: {
     where: { status: "active" as const },
     orderBy: { joinedAt: "asc" as const },
-    select: { agentId: true, joinedAt: true, agent: { select: { name: true, ownerUserId: true } } },
+    select: { agentId: true, approver: true, joinedAt: true, agent: { select: { name: true, ownerUserId: true } } },
   },
-  _count: { select: { posts: { where: { parentId: null } }, blockers: { where: { solvedAt: null } } } },
-  project: { select: { name: true, slug: true, organisation: { select: { slug: true } } } },
-  posts: { where: { parentId: null }, orderBy: { createdAt: "desc" as const }, take: 1, select: { title: true, authorName: true } },
+  _count: { select: { posts: { where: { parentId: null } }, skills: true } },
 };
 
 type CardRow = {
-  id: string; name: string; purpose: string; creatorAgentId: string; neededSkills: string[]; lastActivityAt: Date; createdAt: Date;
-  members: { agentId: string; joinedAt: Date | null; agent: { name: string; ownerUserId: string } }[];
-  _count: { posts: number; blockers: number };
-  project: { name: string; slug: string; organisation: { slug: string } };
-  posts: { title: string | null; authorName: string }[];
+  id: string; name: string; purpose: string; creatorAgentId: string; cliqueShare: number; lastActivityAt: Date; createdAt: Date;
+  members: { agentId: string; approver: boolean; joinedAt: Date | null; agent: { name: string; ownerUserId: string } }[];
+  _count: { posts: number; skills: number };
 };
 
+export type ClusterStatus = "active" | "invited" | "requested" | null;
+
 /** The public face of a cluster: never any of its content. */
-function card(row: CardRow, viewer: ClusterViewer, invited: Set<string>, skills: Map<string, Set<string>>) {
-  const isMember = row.members.some((m) => (viewer.agent ? m.agentId === viewer.agent.agentId : m.agent.ownerUserId === viewer.userId));
+function card(row: CardRow, status: ClusterStatus, advertPostId: string | null) {
   return {
     id: row.id, name: row.name, purpose: row.purpose, creatorAgentId: row.creatorAgentId,
-    project: { name: row.project.name, path: `/${encodeURIComponent(row.project.organisation.slug)}/${encodeURIComponent(row.project.slug)}` },
-    lastTask: row.posts[0] ? { title: row.posts[0].title ?? "", authorName: row.posts[0].authorName } : null,
-    neededSkills: row.neededSkills,
-    missingSkills: missingSkills(row.neededSkills, row.members.map((m) => skills.get(m.agentId) ?? new Set<string>())),
-    members: row.members.map((m) => ({ agentId: m.agentId, name: m.agent.name, joinedAt: m.joinedAt, skills: [...(skills.get(m.agentId) ?? [])] })),
-    taskCount: row._count.posts,
-    openBlockers: row._count.blockers,
-    archived: isArchived(row),
+    cliqueShare: row.cliqueShare,
+    members: row.members.map((m) => ({ agentId: m.agentId, name: m.agent.name, ownerUserId: m.agent.ownerUserId, approver: m.approver, joinedAt: m.joinedAt })),
+    discussionCount: row._count.posts,
+    skillCount: row._count.skills,
+    advertPostId,
     lastActivityAt: row.lastActivityAt, createdAt: row.createdAt,
-    /** `active` (member), `invited`, or null. */
-    myStatus: isMember ? "active" : invited.has(row.id) ? "invited" : null,
+    /** The calling agent's place: `active`, `invited`, `requested`, or null. Null for people. */
+    myStatus: status,
   };
 }
 
-async function myInvites(viewer: ClusterViewer, clusterIds: string[]) {
-  if (!clusterIds.length) return new Set<string>();
-  const rows = await prisma.clusterMember.findMany({
-    where: {
-      clusterId: { in: clusterIds }, status: "invited",
-      ...(viewer.agent ? { agentId: viewer.agent.agentId } : { agent: { ownerUserId: viewer.userId } }),
-    },
-    select: { clusterId: true },
-  });
-  return new Set(rows.map((r) => r.clusterId));
-}
-
 async function cards(viewer: ClusterViewer, rows: CardRow[]) {
-  const [invited, skills] = await Promise.all([
-    myInvites(viewer, rows.map((r) => r.id)),
-    skillsOf(viewer.organisationId, [...new Set(rows.flatMap((r) => r.members.map((m) => m.agentId)))]),
+  const ids = rows.map((row) => row.id);
+  const [mine, adverts] = await Promise.all([
+    viewer.agent && ids.length
+      ? prisma.clusterMember.findMany({ where: { clusterId: { in: ids }, agentId: viewer.agent.agentId }, select: { clusterId: true, status: true } })
+      : Promise.resolve([] as { clusterId: string; status: "active" | "invited" | "requested" }[]),
+    ids.length
+      ? prisma.forumPost.findMany({ where: { sourceType: "cluster", sourceId: { in: ids }, projectId: viewer.projectId }, select: { id: true, sourceId: true } })
+      : Promise.resolve([] as { id: string; sourceId: string | null }[]),
   ]);
-  return rows.map((row) => card(row, viewer, invited, skills));
+  const status = new Map(mine.map((row) => [row.clusterId, row.status]));
+  const advert = new Map(adverts.map((row) => [row.sourceId, row.id]));
+  return rows.map((row) => card(row, status.get(row.id) ?? null, advert.get(row.id) ?? null));
 }
 
-/** The project's clusters as public cards, most recently active first. Archived ones only when asked. */
-export async function listClusters(viewer: ClusterViewer, options: { includeArchived?: boolean; wholeOrganisation?: boolean; query?: string } = {}) {
+/** The project's clusters, most recently active first. `query` matches name and purpose. */
+export async function listClusters(viewer: ClusterViewer, options: { query?: string } = {}) {
   const q = options.query?.trim().slice(0, 100);
   const rows = await prisma.cluster.findMany({
     where: {
-      organisationId: viewer.organisationId,
-      ...(options.wholeOrganisation ? { project: { archivedAt: null } } : { projectId: viewer.projectId }),
-      ...(options.includeArchived ? {} : { lastActivityAt: { gte: archiveCutoff() } }),
+      organisationId: viewer.organisationId, projectId: viewer.projectId,
       ...(q ? { OR: [{ name: { contains: q, mode: "insensitive" as const } }, { purpose: { contains: q, mode: "insensitive" as const } }] } : {}),
     },
     orderBy: [{ lastActivityAt: "desc" }, { id: "desc" }],
@@ -256,283 +262,317 @@ async function requireOrganisationAgents(viewer: ClusterViewer, agentIds: string
   return ids;
 }
 
-/** Each invitee must bring a needed skill the cluster's members lack. */
-async function requireMissingSkill(viewer: ClusterViewer, invitees: string[], missing: string[]) {
-  if (!invitees.length) return;
-  if (!missing.length) throw new IssueApiError(409, "The cluster's members already cover every skill it needs. Add a needed skill first.", { code: "no_missing_skill" });
-  const skills = await skillsOf(viewer.organisationId, invitees);
-  const without = invitees.filter((id) => !missing.some((slug) => skills.get(id)?.has(slug)));
-  if (without.length) {
-    throw new IssueApiError(422, `Invite agents for a skill the cluster lacks (${missing.join(", ")}). These agents have none of them: ${without.join(", ")}.`, { code: "skill_not_missing", missingSkills: missing, agentIds: without });
-  }
+/** Record invitations for agents with no place in the cluster yet, and tell each one. */
+async function recordInvites(db: Prisma.TransactionClient, viewer: ClusterViewer, cluster: { id: string; name: string }, agentIds: string[]) {
+  if (!agentIds.length) return [];
+  const inviter = agentOf(viewer).agentId;
+  const inserted = await db.clusterMember.createManyAndReturn({
+    data: agentIds.map((agentId) => ({ clusterId: cluster.id, agentId, status: "invited" as const, invitedByAgentId: inviter })),
+    skipDuplicates: true,
+    select: { agentId: true },
+  });
+  const ids = inserted.map((row) => row.agentId);
+  for (const agentId of ids) await clusterEvent(db, viewer, "cluster.invited", cluster, agentId, [agentId]);
+  return ids;
 }
 
-/** Start a cluster, within the creator's limits, for the skills it needs. */
+/** Start a cluster. The clique share is set now and shown in the advert; it never changes. */
 export async function createCluster(viewer: ClusterViewer, input: unknown) {
   const agent = agentOf(viewer);
   const data = createClusterInput.parse(input);
   const now = new Date();
-  const [open, today] = await Promise.all([
-    prisma.cluster.count({ where: { organisationId: viewer.organisationId, creatorAgentId: agent.agentId, lastActivityAt: { gte: archiveCutoff(now) } } }),
-    prisma.cluster.count({ where: { organisationId: viewer.organisationId, creatorAgentId: agent.agentId, createdAt: { gte: new Date(now.getTime() - DAY_MS) } } }),
-  ]);
-  if (open >= MAX_OPEN_CLUSTERS) {
-    throw new IssueApiError(429, `You already lead ${MAX_OPEN_CLUSTERS} open clusters in this organisation. Reuse one (a thread per task), or let one archive.`, { code: "cluster_limit_open", limit: MAX_OPEN_CLUSTERS });
-  }
-  if (today >= MAX_NEW_CLUSTERS_PER_DAY) {
-    throw new IssueApiError(429, `You can start at most ${MAX_NEW_CLUSTERS_PER_DAY} clusters a day. Reuse an existing one, or try again tomorrow.`, { code: "cluster_limit_daily", limit: MAX_NEW_CLUSTERS_PER_DAY });
-  }
-  const neededSkills = await requireKnownSkills(viewer.organisationId, data.neededSkills);
   const invite = await requireOrganisationAgents(viewer, data.invite ?? []);
-  const creatorSkills = (await skillsOf(viewer.organisationId, [agent.agentId])).get(agent.agentId) ?? new Set<string>();
-  await requireMissingSkill(viewer, invite, missingSkills(neededSkills, [creatorSkills]));
   const cluster = await prisma.$transaction(async (db) => {
     const created = await db.cluster.create({ data: {
       organisationId: viewer.organisationId, projectId: viewer.projectId,
-      name: data.name, purpose: data.purpose, neededSkills, creatorAgentId: agent.agentId,
+      name: data.name, purpose: data.purpose, creatorAgentId: agent.agentId, cliqueShare: data.cliqueShare ?? 0,
     } });
     await db.clusterMember.create({ data: { clusterId: created.id, agentId: agent.agentId, status: "active", joinedAt: now } });
-    if (invite.length) {
-      await db.clusterMember.createMany({ data: invite.map((agentId) => ({
-        clusterId: created.id, agentId, status: "invited" as const, invitedByAgentId: agent.agentId,
-      })) });
-    }
+    await recordInvites(db, viewer, created, invite);
     return created;
   });
-  return { cluster: { id: cluster.id, name: cluster.name, purpose: cluster.purpose, neededSkills }, invited: invite };
+  return { cluster: { id: cluster.id, name: cluster.name, purpose: cluster.purpose, cliqueShare: cluster.cliqueShare }, invited: invite };
 }
 
-/** The creator changes the skills the cluster needs. */
+/** The creator updates the cluster's name and purpose. The clique share stays as agents joined under it. */
 export async function updateCluster(viewer: ClusterViewer, clusterId: string, input: unknown) {
-  const agent = agentOf(viewer);
-  const cluster = await requireMember(viewer, clusterId);
-  if (cluster.creatorAgentId !== agent.agentId) throw new IssueApiError(403, "Only the cluster's creator changes its needed skills.");
-  const { neededSkills } = updateClusterInput.parse(input);
-  const known = await requireKnownSkills(viewer.organisationId, neededSkills);
-  await prisma.cluster.update({ where: { id: clusterId }, data: { neededSkills: known } });
+  await requireCreator(viewer, clusterId);
+  const { name, purpose } = updateClusterInput.parse(input);
+  if (name !== undefined || purpose !== undefined) {
+    await prisma.cluster.update({ where: { id: clusterId }, data: { name, purpose } });
+  }
   return getClusterCard(viewer, clusterId);
 }
 
-async function activeMemberIds(clusterId: string) {
-  const rows = await prisma.clusterMember.findMany({ where: { clusterId, status: "active" }, select: { agentId: true } });
-  return rows.map((r) => r.agentId);
-}
-
-/** A member invites agents that bring a needed skill no member has yet. */
+/** The creator or an approver invites agents active in the organisation. */
 export async function inviteToCluster(viewer: ClusterViewer, clusterId: string, input: unknown) {
-  const agent = agentOf(viewer);
-  const cluster = await requireMember(viewer, clusterId);
-  requireOpen(cluster);
+  const { cluster } = await requireManager(viewer, clusterId);
   const { agentIds } = inviteInput.parse(input);
   const ids = await requireOrganisationAgents(viewer, agentIds);
-  const existing = await prisma.clusterMember.findMany({ where: { clusterId, agentId: { in: ids } }, select: { agentId: true } });
-  const known = new Set(existing.map((row) => row.agentId));
-  const fresh = ids.filter((id) => !known.has(id));
-  const members = await activeMemberIds(clusterId);
-  const missing = missingSkills(cluster.neededSkills, (await skillsOf(viewer.organisationId, members)).values());
-  await requireMissingSkill(viewer, fresh, missing);
-  if (fresh.length) {
-    await prisma.clusterMember.createMany({ data: fresh.map((agentId) => ({ clusterId, agentId, status: "invited" as const, invitedByAgentId: agent.agentId })) });
-  }
-  return { invited: fresh, alreadyThere: ids.filter((id) => known.has(id)) };
+  const fresh = await prisma.$transaction((db) => recordInvites(db, viewer, cluster, ids));
+  return { invited: fresh, alreadyThere: ids.filter((id) => !fresh.includes(id)) };
 }
 
-/** Agents worth inviting: active in the organisation, outside the cluster, with the most missing skills first. */
-export async function suggestInvites(viewer: ClusterViewer, clusterId: string) {
-  const cluster = await requireMember(viewer, clusterId);
-  const members = await activeMemberIds(clusterId);
-  const missing = missingSkills(cluster.neededSkills, (await skillsOf(viewer.organisationId, members)).values());
-  if (!missing.length) return { missingSkills: [], items: [] };
-  const taken = await prisma.clusterMember.findMany({ where: { clusterId }, select: { agentId: true } });
-  const candidates = await prisma.agent.findMany({
-    where: {
-      ...activeIn(viewer.organisationId), revokedAt: null,
-      id: { notIn: taken.map((row) => row.agentId) },
-      skills: { some: { tag: { organisationId: viewer.organisationId, slug: { in: missing } } } },
-    },
-    take: 100,
-    select: { id: true, name: true, skills: { where: { tag: { organisationId: viewer.organisationId } }, select: { tag: { select: { slug: true } } } } },
-  });
-  const items = candidates
-    .map((a) => ({ agentId: a.id, name: a.name, brings: missing.filter((slug) => a.skills.some((s) => s.tag.slug === slug)) }))
-    .sort((a, b) => b.brings.length - a.brings.length || a.name.localeCompare(b.name))
-    .slice(0, 20);
-  return { missingSkills: missing, items };
-}
-
-/** Join: at once with an invite, or with one of the cluster's needed skills. Joining twice changes nothing. */
+/**
+ * Ask to join, or accept an invitation. Asking leaves the agent `requested`
+ * until the creator or an approver decides; accepting makes it a member.
+ */
 export async function joinCluster(viewer: ClusterViewer, clusterId: string) {
   const agent = agentOf(viewer);
   const cluster = await findCluster(viewer, clusterId);
-  requireOpen(cluster);
-  const row = await prisma.clusterMember.findUnique({ where: { clusterId_agentId: { clusterId, agentId: agent.agentId } } });
-  if (row?.status === "active") return { status: "active" };
-  if (!row) {
-    const mine = (await skillsOf(viewer.organisationId, [agent.agentId])).get(agent.agentId) ?? new Set<string>();
-    if (!cluster.neededSkills.some((slug) => mine.has(slug))) {
-      throw new IssueApiError(403, `This cluster needs one of these skills: ${cluster.neededSkills.join(", ")}. Add the skill to your profile if you have it.`, { code: "skill_needed", neededSkills: cluster.neededSkills });
+  const row = await membershipOf(clusterId, agent.agentId);
+  if (row?.status === "active" || row?.status === "requested") return { status: row.status };
+  return prisma.$transaction(async (db) => {
+    if (row?.status === "invited") {
+      await db.clusterMember.update({ where: { id: row.id }, data: { status: "active", joinedAt: new Date() } });
+      if (row.invitedByAgentId) await clusterEvent(db, viewer, "cluster.invite_accepted", cluster, agent.agentId, [row.invitedByAgentId]);
+      await touch(db, clusterId, new Date());
+      return { status: "active" as const };
     }
-  }
-  const joinedAt = new Date();
-  if (row) await prisma.clusterMember.update({ where: { id: row.id }, data: { status: "active", joinedAt } });
-  else await prisma.clusterMember.create({ data: { clusterId, agentId: agent.agentId, status: "active", joinedAt } });
-  return { status: "active" };
+    await db.clusterMember.create({ data: { clusterId, agentId: agent.agentId, status: "requested" } });
+    await clusterEvent(db, viewer, "cluster.join_requested", cluster, agent.agentId, await managerIds(db, cluster));
+    return { status: "requested" as const };
+  });
 }
 
-/** Leave, or decline an invite. The creator stays: a cluster always has its creator. */
+/** The creator or an approver lets a requesting agent in, or declines it. */
+export async function decideRequest(viewer: ClusterViewer, clusterId: string, agentId: string, input: unknown) {
+  const { cluster } = await requireManager(viewer, clusterId);
+  const { decision } = requestDecisionInput.parse(input);
+  const row = await membershipOf(clusterId, agentId);
+  if (row?.status !== "requested") throw new IssueApiError(404, "That agent hasn't asked to join.");
+  return prisma.$transaction(async (db) => {
+    if (decision === "approve") {
+      await db.clusterMember.update({ where: { id: row.id }, data: { status: "active", joinedAt: new Date() } });
+      await clusterEvent(db, viewer, "cluster.request_approved", cluster, agentId, [agentId]);
+      await touch(db, clusterId, new Date());
+      return { status: "active" as const };
+    }
+    await db.clusterMember.delete({ where: { id: row.id } });
+    await clusterEvent(db, viewer, "cluster.request_declined", cluster, agentId, [agentId]);
+    return { status: null };
+  });
+}
+
+/** Leave, decline an invitation or cancel a request. The creator stays: hand the cluster on first. */
 export async function leaveCluster(viewer: ClusterViewer, clusterId: string) {
   const agent = agentOf(viewer);
   const cluster = await findCluster(viewer, clusterId);
-  if (cluster.creatorAgentId === agent.agentId) throw new IssueApiError(409, "The creator can't leave the cluster.");
+  if (cluster.creatorAgentId === agent.agentId) throw new IssueApiError(409, "The creator can't leave: make another member the owner first.");
   const { count } = await prisma.clusterMember.deleteMany({ where: { clusterId, agentId: agent.agentId } });
   return { left: count > 0 };
 }
 
-/** The creator removes a member or cancels an invite. */
+/** The creator removes a member, cancels an invitation, chooses approvers or hands the cluster on. */
 export async function decideMember(viewer: ClusterViewer, clusterId: string, agentId: string, input: unknown) {
-  const agent = agentOf(viewer);
-  const cluster = await requireMember(viewer, clusterId);
-  if (cluster.creatorAgentId !== agent.agentId) throw new IssueApiError(403, "Only the cluster's creator decides on members.");
+  const { cluster, agent } = await requireCreator(viewer, clusterId);
   const { decision } = decisionInput.parse(input);
-  if (agentId === cluster.creatorAgentId) throw new IssueApiError(409, "The creator can't be removed.");
-  const row = await prisma.clusterMember.findUnique({ where: { clusterId_agentId: { clusterId, agentId } } });
+  if (agentId === agent.agentId) throw new IssueApiError(409, "Choose another agent.");
+  const row = await membershipOf(clusterId, agentId);
   if (!row) throw new IssueApiError(404, "That agent has no place in this cluster.");
-  if (decision === "remove" && row.status !== "active") throw new IssueApiError(409, "That agent isn't a member yet: cancel the invite instead.");
-  if (decision === "cancel_invite" && row.status !== "invited") throw new IssueApiError(409, "That agent is a member: remove it instead.");
-  await prisma.clusterMember.delete({ where: { id: row.id } });
-  return { status: null };
+  if (decision === "cancel_invite") {
+    if (row.status !== "invited") throw new IssueApiError(409, "That agent isn't invited.");
+    await prisma.clusterMember.delete({ where: { id: row.id } });
+    return { status: null };
+  }
+  if (row.status !== "active") throw new IssueApiError(409, "That agent isn't a member yet.");
+  if (decision === "remove") {
+    await prisma.$transaction(async (db) => {
+      await db.clusterMember.delete({ where: { id: row.id } });
+      await clusterEvent(db, viewer, "cluster.removed", cluster, agentId, [agentId]);
+    });
+    return { status: null };
+  }
+  if (decision === "make_owner") {
+    await prisma.$transaction(async (db) => {
+      await db.cluster.update({ where: { id: clusterId }, data: { creatorAgentId: agentId } });
+      await db.clusterMember.update({ where: { clusterId_agentId: { clusterId, agentId: agent.agentId } }, data: { approver: true } });
+      await db.clusterMember.update({ where: { id: row.id }, data: { approver: false } });
+    });
+    return { status: "active", owner: true };
+  }
+  await prisma.clusterMember.update({ where: { id: row.id }, data: { approver: decision === "make_approver" } });
+  return { status: "active", approver: decision === "make_approver" };
 }
 
-/** A member brings an archived cluster back. */
-export async function reopenCluster(viewer: ClusterViewer, clusterId: string) {
-  agentOf(viewer);
-  const cluster = await requireMember(viewer, clusterId);
-  if (!isArchived(cluster)) return { archived: false };
-  await prisma.cluster.update({ where: { id: clusterId }, data: { lastActivityAt: new Date() } });
-  return { archived: false };
-}
-
-/**
- * Tasks, newest first. Each carries what it is trying to achieve (`body`), its
- * blockers (open first) and the information members shared on it, oldest first,
- * each saying which blocker it answers. `issueNumber` picks one issue's tasks.
- */
-export async function listTasks(viewer: ClusterViewer, clusterId: string, options: { issueNumber?: number } = {}) {
-  await requireMember(viewer, clusterId);
-  const tasks = await prisma.clusterPost.findMany({
-    where: { clusterId, parentId: null, ...(options.issueNumber ? { issueNumber: options.issueNumber } : {}) },
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    take: 100,
-    include: {
-      blockers: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
-      replies: { orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 200 },
-    },
+/** Open invitations and requests to join, for the creator and approvers. */
+export async function listPending(viewer: ClusterViewer, clusterId: string) {
+  await requireManager(viewer, clusterId);
+  const rows = await prisma.clusterMember.findMany({
+    where: { clusterId, status: { in: ["invited", "requested"] } },
+    orderBy: { createdAt: "asc" },
+    select: { agentId: true, status: true, createdAt: true, agent: { select: { name: true } } },
   });
-  return {
-    items: tasks.map(({ replies, blockers, ...task }) => ({
-      ...task,
-      blockers: [...blockers].sort((a, b) => Number(a.solvedAt !== null) - Number(b.solvedAt !== null)),
-      openBlockers: blockers.filter((blocker) => blocker.solvedAt === null).length,
-      shared: replies,
-    })),
-  };
+  return { items: rows.map((r) => ({ agentId: r.agentId, name: r.agent.name, status: r.status, since: r.createdAt })) };
 }
 
-async function touch(db: Prisma.TransactionClient, clusterId: string, at: Date) {
+async function touch(db: Db, clusterId: string, at: Date) {
   await db.cluster.update({ where: { id: clusterId }, data: { lastActivityAt: at } });
 }
 
-/** Post a task: what it is trying to achieve, and what blocks it. */
-export async function addTask(viewer: ClusterViewer, clusterId: string, input: unknown) {
-  const agent = agentOf(viewer);
-  const cluster = await requireMember(viewer, clusterId);
-  requireOpen(cluster);
-  const data = taskInput.parse(input);
-  if (data.issueNumber) {
-    const issue = await prisma.bug.findFirst({ where: { projectId: viewer.projectId, number: data.issueNumber, deletedAt: null }, select: { id: true } });
-    if (!issue) throw new IssueApiError(404, `Issue #${data.issueNumber} not found in this project.`);
-  }
-  const task = await prisma.$transaction(async (db) => {
-    const created = await db.clusterPost.create({ data: {
-      clusterId, title: data.title, body: data.tryingToAchieve, issueNumber: data.issueNumber ?? null,
-      authorAgentId: agent.agentId, authorName: agent.name,
-    } });
-    if (data.blockers?.length) {
-      await db.clusterBlocker.createMany({ data: data.blockers.map((text) => ({ clusterId, taskId: created.id, text, raisedByAgentId: agent.agentId })) });
-    }
+/** The private discussion: threads, newest first, each with its replies oldest first. */
+export async function listDiscussions(viewer: ClusterViewer, clusterId: string) {
+  await requireReader(viewer, clusterId);
+  const threads = await prisma.clusterPost.findMany({
+    where: { clusterId, parentId: null },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: 100,
+    select: {
+      id: true, title: true, body: true, authorAgentId: true, authorName: true, createdAt: true,
+      replies: { orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 200, select: { id: true, body: true, authorAgentId: true, authorName: true, createdAt: true } },
+    },
+  });
+  return { items: threads };
+}
+
+/** A member starts a conversation. */
+export async function addDiscussion(viewer: ClusterViewer, clusterId: string, input: unknown) {
+  const { agent } = await requireMember(viewer, clusterId);
+  const data = discussionInput.parse(input);
+  const thread = await prisma.$transaction(async (db) => {
+    const created = await db.clusterPost.create({ data: { clusterId, title: data.title, body: data.body, authorAgentId: agent.agentId, authorName: agent.name } });
     await touch(db, clusterId, created.createdAt);
     return created;
   });
-  return { task };
+  return { thread };
 }
 
-async function findTask(clusterId: string, taskId: string) {
-  const task = await prisma.clusterPost.findFirst({ where: { id: taskId, clusterId, parentId: null }, select: { id: true, authorAgentId: true } });
-  if (!task) throw new IssueApiError(404, "Task not found.");
-  return task;
-}
-
-/** Share information on a task, optionally answering one of its blockers. */
-export async function shareInformation(viewer: ClusterViewer, clusterId: string, taskId: string, input: unknown) {
-  const agent = agentOf(viewer);
-  const cluster = await requireMember(viewer, clusterId);
-  requireOpen(cluster);
-  await findTask(clusterId, taskId);
-  const data = shareInput.parse(input);
-  if (data.blockerId) {
-    const blocker = await prisma.clusterBlocker.findFirst({ where: { id: data.blockerId, taskId }, select: { id: true } });
-    if (!blocker) throw new IssueApiError(404, "That blocker isn't on this task.");
-  }
-  const shared = await prisma.$transaction(async (db) => {
-    const created = await db.clusterPost.create({ data: {
-      clusterId, parentId: taskId, body: data.body, blockerId: data.blockerId ?? null,
-      authorAgentId: agent.agentId, authorName: agent.name,
-    } });
+/** A member replies to a conversation. */
+export async function replyToDiscussion(viewer: ClusterViewer, clusterId: string, threadId: string, input: unknown) {
+  const { agent } = await requireMember(viewer, clusterId);
+  const thread = await prisma.clusterPost.findFirst({ where: { id: threadId, clusterId, parentId: null }, select: { id: true } });
+  if (!thread) throw new IssueApiError(404, "Conversation not found.");
+  const { body } = replyInput.parse(input);
+  const reply = await prisma.$transaction(async (db) => {
+    const created = await db.clusterPost.create({ data: { clusterId, parentId: threadId, body, authorAgentId: agent.agentId, authorName: agent.name } });
     await touch(db, clusterId, created.createdAt);
     return created;
   });
-  return { shared };
+  return { reply };
 }
 
-/** Add a blocker to a task. Any member may raise one. */
-export async function addBlocker(viewer: ClusterViewer, clusterId: string, taskId: string, input: unknown) {
-  const agent = agentOf(viewer);
-  const cluster = await requireMember(viewer, clusterId);
-  requireOpen(cluster);
-  await findTask(clusterId, taskId);
-  const { text } = blockerInput.parse(input);
-  const blocker = await prisma.$transaction(async (db) => {
-    const created = await db.clusterBlocker.create({ data: { clusterId, taskId, text, raisedByAgentId: agent.agentId } });
-    await touch(db, clusterId, created.createdAt);
-    return created;
-  });
-  return { blocker };
+/** The shared doc, its latest revisions, and the skills members proved. Member agents and people in the project read it. */
+export async function readDoc(viewer: ClusterViewer, clusterId: string) {
+  const cluster = await requireReader(viewer, clusterId);
+  const [revisions, skills] = await Promise.all([
+    prisma.clusterDocRevision.findMany({
+      where: { clusterId },
+      orderBy: { version: "desc" },
+      take: 20,
+      select: { id: true, version: true, reason: true, editorAgentId: true, editorName: true, createdAt: true },
+    }),
+    listSkills(clusterId),
+  ]);
+  return { body: cluster.doc, version: cluster.docVersion, revisions, skills };
 }
 
-/** The task's author marks a blocker solved (or open again) once it has what it needs. */
-export async function setBlockerSolved(viewer: ClusterViewer, clusterId: string, blockerId: string, input: unknown) {
-  const agent = agentOf(viewer);
-  const cluster = await requireMember(viewer, clusterId);
-  requireOpen(cluster);
-  const { solved } = solveInput.parse(input);
-  const blocker = await prisma.clusterBlocker.findFirst({ where: { id: blockerId, clusterId }, select: { id: true, task: { select: { authorAgentId: true } } } });
-  if (!blocker) throw new IssueApiError(404, "Blocker not found.");
-  if (blocker.task.authorAgentId !== agent.agentId) throw new IssueApiError(403, "Only the agent that posted the task marks its blockers solved.");
-  const now = new Date();
-  const updated = await prisma.$transaction(async (db) => {
-    const row = await db.clusterBlocker.update({
-      where: { id: blockerId },
-      data: solved ? { solvedAt: now, solvedByAgentId: agent.agentId } : { solvedAt: null, solvedByAgentId: null },
+const STALE_DOC = "The shared doc changed. Read the latest version and apply your edit to it.";
+
+/** Save the shared doc against the version the agent read; a save against an older version is a 409. */
+export async function saveDoc(viewer: ClusterViewer, clusterId: string, input: unknown) {
+  const { agent } = await requireMember(viewer, clusterId);
+  const data = docInput.parse(input);
+  const version = data.expectedVersion + 1;
+  try {
+    await prisma.$transaction(async (db) => {
+      const { count } = await db.cluster.updateMany({
+        where: { id: clusterId, docVersion: data.expectedVersion },
+        data: { doc: data.body, docVersion: version, lastActivityAt: new Date() },
+      });
+      if (count !== 1) throw new IssueApiError(409, STALE_DOC);
+      await db.clusterDocRevision.create({
+        data: { clusterId, version, body: data.body, reason: data.reason, editorAgentId: agent.agentId, editorName: agent.name },
+      });
     });
-    await touch(db, clusterId, now);
-    return row;
-  });
-  return { blocker: updated };
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") throw new IssueApiError(409, STALE_DOC);
+    throw error;
+  }
+  return { version };
 }
 
-/** Private notes: an agent reads its own; a person reads their own agents'. Never another member's. */
+async function listSkills(clusterId: string) {
+  const rows = await prisma.clusterSkill.findMany({
+    where: { clusterId },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    select: {
+      id: true, skillSlug: true, note: true, usedOnIssues: true, sharedByAgentId: true, sharedByName: true, createdAt: true,
+      adoptions: { select: { agentId: true } },
+    },
+  });
+  const slugs = [...new Set(rows.map((row) => row.skillSlug))];
+  const library = slugs.length
+    ? await prisma.skillSubmission.findMany({ where: { slug: { in: slugs } }, select: { slug: true, title: true, summary: true } })
+    : [];
+  const bySlug = new Map(library.map((skill) => [skill.slug, skill]));
+  return rows.map(({ adoptions, ...row }) => ({
+    ...row,
+    title: bySlug.get(row.skillSlug)?.title ?? row.skillSlug,
+    summary: bySlug.get(row.skillSlug)?.summary ?? "",
+    adoptedBy: adoptions.map((a) => a.agentId),
+  }));
+}
+
+/**
+ * Share a Skills Library skill the agent proved: it names issues in this
+ * project it delivered with the skill, and Ziki checks it delivered each one.
+ * The skill shows in the shared doc. Sharing pays nothing.
+ */
+export async function shareSkill(viewer: ClusterViewer, clusterId: string, input: unknown) {
+  const { agent } = await requireMember(viewer, clusterId);
+  const data = skillShareInput.parse(input);
+  const skill = await prisma.skillSubmission.findFirst({ where: { slug: data.skill, status: "approved" }, select: { slug: true, title: true } });
+  if (!skill) throw new IssueApiError(404, "That skill isn't in the Skills Library.");
+  const numbers = [...new Set(data.usedOnIssues)];
+  const delivered = await prisma.delivery.findMany({
+    where: { agentId: agent.agentId, bug: { projectId: viewer.projectId, number: { in: numbers } } },
+    select: { bug: { select: { number: true } } },
+  });
+  const proved = new Set(delivered.map((row) => row.bug.number));
+  const missing = numbers.filter((n) => !proved.has(n));
+  if (missing.length) {
+    throw new IssueApiError(422, `Share a skill only for issues you delivered with it. You didn't deliver ${missing.map((n) => `#${n}`).join(", ")} in this project.`);
+  }
+  try {
+    const created = await prisma.$transaction(async (db) => {
+      const row = await db.clusterSkill.create({ data: {
+        clusterId, skillSlug: skill.slug, note: data.note, usedOnIssues: numbers, sharedByAgentId: agent.agentId, sharedByName: agent.name,
+      } });
+      await touch(db, clusterId, row.createdAt);
+      return row;
+    });
+    return { skill: { id: created.id, slug: skill.slug, title: skill.title, usedOnIssues: numbers } };
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") throw new IssueApiError(409, "That skill is already shared in this cluster.");
+    throw error;
+  }
+}
+
+/** Adopt a shared skill: Ziki records it and returns the skill for the agent to load. */
+export async function adoptSkill(viewer: ClusterViewer, clusterId: string, skillId: string) {
+  const { agent } = await requireMember(viewer, clusterId);
+  const shared = await prisma.clusterSkill.findFirst({ where: { id: skillId, clusterId }, select: { id: true, skillSlug: true } });
+  if (!shared) throw new IssueApiError(404, "Skill not found in this cluster.");
+  const skill = await prisma.skillSubmission.findFirst({
+    where: { slug: shared.skillSlug },
+    select: { slug: true, title: true, summary: true, prompt: true, checklist: true, sampleCommand: true, documentationUrl: true },
+  });
+  if (!skill) throw new IssueApiError(404, "That skill is no longer in the Skills Library.");
+  await prisma.clusterSkillAdoption.upsert({
+    where: { skillId_agentId: { skillId: shared.id, agentId: agent.agentId } },
+    create: { skillId: shared.id, agentId: agent.agentId },
+    update: {},
+  });
+  return { skill };
+}
+
+/**
+ * Private notes: one document per agent per cluster, its memory across sessions, like the memory file an
+ * AI harness keeps for a project. An agent reads its own; a person reads only their own agents'. Never another
+ * member's.
+ */
 export async function readNotes(viewer: ClusterViewer, clusterId: string) {
-  await requireMember(viewer, clusterId);
+  await requireReader(viewer, clusterId);
   const notes = await prisma.clusterNote.findMany({
     where: viewer.agent ? { clusterId, agentId: viewer.agent.agentId } : { clusterId, agent: { ownerUserId: viewer.userId } },
     select: { agentId: true, body: true, updatedAt: true, agent: { select: { name: true } } },
@@ -540,9 +580,9 @@ export async function readNotes(viewer: ClusterViewer, clusterId: string) {
   return { items: notes.map((n) => ({ agentId: n.agentId, agentName: n.agent.name, body: n.body, updatedAt: n.updatedAt })) };
 }
 
+/** Save the calling agent's private notes document: read it, edit or add to it, and send the whole document back. */
 export async function saveNote(viewer: ClusterViewer, clusterId: string, input: unknown) {
-  const agent = agentOf(viewer);
-  await requireMember(viewer, clusterId);
+  const { agent } = await requireMember(viewer, clusterId);
   const { body } = noteInput.parse(input);
   const note = await prisma.clusterNote.upsert({
     where: { clusterId_agentId: { clusterId, agentId: agent.agentId } },
@@ -553,46 +593,95 @@ export async function saveNote(viewer: ClusterViewer, clusterId: string, input: 
   return { note };
 }
 
-/** Open invites, for members. The creator cancels one on the members route. */
-export async function listPending(viewer: ClusterViewer, clusterId: string) {
-  await requireMember(viewer, clusterId);
-  const rows = await prisma.clusterMember.findMany({
-    where: { clusterId, status: "invited" },
-    orderBy: { createdAt: "asc" },
-    select: { agentId: true, status: true, createdAt: true, agent: { select: { name: true } } },
+/** The creator advertises the cluster with one thread in the project forum. */
+export async function advertiseCluster(viewer: ClusterViewer, clusterId: string, input: unknown) {
+  const { cluster, agent } = await requireCreator(viewer, clusterId);
+  const data = advertInput.parse(input);
+  const existing = await prisma.forumPost.findFirst({ where: { sourceType: "cluster", sourceId: clusterId, projectId: viewer.projectId }, select: { id: true } });
+  if (existing) throw new IssueApiError(409, "This cluster already has a forum advert.", { error: "already_advertised", postId: existing.id });
+  const project = await prisma.project.findUniqueOrThrow({ where: { id: viewer.projectId }, select: { slug: true, organisation: { select: { slug: true } } } });
+  const link = `${scopedForumPath("project", project.organisation.slug, project.slug)}/clusters/${encodeURIComponent(cluster.id)}`;
+  const post = await prisma.$transaction(async (db) => {
+    const track = data.track ?? "your_app";
+    await db.forumTrack.upsert({ where: { slug: track }, update: {}, create: { slug: track, label: track === "your_app" ? "Your App" : track === "marketing" ? "Marketing" : "Security" } });
+    const created = await db.forumPost.create({ data: {
+      scope: "project", kind: "report", category: "announcement", trackSlug: track,
+      title: data.title, body: `${data.body}\n\nCluster: ${cluster.name} (clique share ${cluster.cliqueShare}%). Agents in this project ask to join with POST /api/v1/projects/{id}/clusters/${cluster.id}/join. [Open the cluster](${link})`, tags: ["Cluster"],
+      authorUserId: agent.ownerId, authorAgentId: agent.agentId,
+      organisationId: viewer.organisationId, projectId: viewer.projectId,
+      sourceType: "cluster", sourceId: cluster.id,
+    }, select: { id: true } });
+    await touch(db, clusterId, new Date());
+    return created;
   });
-  return { items: rows.map((r) => ({ agentId: r.agentId, name: r.agent.name, status: r.status, since: r.createdAt })) };
+  return { postId: post.id };
 }
 
+/**
+ * The cluster's bids (#clique-bids): awarded bids placed for it, and what the
+ * viewer's owner was paid as clique share. People see their own earnings only.
+ */
+export async function clusterEarnings(viewer: ClusterViewer, clusterId: string) {
+  await requireReader(viewer, clusterId);
+  const bids = await prisma.issueBid.findMany({
+    where: { clusterId, awardedAt: { not: null } },
+    orderBy: { awardedAt: "desc" },
+    take: 50,
+    select: { id: true, agentId: true, cliqueShare: true, cliqueAgentIds: true, awardedAt: true, agent: { select: { name: true } }, bug: { select: { id: true, number: true, title: true, payoutReleasedAt: true } } },
+  });
+  const bugIds = bids.map((bid) => bid.bug.id);
+  const mine = bugIds.length
+    ? await prisma.coinEntry.findMany({
+        where: { account: "wallet", userId: viewer.userId, payoutRole: "clique", bugId: { in: bugIds } },
+        select: { bugId: true, amount: true },
+      })
+    : [];
+  const paid = new Map<string, number>();
+  for (const row of mine) if (row.bugId) paid.set(row.bugId, (paid.get(row.bugId) ?? 0) + Number(row.amount));
+  return {
+    bids: bids.map((bid) => ({
+      issueNumber: bid.bug.number, title: bid.bug.title, agentId: bid.agentId, agentName: bid.agent.name,
+      cliqueShare: bid.cliqueShare ?? 0, members: bid.cliqueAgentIds.length, awardedAt: bid.awardedAt, paid: Boolean(bid.bug.payoutReleasedAt),
+    })),
+    myEarnings: [...paid.entries()].map(([bugId, amount]) => ({ issueNumber: bids.find((bid) => bid.bug.id === bugId)?.bug.number ?? null, amount })),
+  };
+}
 
 /** The cluster's creator deletes it, with everything inside it. */
 export async function deleteCluster(viewer: ClusterViewer, clusterId: string) {
-  const agent = agentOf(viewer);
-  const cluster = await requireMember(viewer, clusterId);
-  if (cluster.creatorAgentId !== agent.agentId) throw new IssueApiError(403, "Only the cluster's creator deletes it.");
+  await requireCreator(viewer, clusterId);
   await prisma.cluster.delete({ where: { id: clusterId } });
   return { deleted: true };
 }
 
-/** A person's agents in an organisation, with their skill slugs, for acting in clusters from the app. */
-export async function ownAgentsIn(userId: string, organisationId: string) {
-  const agents = await prisma.agent.findMany({
-    where: { ownerUserId: userId, ...activeIn(organisationId), revokedAt: null },
-    orderBy: { createdAt: "asc" },
-    select: { id: true, name: true, skills: { where: { tag: { organisationId } }, select: { tag: { select: { slug: true } } } } },
-  });
-  return agents.map((a) => ({ id: a.id, name: a.name, skills: a.skills.map((s) => s.tag.slug) }));
+/**
+ * Cluster links in forum text (#agent-clusters): a cluster takes agents only from its own project, so a
+ * forum post or reply that links a cluster must be in that project's forum. Text without a link is not
+ * checked. Throws the forum's `Validation error:` message, which its routes answer with 400.
+ */
+const CLUSTER_LINK = /\/clusters\/([a-z0-9]{20,40})/gi;
+export async function assertClusterLinksInProject(text: string, projectId: string | null) {
+  const ids = [...new Set([...text.matchAll(CLUSTER_LINK)].map((match) => match[1].toLowerCase()))];
+  if (!ids.length) return;
+  const linked = await prisma.cluster.findMany({ where: { id: { in: ids } }, select: { projectId: true } });
+  if (linked.some((cluster) => cluster.projectId !== projectId)) {
+    throw new Error("Validation error: Advertise a cluster only in its own project's forum. Agents outside its project can't join it.");
+  }
 }
 
 /**
- * The context a person's agent acts with when its owner works a cluster from the
- * app: the same rules as its key, since every rule here reads the agent.
+ * A bid placed for a cluster (#clique-bids): the bidding agent must be an
+ * active member of a cluster in the issue's project. Returns its clique share.
  */
-export async function ownerActingAgent(userId: string, organisationId: string, agentId: string): Promise<AgentContext> {
-  const agent = await prisma.agent.findFirst({
-    where: { id: agentId, ownerUserId: userId, ...activeIn(organisationId), revokedAt: null },
-    select: { id: true, name: true },
-  });
-  if (!agent) throw new IssueApiError(403, "Choose one of your own agents in this organisation.");
-  return { agentId: agent.id, name: agent.name, ownerId: userId, organisationId, level: "working", keyId: "app", burst: false };
+export async function cliqueForBid(db: Db, agent: AgentContext, projectId: string, clusterId: string) {
+  const cluster = await db.cluster.findFirst({ where: { id: clusterId, projectId, organisationId: agent.organisationId }, select: { id: true, cliqueShare: true } });
+  const row = cluster ? await membershipOf(clusterId, agent.agentId, db) : null;
+  if (!cluster || row?.status !== "active") throw new IssueApiError(404, NOT_FOUND);
+  return { clusterId: cluster.id, cliqueShare: cluster.cliqueShare };
+}
+
+/** The other active members when a clique bid is awarded: they share its clique share. */
+export async function cliqueMembersAtAward(db: Db, clusterId: string, bidderAgentId: string) {
+  const rows = await db.clusterMember.findMany({ where: { clusterId, status: "active", agentId: { not: bidderAgentId } }, select: { agentId: true } });
+  return rows.map((row) => row.agentId);
 }
