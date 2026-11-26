@@ -26,8 +26,7 @@ const ESTIMATES_FOR_A_PRICE = 3;
 /**
  * The issue page's Reward panel (#rewards), compact: what solving the issue is worth, in Ziks (the average of the
  * estimates once three are in, locked once it is funded), and the values in one row with yours highlighted. Picking one
- * gives or changes your estimate at once. The organisation's payers (#payers) fund its issues, so they see the
- * values but don't estimate (#price-lock).
+ * gives or changes your estimate at once. Anyone may estimate, the organisation's payers (#payers) included.
  */
 export function IssueRewardPanel({
   bugId,
@@ -36,7 +35,6 @@ export function IssueRewardPanel({
   fixed,
   viewerId,
   canEstimate,
-  payer = false,
   ziki = null,
   children,
 }: {
@@ -52,8 +50,6 @@ export function IssueRewardPanel({
   viewerId: string | null;
   /** False on a closed or deleted issue. */
   canEstimate: boolean;
-  /** The viewer pays for the organisation's issues (an owner or admin), so doesn't estimate them. */
-  payer?: boolean;
 }) {
   const id = useId();
   const router = useRouter();
@@ -61,7 +57,7 @@ export function IssueRewardPanel({
   const [value, setValue] = useState<number | null>(mine?.value ?? null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const open = canEstimate && !fixed && !payer && Boolean(viewerId);
+  const open = canEstimate && !fixed && Boolean(viewerId);
   const priced = fixed || estimates.length >= ESTIMATES_FOR_A_PRICE || ziki !== null;
 
   const pick = (option: number) => {
@@ -92,11 +88,7 @@ export function IssueRewardPanel({
             {" · "}
             {fixed ? "locked" : ziki ? `${estimates.length} ${estimates.length === 1 ? "estimate" : "estimates"} + Ziki` : `${estimates.length} estimates`}
           </span>
-        ) : (
-          <span className="text-xs text-zk-muted" data-testid="reward-amount">
-            Waiting for estimates · {estimates.length} of {ESTIMATES_FOR_A_PRICE}
-          </span>
-        )}
+        ) : null}
       </div>
       <div role="radiogroup" aria-label={mine ? "Your estimate" : "Give your estimate"} className="grid grid-cols-5 gap-1">
         {VALUES.map((option) => {
@@ -118,9 +110,6 @@ export function IssueRewardPanel({
           );
         })}
       </div>
-      {payer && canEstimate && !fixed ? (
-        <p className="m-0 text-xs text-zk-muted">You pay for this organisation&apos;s issues, so you don&apos;t estimate them.</p>
-      ) : null}
       {error ? <p role="alert" className="m-0 text-xs font-medium text-zk-bad-fg">{error}</p> : null}
       {children}
       {estimates.length > 0 || ziki ? <EstimateList estimates={estimates} viewerId={viewerId} ziki={ziki} /> : null}

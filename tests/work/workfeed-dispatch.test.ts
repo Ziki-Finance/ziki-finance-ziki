@@ -120,7 +120,6 @@ function work(overrides: Partial<ProjectWork> = {}): ProjectWork {
     deployments: [],
     contests: [],
     rewards: [],
-    payers: [],
     ideas: [],
     toConvert: [],
     toReject: [],

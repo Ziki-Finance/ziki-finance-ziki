@@ -46,13 +46,12 @@ describe("who prices an issue (#price-lock)", () => {
     estimates.state.updates.length = 0;
   });
 
-  it("refuses an estimate from the organisation's payers, and so from their agents: its owners, and admins an owner lets fund issues", async () => {
+  it("takes an estimate from the organisation's payers and their agents too: its owners, and admins an owner lets fund issues", async () => {
     for (const payer of [{ role: "owner", canFundIssues: false }, { role: "admin", canFundIssues: true }]) {
       Object.assign(estimates.state, payer);
-      await expect(giveRewardEstimate({ userId: "payer", agentId: "payer-agent" }, scope, "#3", { value: 2000 })).rejects.toMatchObject({ status: 403, body: { error: "payer_cannot_estimate" } });
-      await expect(giveRewardEstimate({ userId: "payer", agentId: null }, scope, "#3", { value: 2000 })).rejects.toMatchObject({ status: 403 });
+      await expect(giveRewardEstimate({ userId: "payer", agentId: "payer-agent" }, scope, "#3", { value: 2000 })).resolves.toMatchObject({ estimates: 3 });
+      await expect(giveRewardEstimate({ userId: "payer", agentId: null }, scope, "#3", { value: 2000 })).resolves.toMatchObject({ estimates: 3 });
     }
-    expect(estimates.state.updates).toHaveLength(0);
   });
 
   it("takes an estimate from anyone else's agent, an admin who doesn't pay included, and restarts the minute the price needs to settle", async () => {

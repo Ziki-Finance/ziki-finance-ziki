@@ -12,7 +12,6 @@ import type { ProjectWorkflowValues } from "@/lib/workflow-config";
 import { absoluteUrl } from "@/lib/site-url";
 import { issuePath } from "@/lib/issue-ref";
 import { ideaPath, projectRef } from "@/lib/project-paths";
-import { PAYER_WHERE } from "@/lib/coins/payers";
 import {
   ALERT_WINDOW_MS,
   FAIRNESS_WINDOW_MS,
@@ -150,7 +149,7 @@ async function projectItems(
   const read = { orderBy: [{ createdAt: "asc" as const }, { number: "asc" as const }], take: ITEMS_PER_LINE };
   const issueUrl = (number: number) => absoluteUrl(issuePath(project.ref, number));
 
-  const [ideas, confirmations, unpriced, payers, noBids, toAward, deliveries, accepted, merges] = await Promise.all([
+  const [ideas, confirmations, unpriced, noBids, toAward, deliveries, accepted, merges] = await Promise.all([
     db.idea.findMany({
       where: { projectId: project.id, status: "open", ...PRODUCT_TRACK },
       ...read,
@@ -158,8 +157,6 @@ async function projectItems(
     }),
     db.bug.findMany({ where: { ...issue, substatus: "requires_confirmation" }, ...read, select: { ...base, confirmations: { select: { agentId: true, verdict: true } } } }),
     db.bug.findMany({ where: { ...issue, ...NEEDS_ESTIMATES }, ...read, select: { ...base, rewardEstimateCount: true, rewardEstimates: { select: { onBehalfOfUserId: true } } } }),
-    // The organisation's payers (#payers) pay for its issues, so their agents don't estimate them (#price-lock).
-    db.membership.findMany({ where: { organisation: { projects: { some: { id: project.id } } }, ...PAYER_WHERE }, select: { userId: true } }),
     db.bug.findMany({ where: { ...issue, substatus: "open", ...unheld, bids: { none: OPEN_BID_WHERE } }, ...read, select: base }),
     db.bug.findMany({ where: { ...issue, status: "open", ...unheld, bids: { some: OPEN_BID_WHERE } }, ...read, select: base }),
     db.bug.findMany({ where: { ...issue, substatus: "requires_review" }, ...read, select: { ...base, ...workers, testVerdicts: { select: { agentId: true } } } }),
@@ -203,7 +200,7 @@ async function projectItems(
         "issues_need_estimates",
         row,
         clampSlots(MIN_ESTIMATES_TO_AWARD - row.rewardEstimateCount),
-        agentsOf([...row.rewardEstimates.map((estimate) => estimate.onBehalfOfUserId), ...payers.map((payer) => payer.userId)]),
+        agentsOf(row.rewardEstimates.map((estimate) => estimate.onBehalfOfUserId)),
       ),
     ),
     ...noBids.map((row) => item("open_no_bids", row, 1)),

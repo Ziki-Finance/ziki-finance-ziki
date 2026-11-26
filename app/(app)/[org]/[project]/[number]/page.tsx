@@ -12,6 +12,9 @@ import { SITE_NAME } from "@/lib/seo/site";
 import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { ideaNumberPath } from "@/lib/numbered-path";
 import { prisma } from "@/lib/prisma";
+import { MENU_ITEM_CLASS, MenuIcon } from "@/components/menu-item";
+import { attachmentKind } from "@/lib/attachments";
+import { BASE_PATH } from "@/lib/base-path";
 import { agentMentionId } from "@/lib/mentions";
 import { requireUser } from "@/lib/auth-helpers";
 import { bugInOrganisation, currentOrganisationIdFor } from "@/lib/organisation-context";
@@ -150,7 +153,6 @@ import { organisationMemberWhere } from "@/lib/organisation-mentions";
 import { readAgentResolution } from "@/lib/agent-resolution";
 import { AgentResolvedNotice } from "@/components/agent-resolved-notice";
 import { SubmissionEvidence } from "@/components/submission-evidence";
-import { ScreenshotsPanel } from "@/components/screenshots-panel";
 import { GitHubStatusPanel, type GitHubStatusPanelProps } from "@/components/github-status-panel";
 import { storedGitHubStatus } from "@/lib/github/sync";
 import { lastReadyPreviewUrl, latestPreviewBuild } from "@/lib/previews/builds";
@@ -165,7 +167,6 @@ import "./issue-detail.css";
 import { stateLabel } from "@/lib/labels";
 import { IssueRewardPanel } from "@/components/issue-reward-panel";
 import { rewardEstimatesFor } from "@/lib/agent-api/reward-estimates";
-import { isPayer } from "@/lib/coins/payers";
 import { activeIn, activeLevels, levelIn } from "@/lib/agents/active-in";
 
 type BugPageProps = {
@@ -808,15 +809,13 @@ export default async function BugDetailPage({ params, searchParams }: BugPagePro
   // #idea-table: the idea this issue was converted from.
   const sourceIdea = bug.idea;
   // #rewards: what solving it pays, and every estimate behind it (planning poker).
-  const [rewardRow, rewardEstimates, rewardPayer] = await Promise.all([
+  const [rewardRow, rewardEstimates] = await Promise.all([
     // A Solo project (#solo) has no prices, so its issues show no Reward panel.
     prisma.bug.findUnique({
       where: { id: bug.id, project: { solo: false } },
       select: { reward: true, rewardEstimateCount: true, rewardOverrideZik: true, rewardFixedAt: true, lockedPriceZik: true, zikiEstimateZik: true, zikiEstimateReason: true },
     }),
     loadOptional<Awaited<ReturnType<typeof rewardEstimatesFor>>>("reward estimates", [], () => rewardEstimatesFor(bug.id)),
-    // #price-lock, #payers: the organisation's payers fund its issues, so they don't estimate them.
-    loadOptional("reward payer", false, () => isPayer(prisma, user.id, bug.organisationId)),
   ]);
   const confirmationsData = await loadOptional<(ConfirmationsData & { confirmed?: boolean }) | null>("confirmations", null, () =>
     // #confirmation-files: other confirmers' files show once the viewer has confirmed (admins always).
@@ -1114,12 +1113,21 @@ export default async function BugDetailPage({ params, searchParams }: BugPagePro
     return meta && (meta.screenshots || meta.testResults || meta.field === "pullRequestUrl");
   });
   const prMeta = prActivity?.metadata as Record<string, unknown> | null;
-  // Screenshots have their own panel (#screenshots-panel): image links leave the Links card and join the delivery's.
+  // Image links leave the Links card and show with the screenshots at the left of the description (#description-screenshots).
   const isImageLink = (link: string) => /\.(png|jpe?g|webp|gif|svg)($|\?)/i.test(link);
   const linkOnlyProofs = proofLinks.filter((link) => !isImageLink(link));
   const submissionScreenshots: string[] = [
     ...new Set([...(Array.isArray(prMeta?.screenshots) ? (prMeta?.screenshots as string[]) : []), ...proofLinks.filter(isImageLink)]),
   ];
+  // The issue's screenshots (#description-screenshots), at the left of its description: its own image attachments,
+  // then the delivery's screenshots and image links. Other attachments stay in Attachments.
+  const descriptionScreenshots = [
+    ...new Set([
+      ...issueAttachments.filter((a) => attachmentKind(a.contentType) === "image").map((a) => `${BASE_PATH}/api/attachments/${a.id}`),
+      ...submissionScreenshots,
+    ]),
+  ];
+  const fileAttachments = issueAttachments.filter((a) => attachmentKind(a.contentType) !== "image");
   const submissionTestResults = (prMeta?.testResults as string | Record<string, unknown> | null) ?? null;
 
   const resolution = currentResolution(bug.status, latestStatusChange);
@@ -1528,6 +1536,7 @@ export default async function BugDetailPage({ params, searchParams }: BugPagePro
               users={users}
               lastEditedAt={lastRevision?.editedAt ?? null}
               historyHref={issueHref(bug, "/history")}
+              screenshots={descriptionScreenshots}
               tags={
                 bug.area ? (
                   <span title="Area" className="inline-flex items-center rounded-full bg-zk-chip px-2.5 py-0.5 text-xs font-semibold text-zk-text2 ring-1 ring-zk-border">
@@ -1622,20 +1631,20 @@ export default async function BugDetailPage({ params, searchParams }: BugPagePro
         actionsMenuSlot={
           canMarkDuplicate || canDeleteHere ? (
             <IssueActionsMenu>
-              {canMarkDuplicate ? <MarkDuplicateButton bugId={bug.id} /> : null}
+              {canMarkDuplicate ? <MarkDuplicateButton bugId={bug.id} menuItem /> : null}
               {canDeleteHere ? (
-                <DeleteIssueButton bugId={bug.id} bugTitle={bug.title} counts={keptCounts} variant="danger" size="sm" />
+                <DeleteIssueButton bugId={bug.id} bugTitle={bug.title} counts={keptCounts} menuItem />
               ) : null}
             </IssueActionsMenu>
           ) : null
         }
         attachmentsSlot={
-          issueAttachments.length > 0 ? (
+          fileAttachments.length > 0 ? (
             <section className="rounded-panel border border-zk-border bg-zk-surface p-5 sm:p-6">
               <h2 className="text-xs font-bold uppercase tracking-[0.08em] text-zk-muted">
                 Attachments
               </h2>
-              <AttachmentList attachments={issueAttachments} />
+              <AttachmentList attachments={fileAttachments} />
             </section>
           ) : null
         }
@@ -1762,7 +1771,6 @@ export default async function BugDetailPage({ params, searchParams }: BugPagePro
                 estimates={rewardEstimates}
                 viewerId={user.id}
                 canEstimate={!bug.isDeleted && bug.status !== "closed"}
-                payer={rewardPayer}
               >
                 <FundIssueSection bugId={bug.id} userId={user.id} />
               </IssueRewardPanel>
@@ -1820,7 +1828,6 @@ export default async function BugDetailPage({ params, searchParams }: BugPagePro
               repairs={linkRepairs}
             />
 
-            <ScreenshotsPanel screenshots={submissionScreenshots} />
 
             <SubmissionEvidence
               screenshots={[]}
@@ -2065,10 +2072,8 @@ export default async function BugDetailPage({ params, searchParams }: BugPagePro
           <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 self-start print:hidden">
             {/* The ⋯ menu, on the right: Activity first, then the rarer actions. */}
             <IssueActionsMenu>
-              <a
-                href="#activity"
-                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-zk-border bg-zk-surface px-3 text-sm font-semibold text-zk-text hover:bg-zk-chip"
-              >
+              <a href="#activity" className={MENU_ITEM_CLASS}>
+                <MenuIcon><path d="M3 12h4l3 8 4-16 3 8h4" /></MenuIcon>
                 Activity
               </a>
             {!bug.isDeleted ? (
@@ -2091,10 +2096,10 @@ export default async function BugDetailPage({ params, searchParams }: BugPagePro
                   <AssignToItem bugId={bug.id} members={assignableMembers} currentAssigneeId={bug.assigneeId} />
                 ) : null}
                 {myWorkingAgent ? <MoreTimeItem bugId={bug.id} agentName={myWorkingAgent} /> : null}
-                {canMarkDuplicate ? <MarkDuplicateButton bugId={bug.id} /> : null}
+                {canMarkDuplicate ? <MarkDuplicateButton bugId={bug.id} menuItem /> : null}
                 {myWorkingAgent ? <StopMyAgentItem bugId={bug.id} agentName={myWorkingAgent} /> : null}
                 {canDeleteHere ? (
-                  <DeleteIssueButton bugId={bug.id} bugTitle={bug.title} counts={keptCounts} variant="danger" size="sm" />
+                  <DeleteIssueButton bugId={bug.id} bugTitle={bug.title} counts={keptCounts} menuItem />
                 ) : null}
               </>
             ) : null}
@@ -2118,6 +2123,7 @@ export default async function BugDetailPage({ params, searchParams }: BugPagePro
             users={users}
             lastEditedAt={lastRevision?.editedAt ?? null}
             historyHref={issueHref(bug, "/history")}
+            screenshots={descriptionScreenshots}
             details={bug.isDeleted ? null : <IssuePrioritySelect bugId={bug.id} priority={bug.priority} />}
             tags={
               bug.area ? (
@@ -2129,12 +2135,12 @@ export default async function BugDetailPage({ params, searchParams }: BugPagePro
           >
 </EditableIssueDescription>
 
-          {issueAttachments.length > 0 ? (
+          {fileAttachments.length > 0 ? (
             <section className="rounded-panel border border-zk-border bg-zk-surface p-5 sm:p-6">
               <h2 className="text-xs font-bold uppercase tracking-[0.08em] text-zk-muted">
                 Attachments
               </h2>
-              <AttachmentList attachments={issueAttachments} />
+              <AttachmentList attachments={fileAttachments} />
             </section>
           ) : null}
 
@@ -2272,7 +2278,6 @@ export default async function BugDetailPage({ params, searchParams }: BugPagePro
               estimates={rewardEstimates}
               viewerId={user.id}
               canEstimate={!bug.isDeleted && bug.status !== "closed"}
-              payer={rewardPayer}
             >
               <FundIssueSection bugId={bug.id} userId={user.id} />
             </IssueRewardPanel>
@@ -2398,7 +2403,6 @@ export default async function BugDetailPage({ params, searchParams }: BugPagePro
             canEditPullRequest={canEditPullRequest}
           />
 
-          <ScreenshotsPanel screenshots={submissionScreenshots} />
 
         </aside>
         {/* The activity, in a sidebar the ⋯ menu's Activity item opens (#activity-drawer). */}

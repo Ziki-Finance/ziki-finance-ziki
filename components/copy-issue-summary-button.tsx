@@ -1,5 +1,6 @@
 "use client";
 
+import { MENU_ITEM_CLASS } from "@/components/menu-item";
 import { useState } from "react";
 import type { Substatus } from "@prisma/client";
 import { useToast } from "@/components/ui/toast";
@@ -57,9 +58,7 @@ export function CopyIssueSummaryButton({
       type="button"
       onClick={handleCopy}
       data-testid="copy-issue-summary"
-      className={`inline-flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold transition hover:bg-zk-chip ${
-        copied ? "text-zk-ok-fg" : "text-zk-text"
-      } ${className}`}
+      className={`${MENU_ITEM_CLASS} ${copied ? "!text-zk-ok-fg" : ""} ${className}`}
     >
       {copied ? (
         <svg

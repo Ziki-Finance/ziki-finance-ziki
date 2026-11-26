@@ -55,12 +55,13 @@ export function StatusProgress({
 type NodeState = "done" | "now" | "warn" | "todo";
 
 function Node({ state, label, caption, last }: { state: NodeState; label: string; caption: string | null; last: boolean }) {
-  const ring = state === "now" ? "border-zk-ok-fg" : state === "warn" ? "border-zk-warn-fg" : state === "done" ? "border-zk-ok-fg bg-zk-ok-fg" : "border-zk-border";
+  // A done step is a solid green circle with a check; the others are hollow, on the panel's colour.
+  const ring = state === "now" ? "border-zk-ok-fg bg-zk-surface" : state === "warn" ? "border-zk-warn-fg bg-zk-surface" : state === "done" ? "border-zk-ok-fg bg-zk-ok-fg" : "border-zk-border bg-zk-surface";
   return (
     <li className="relative flex gap-3 pb-3 last:pb-0">
       {/* The line down to the step before it: green once this step is reached. */}
       {last ? null : <span aria-hidden="true" className={`absolute left-[8px] top-[18px] bottom-0 w-[2px] ${state === "todo" ? "bg-zk-border" : "bg-zk-ok-fg/40"}`} />}
-      <span aria-hidden="true" className={`relative mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2 bg-zk-surface ${ring}`}>
+      <span aria-hidden="true" className={`relative mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2 ${ring}`}>
         {state === "done" ? (
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 5 5 9-10" /></svg>
         ) : state === "now" ? (

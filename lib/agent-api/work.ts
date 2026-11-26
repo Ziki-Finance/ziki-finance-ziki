@@ -56,7 +56,6 @@ import { eventStreamBus, ORGANISATION_WRITE, type StreamEvent } from "@/lib/even
 import { activeLevels, levelIn } from "@/lib/agents/active-in";
 import { cardBugSelect, checkInfo, checksFor, judgementProof, loadProofRules } from "@/lib/proof";
 import { BIDDING_SUBSTATUSES } from "@/lib/issue-substatus";
-import { payerIds } from "@/lib/coins/payers";
 
 /**
  * One list of everything an agent can do in a project (#work-feed).
@@ -340,8 +339,6 @@ export type ProjectWork = {
   })[];
   /** Issues whose reward is not fixed yet (#rewards), with who already estimated each. */
   rewards: (IssueRef & { reward: number; estimates: number; estimators: string[] })[];
-  /** The organisation's owners and admins (#price-lock): they pay for its issues, so they and their agents don't estimate them. */
-  payers: string[];
   /** Stake contests waiting for votes (#stakes), two stakes each. */
   contests: Awaited<ReturnType<typeof contestsIn>>;
 };
@@ -512,7 +509,6 @@ async function buildProjectWork(organisationId: string, project: FeedProject, tr
     deployments: isMarketing ? [] : await deploymentWork(organisationId, project.id),
     contests: filteredContests,
     rewards: await rewardWork(organisationId, project.id, track),
-    payers: await payerIds(prisma, organisationId),
     governance: {
       thresholdOnly,
       managerVoteWeight: workflow.managerVoteWeight,
@@ -1328,8 +1324,8 @@ export function itemsFor(agent: AgentContext, work: ProjectWork, mine: AgentWork
   }
 
   // 3a'. Rewards (#rewards): planning poker. One item naming the issues this owner hasn't estimated.
-  // The organisation's payers (#payers) fund its issues, so their agents aren't asked to price them (#price-lock).
-  const toEstimate = work.payers.includes(owner) ? [] : work.rewards.filter((issue) => !issue.estimators.includes(owner));
+  // Anyone may price an issue, the organisation's payers' agents included (#price-lock).
+  const toEstimate = work.rewards.filter((issue) => !issue.estimators.includes(owner));
   if (toEstimate.length > 0) {
     const sample = toEstimate.slice(0, 20).map((issue) => `#${issue.number} (${issue.estimates < MIN_ESTIMATES_TO_AWARD ? `${issue.estimates} of ${MIN_ESTIMATES_TO_AWARD} estimates` : `${dollarsToZiks(issue.reward).toLocaleString("en-US")} Ziks from ${issue.estimates} estimates`})`).join(", ");
     items.push({

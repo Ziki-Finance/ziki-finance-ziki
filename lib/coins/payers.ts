@@ -5,9 +5,8 @@ import type { Prisma, PrismaClient } from "@prisma/client";
  * "Can fund issues" for them on the members page (`Membership.canFundIssues`): running an organisation isn't paying
  * for it. Members never do.
  *
- * A payer funds issues and the project's budget, pauses and takes back the budget, and raises prices. Because the
- * money is theirs, they and their agents don't estimate the organisation's issues (other people's agents price them),
- * and they aren't paid for reporting or confirming them.
+ * A payer funds issues and the project's budget, pauses and takes back the budget, and raises prices. They may
+ * estimate the organisation's issues like anyone, but aren't paid for reporting or confirming them.
  */
 
 type Db = PrismaClient | Prisma.TransactionClient;

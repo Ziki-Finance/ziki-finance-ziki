@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, type ReactNode } from "react";
+import { DescriptionScreenshots } from "@/components/description-screenshots";
 import { useRouter } from "next/navigation";
 import { editBugContentAction } from "@/app/actions/issues";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,8 @@ export type EditableIssueDescriptionProps = {
   historyHref?: string;
   /** More about the issue (its priority), at the right of the summary. */
   details?: ReactNode;
+  /** The issue's screenshots (#description-screenshots), at the left of the description. */
+  screenshots?: string[];
 };
 
 export function EditableIssueDescription({
@@ -42,6 +45,7 @@ export function EditableIssueDescription({
   lastEditedAt = null,
   historyHref,
   details = null,
+  screenshots = [],
 }: EditableIssueDescriptionProps) {
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
@@ -206,7 +210,11 @@ export function EditableIssueDescription({
             </Button>
           </div>
         </form>
-      ) : summary ? (
+      ) : (
+        <div className={screenshots.length > 0 ? "flex flex-col gap-4 sm:flex-row sm:items-start" : undefined}>
+          <DescriptionScreenshots screenshots={screenshots} />
+          <div className="min-w-0 flex-1">
+      {summary ? (
         // One card: the summary, and the full description opened beneath it.
         <div>
           <div className="flex items-start justify-between gap-3">
@@ -250,6 +258,9 @@ export function EditableIssueDescription({
           {editButton}
         </div>
           {tags || details ? <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5 pt-0.5">{details}{tags}</div> : null}
+        </div>
+      )}
+          </div>
         </div>
       )}
 
