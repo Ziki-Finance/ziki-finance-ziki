@@ -100,3 +100,86 @@ FNC-CR-001 ACTUAL AFTER: decision/portfolio/audit/monitor vertical implemented o
 - Approval: APPROVED (user, 2026-11-25).
 - Implementation: COMPLETED (2026-11-25).
 - Verification: `vitest run tests/finance` passed (10 files, 96/96 tests); ESLint passed on all 6 modified/created Finance UI files (0 errors, 0 warnings).
+
+
+## FIN-UI-CR-001 — Stream A: `/finance` Linear/spreadsheet list and split-screen side panel
+- **Date:** 2026-11-26
+- **Status:** APPROVED (user approved `design-handoff/finance-split-panel-wireframe.html` on 2026-11-26).
+
+**Problem.** `/finance` still displays 4 top KPI boxes and a separate bottom `PortfolioCard`, and clicking a company navigates away to `/finance/[ticker]` instead of opening details in a side panel.
+
+**BEFORE.**
+- 4-card KPI strip at top of `FinanceResearchBoard`; `PortfolioCard` at bottom of `app/(app)/finance/page.tsx`; flat list rows linking to `/finance/[ticker]`; right rail only used for `FinanceCriteriaManager`.
+
+**PROPOSED AFTER.**
+- Reference wireframe: `design-handoff/finance-split-panel-wireframe.html`.
+- Remove the 4 top KPI boxes and remove `<PortfolioCard />` from `/finance`.
+- Render a spreadsheet-style table with `Owned` grouped at top and `Recommendations` below, each row showing bordered metric boxes (`Price`, `Status / Thesis Health`, `Value / Buy Range`, `Return / Score`, `Action` with inline `Buy` / `+ Trade`).
+- Clicking any row opens its full detail (`FinanceTickerPipeline` + position/recommendation summary + `TradeButton` / `FreshCheckButton`) in the right split-screen side panel; clicking `Criteria` switches the same side panel to `FinanceCriteriaManager`.
+
+**Acceptance criteria.**
+- Zero top KPI summary boxes and no separate `PortfolioCard` on `/finance`.
+- Bought/held stocks automatically appear in the `Owned` section at the top; unbought stocks appear in `Recommendations` below.
+- Clicking a company row opens the right split-screen detail panel without leaving `/finance`; clicking `Criteria` toggles the right rail to Criteria; `/finance/[ticker]` continues to work as a direct link.
+- `vitest run tests/finance` and ESLint pass on all modified files.
+
+**Files affected.**
+- `app/(app)/finance/page.tsx`
+- `components/finance/finance-research-board.tsx`
+- `components/finance/finance-ticker-pipeline.tsx`
+- `components/finance/portfolio-card.tsx` (reused actions)
+- `tests/finance/*` (updated/added UI tests)
+
+**Statuses.** Approval: APPROVED | Implementation: NOT STARTED | Verification: NOT RUN.
+
+## FIN-AGT-CR-001 — Stream B: Agent discovery (`/llms.txt`, `docs/ziki-for-agents.md`, `/api/v1/triage`)
+- **Date:** 2026-11-26
+- **Status:** APPROVED (user approved 3-stream plan on 2026-11-26).
+
+**Problem.** `docs/ziki-for-agents.md` (served at `/llms.txt`), root `llms.txt`, and `GET /api/v1/triage` contain zero mentions of Finance endpoints or rules, so connected agents cannot discover or execute Finance pipeline jobs cold.
+
+**BEFORE.**
+- `docs/ziki-for-agents.md`, `llms.txt`, and `app/api/v1/triage/route.ts` omit all `/api/v1/finance/*` endpoints, schemas, and role requirements.
+
+**PROPOSED AFTER.**
+- `docs/ziki-for-agents.md` and `llms.txt` document the full Finance v3 pipeline (`GET /api/v1/finance/jobs`, `POST /api/v1/finance/candidates`, `pipeline/jobs/{id}/claim|complete|fail`, `evidence`, `evaluations`, `reviews`, `decision`, `checks/{id}`), required `User.financeClearedAt` & `working`/`manager`/`merger` roles, independence & `against: true` rules, source tiers, and research quality rubric.
+- `GET /api/v1/triage` surfaces pending Finance pipeline job counts and discovery link for finance-cleared agents.
+
+**Acceptance criteria.**
+- `/llms.txt` and `llms.txt` include complete, accurate Finance v3 instructions matching the actual route schemas.
+- `GET /api/v1/triage` returns a `finance` summary block when the calling agent's owner is finance-cleared (and omits or marks cleared=false otherwise), with tests covering both cases.
+
+**Files affected.**
+- `docs/ziki-for-agents.md`
+- `llms.txt`
+- `app/api/v1/triage/route.ts`
+- `tests/finance/*`
+
+**Statuses.** Approval: APPROVED | Implementation: NOT STARTED | Verification: NOT RUN.
+
+## FIN-DATA-CR-001 — Stream C: Live price/range/position data wiring & ticker-detail endpoint
+- **Date:** 2026-11-26
+- **Status:** APPROVED (user approved 3-stream plan on 2026-11-26).
+
+**Problem.** `ResearchStockItem` lacks `latestPrice` (`FinanceSnapshot.close`), `buyRange`, and inline position metrics (`shares`, `value`, `gainPct`, `reasonStatus`), and there is no session-authenticated JSON endpoint for the split-screen side panel to load ticker details on click.
+
+**BEFORE.**
+- `app/(app)/finance/page.tsx` passes only basic decision/candidate fields and `isHeld: boolean` to `FinanceResearchBoard`; ticker detail data is only rendered server-side in `app/(app)/finance/[ticker]/page.tsx`.
+
+**PROPOSED AFTER.**
+- Enrich `ResearchStockItem` in `app/(app)/finance/page.tsx` and `lib/finance/demo-stocks.ts` with `latestPrice`, `buyRange`, and optional `position` (`shares`, `averageCost`, `value`, `gainPct`, `reasonStatus`).
+- Add `GET /api/finance/ticker/[symbol]` (authenticated with `requireFinanceOwner`) returning the same detail payload as `app/(app)/finance/[ticker]/page.tsx` (`candidateForTicker`, `overallVerdict`, `scoreBreakdown`, `sectionStatuses`, `holding`, `demoStock`).
+- Verify full pipeline + UI with `vitest run tests/finance`, lint/typecheck, and an end-to-end agent-to-UI smoke test.
+
+**Acceptance criteria.**
+- Every row on `/finance` has `latestPrice` (or `null` when awaiting prices), `buyRange` (when evaluated), and full position metrics when held.
+- `GET /api/finance/ticker/[symbol]` enforces `requireFinanceOwner`, supports `?demo=1`, and returns 404 for unknown tickers.
+- All finance tests and typecheck/lint pass.
+
+**Files affected.**
+- `app/(app)/finance/page.tsx`
+- `lib/finance/demo-stocks.ts`
+- `app/api/finance/ticker/[symbol]/route.ts` (new)
+- `tests/finance/*`
+
+**Statuses.** Approval: APPROVED | Implementation: NOT STARTED | Verification: NOT RUN.
