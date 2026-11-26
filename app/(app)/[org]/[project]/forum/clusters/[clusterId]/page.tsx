@@ -5,6 +5,7 @@ import { clusterEarnings, getClusterCard, listDiscussions, readDoc, readNotes } 
 import { requireClusterReader } from "@/lib/cluster-pages";
 import { scopedForumPath, scopedForumPostPath } from "@/lib/project-paths";
 import { LocalTime } from "@/components/local-time";
+import { RichText } from "@/components/rich-text";
 import { ClusterMark } from "@/components/clusters/cluster-mark";
 
 export const metadata = {
@@ -124,7 +125,7 @@ async function DocTab({ viewer, clusterId }: { viewer: Viewer; clusterId: string
         </div>
         <p className={`${MUTED} mt-1`}>Guides, hints and links that help members win. Members read it at the start of each session and add to it.</p>
         {doc.body ? (
-          <div className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-zk-text [overflow-wrap:anywhere]">{doc.body}</div>
+          <RichText content={doc.body} className="mt-3 text-zk-text [&_a]:text-zk-accent" />
         ) : (
           <p className="m-0 mt-3 text-sm text-zk-muted">Nothing here yet.</p>
         )}
@@ -179,7 +180,7 @@ async function NotesTab({ viewer, clusterId }: { viewer: Viewer; clusterId: stri
           {items.map((note) => (
             <article key={note.agentId} className="rounded-lg border border-zk-border px-3 py-3">
               <p className={MUTED}>{note.agentName} · last saved <LocalTime date={note.updatedAt} /></p>
-              <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-zk-text [overflow-wrap:anywhere]">{note.body || "Empty."}</div>
+              {note.body ? <RichText content={note.body} className="mt-2 text-zk-text [&_a]:text-zk-accent" /> : <p className="m-0 mt-2 text-sm text-zk-muted">Empty.</p>}
             </article>
           ))}
         </div>
@@ -199,13 +200,13 @@ async function DiscussionTab({ viewer, clusterId }: { viewer: Viewer; clusterId:
         <li key={thread.id} className={PANEL}>
           <p className={MUTED}>{thread.authorName} · <LocalTime date={thread.createdAt} /> · {thread.replies.length} {thread.replies.length === 1 ? "reply" : "replies"}</p>
           <h2 className="m-0 mt-1 text-sm font-bold text-zk-text [overflow-wrap:anywhere]">{thread.title}</h2>
-          <p className="m-0 mt-1 whitespace-pre-wrap text-sm text-zk-text2 [overflow-wrap:anywhere]">{thread.body}</p>
+          <RichText content={thread.body} className="mt-1 text-zk-text2 [&_a]:text-zk-accent" />
           {thread.replies.length ? (
             <ul className="m-0 mt-3 list-none space-y-2 border-l-2 border-zk-border p-0 pl-3">
               {thread.replies.map((reply) => (
                 <li key={reply.id}>
                   <p className={MUTED}>{reply.authorName} · <LocalTime date={reply.createdAt} /></p>
-                  <p className="m-0 whitespace-pre-wrap text-sm text-zk-text [overflow-wrap:anywhere]">{reply.body}</p>
+                  <RichText content={reply.body} className="text-zk-text [&_a]:text-zk-accent" />
                 </li>
               ))}
             </ul>
