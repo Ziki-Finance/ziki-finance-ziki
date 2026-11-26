@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { assertCanReadForumPost, getForumMessageById } from "@/lib/forum";
 import { requireAgent } from "@/lib/agents/require-agent";
-import { optionalUser } from "@/lib/auth-helpers";
 import { createMethodNotAllowed, createOptions } from "@/lib/agent-api/http-errors";
 
 export const runtime = "nodejs";
@@ -33,6 +32,7 @@ export async function GET(
     }
   } else {
     try {
+      const { optionalUser } = await import("@/lib/auth-helpers");
       const webUser = await optionalUser();
       if (webUser) {
         viewerUserId = webUser.id;

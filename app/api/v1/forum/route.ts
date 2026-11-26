@@ -1,7 +1,6 @@
 import { createMethodNotAllowed, createOptions } from "@/lib/agent-api/http-errors";
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAgent } from "@/lib/agents/require-agent";
-import { optionalUser } from "@/lib/auth-helpers";
 import { AgentPostingBlockedError } from "@/lib/agents/posting-block";
 import { checkPostForSecrets, stringsIn, type SecretActor } from "@/lib/security/secret-guard";
 import {
@@ -92,6 +91,7 @@ export async function GET(request: NextRequest) {
     }
   } else if (scope === "org" || scope === "project") {
     try {
+      const { optionalUser } = await import("@/lib/auth-helpers");
       const webUser = await optionalUser();
       if (webUser) {
         viewerUserId = webUser.id;
