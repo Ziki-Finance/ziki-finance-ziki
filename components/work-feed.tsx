@@ -210,6 +210,7 @@ export function WorkFeed({ items, groups, title, toolbar, empty, footer, justAdd
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[15px] font-semibold text-zk-text">{cleanTitle(item.title)}</span>
                         <span className="mt-0.5 block truncate text-[13px] text-zk-muted">
+                          <ProjectTag name={item.projectName} />
                           <span className="tabular-nums">{formatIssueNumber(item.number)}</span>
                           {/* #price-lock: its price, green once funded, grey while it waits for funding; nothing before it is priced. */}
                           {item.price !== null ? (
@@ -218,7 +219,7 @@ export function WorkFeed({ items, groups, title, toolbar, empty, footer, justAdd
                               <RewardBadge price={item.price} held={item.priceHeld} className="text-[13px]" />
                             </>
                           ) : null}
-                          {item.projectName ? ` · ${item.projectName}` : ""} · {who} · <LocalTime date={item.at} />
+                          {" · "}{who} · <LocalTime date={item.at} />
                         </span>
                       </span>
                     </button>
@@ -413,8 +414,9 @@ function FeedCard({ item, id, onClose }: { item: WorkFeedItem; id: string; onClo
             {/* The issue's title heads the card; who is on it goes in the line under it. */}
             <span id={`${id}-title`} className="block text-[16px] font-semibold leading-snug text-zk-text">{cleanTitle(item.title)}</span>
             <span className="mt-0.5 block truncate text-[13px] text-zk-muted">
+              <ProjectTag name={item.projectName} />
               <span style={{ color: tone.color }}>{kind.label}</span> · <span className="tabular-nums">{formatIssueNumber(item.number)}</span>
-              {item.projectName ? ` · ${item.projectName}` : ""} · {who} · <LocalTime date={item.at} />
+              {" · "}{who} · <LocalTime date={item.at} />
             </span>
           </span>
         </button>
@@ -955,7 +957,13 @@ function DeliveredActions({ item, className = "" }: { item: WorkFeedItem; classN
 }
 
 /** A new idea that needs your OK (#just-added): open, and you haven't given it a verdict yet. */
-export type JustAddedIdea = { id: string; number: number; title: string; at: Date; by: string | null; href: string };
+export type JustAddedIdea = { id: string; number: number; title: string; at: Date; by: string | null; href: string; projectName: string | null };
+
+/** Which project a row belongs to (Desktop, Web, …), as a small tag, on the organisation-wide feed. */
+function ProjectTag({ name }: { name: string | null }) {
+  if (!name) return null;
+  return <span className="mr-1.5 inline-block rounded bg-zk-chip px-1.5 py-px align-[1px] text-[11px] font-medium text-zk-text2">{name}</span>;
+}
 
 /**
  * New ideas at the top of Needs your OK (#just-added): each highlighted as something to do, with Approve (your good
@@ -1005,6 +1013,7 @@ function IdeaOkCard({ idea, flashing }: { idea: JustAddedIdea; flashing: boolean
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[15px] font-semibold text-zk-text">{cleanTitle(idea.title)}</span>
             <span className="mt-0.5 block truncate text-[13px] text-zk-muted">
+              <ProjectTag name={idea.projectName} />
               {flashing ? <span className="font-medium text-zk-text2">Just added · </span> : null}
               <span className="tabular-nums">Idea #{idea.number}</span>
               {idea.by ? ` · ${idea.by}` : ""} · <LocalTime date={idea.at} />

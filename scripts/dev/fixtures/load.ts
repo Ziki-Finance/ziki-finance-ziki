@@ -15,7 +15,8 @@
  * It also loads "Fresh Start" (fresh.ts), an empty organisation as it is right
  * after signing up: sign in as fresh@fixtures.local, same password.
  * The Demo owner also gets Demo Work and Demo Live (work-organisations.ts), to
- * see the Your Work and Live stages.
+ * see the Your Work and Live stages, and Org With Projects
+ * (projects-organisation.ts), with several projects.
  *
  * Additive only (AGENTS.md: never reseed): it touches nothing outside its own
  * organisation (slug `demo`, ids `fx-*`) and its own users (`*@fixtures.local`).
@@ -30,6 +31,7 @@ import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
 import { FRESH_LOGIN_EMAIL, loadFreshOrganisation } from "./fresh";
 import { loadWorkOrganisations } from "./work-organisations";
+import { loadProjectsOrganisation } from "./projects-organisation";
 
 type Row = Record<string, unknown>;
 type Fixtures = {
@@ -164,6 +166,8 @@ export async function loadFixtures(options: { db?: PrismaClient; addExistingUser
     await loadFreshOrganisation(db, passwordHash);
     // Two more of the Demo owner's organisations: one with assigned work, one with work and live issues (work-organisations.ts).
     await loadWorkOrganisations(db, ids.get("fx-user-demo")!, now);
+    // And one with several projects (Web, Desktop, Mobile), to see rows tagged with their project (projects-organisation.ts).
+    await loadProjectsOrganisation(db, ids.get("fx-user-demo")!, now);
 
     if (options.addExistingUsers) {
       const others = await db.user.findMany({ where: { NOT: { email: { endsWith: "@fixtures.local" } } }, select: { id: true } });

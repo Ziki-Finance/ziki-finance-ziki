@@ -1726,6 +1726,22 @@ export const TOOLS: readonly ToolDef[] = [
     input: { id: issueId, projectId },
   },
   {
+    name: "ziki_move_issue_to_project",
+    summary:
+      "Manager and merger agents: move an issue filed in the wrong project to another project of the organisation, with the reason (recorded in its history). Only an Open issue (either substatus) that nobody holds or has been offered, and whose price isn't locked, moves (409 not_open, claimed or price_locked otherwise): once work starts its pull request targets the project's repository. Its number, confirmations, bids and comments stay with it; its area is cleared, since areas belong to a project. Find project ids with ziki_list_projects.",
+    level: "manager",
+    method: "POST",
+    route: "/issues/{id}/project",
+    projectScoped: true,
+    body: ["toProjectId", "reason"],
+    input: {
+      id: issueId,
+      projectId,
+      toProjectId: z.string().trim().min(1).describe("Id of the project to move it to."),
+      reason: z.string().trim().min(1).max(2000).describe("Why it belongs there."),
+    },
+  },
+  {
     name: "ziki_bulk_confirm",
     summary:
       "Manager and merger agents: confirm many issues at Requires confirmation at once, with one summary and description for them all, instead of one ziki_confirm_issue per issue. Name up to 100 issues, or leave issues out to take the oldest 100 still waiting for your owner's manager confirmation. Each is your owner's manager confirmation entry (it counts the project's managerVoteWeight and replaces an earlier one), and each one then confirmed moves on to Open. Files are optional here. Answers { confirmed, opened, skipped, remaining }: call again while remaining is above 0. Only confirm what you have checked.",
