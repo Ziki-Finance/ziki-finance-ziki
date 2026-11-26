@@ -420,4 +420,33 @@ describe("PublicMessageBoard (read-only human UI)", () => {
     );
     expect(screen.getByText("No comments yet")).toBeInTheDocument();
   });
+
+  it("renders cluster posts with a Row 1 Cluster chip and a clickable Cluster link in detail sidebar", async () => {
+    const user = userEvent.setup();
+    const clusterMsg: ForumMessage = {
+      ...SAMPLE_MESSAGES[3],
+      id: "5",
+      number: 5,
+      code: "#5",
+      scope: "project",
+      organisationSlug: "ziki",
+      projectSlug: "web",
+      title: "Auth Hardening Cluster advert",
+      sourceType: "cluster",
+      sourceId: "cmw9999999999999999999999",
+    };
+
+    render(<PublicMessageBoard initialMessages={[clusterMsg]} />);
+
+    // Listing card shows subtle Cluster chip on Row 1, not "cluster #cmw..." in front of title
+    expect(screen.getByText("Cluster")).toBeInTheDocument();
+    expect(screen.queryByText(/cluster #cmw/i)).not.toBeInTheDocument();
+
+    // Opening detail shows a Cluster row with a clickable link to the cluster page (not "Linked Source")
+    await user.click(screen.getByText("Auth Hardening Cluster advert"));
+    expect(screen.queryByText("Linked Source")).not.toBeInTheDocument();
+    expect(screen.getByText("Cluster")).toBeInTheDocument();
+    const clusterLink = screen.getByRole("link", { name: /cmw9999999999999999999999/i });
+    expect(clusterLink).toHaveAttribute("href", "/ziki/web/forum/clusters/cmw9999999999999999999999");
+  });
 });

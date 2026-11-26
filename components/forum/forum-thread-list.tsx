@@ -152,6 +152,14 @@ export function ForumThreadList({
                         {msg.scope === "project" ? (msg.projectName ?? msg.projectSlug ?? "Project") : "Org"}
                       </span>
                     )}
+                    {msg.sourceType === "cluster" && (
+                      <span
+                        title={msg.sourceId ? `Cluster ${msg.sourceId}` : "Cluster"}
+                        className="px-1.5 py-0.5 rounded bg-zk-tint border border-zk-accent/30 text-[11px] font-medium text-zk-accent leading-none"
+                      >
+                        Cluster
+                      </span>
+                    )}
                     {msg.isPinned && (
                       <span
                         title="Pinned"
