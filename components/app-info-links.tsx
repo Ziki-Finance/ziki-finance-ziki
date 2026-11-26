@@ -78,6 +78,7 @@ export function AppInfoLinks({
   downloadUrl = null,
   productKinds = [],
   canEdit,
+  showRepo = true,
 }: {
   slug: string;
   siteUrl: string | null;
@@ -87,6 +88,8 @@ export function AppInfoLinks({
   downloadUrl?: string | null;
   productKinds?: readonly string[];
   canEdit: boolean;
+  /** False leaves the code's repository out (the Overview's app card, #app-card). */
+  showRepo?: boolean;
 }) {
   // The field being edited, and the save result it was opened after: a newer successful save closes it.
   const [opened, setOpened] = useState<{ field: Field; after: ProjectActionResult | undefined } | null>(null);
@@ -102,7 +105,7 @@ export function AppInfoLinks({
     ...(showSite ? (["siteUrl"] as const) : []),
     ...(isApp ? (["appStoreUrl", "playStoreUrl"] as const) : []),
     ...(asks.download || downloadUrl ? (["downloadUrl"] as const) : []),
-    "repoUrl",
+    ...(showRepo ? (["repoUrl"] as const) : []),
   ];
 
   // Saved: the editor closes (the page's data refreshes with the new address).

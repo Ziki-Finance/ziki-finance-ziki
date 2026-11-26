@@ -12,8 +12,10 @@ export type ToolbarFilterGroup = { label?: string; options: ToolbarFilterOption[
  * button that opens a menu. Each option is a link, so the list filters on the
  * server. The button names what is on, so the active filter shows while closed.
  */
-export function ToolbarFilterMenu({ groups, summary }: {
+export function ToolbarFilterMenu({ groups, summary, label = "Filter" }: {
   groups: ToolbarFilterGroup[];
+  /** The button's name, "Filter" unless it picks one thing (e.g. "Projects"). */
+  label?: string;
   /** What is on, e.g. "My Work"; empty when nothing beyond the default is. */
   summary?: string;
 }) {
@@ -62,7 +64,7 @@ export function ToolbarFilterMenu({ groups, summary }: {
         className={`${TOOL_BUTTON} ${summary ? TOOL_BUTTON_ON : ""} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-electric-blue`}
       >
         <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7h16M7 12h10M10 17h4" /></svg>
-        {summary ? `Filter: ${summary}` : "Filter"}
+        {summary ? `${label}: ${summary}` : label}
         <svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
       </button>
       {open && position ? (

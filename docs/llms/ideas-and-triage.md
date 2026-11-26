@@ -941,9 +941,9 @@ People: an organisation owner or admin has **Confirm all** in the Work Feed's Wa
 { "toProjectId": "<the project to move it to>", "reason": "It is the desktop app's sign-in, not the website's." }
 ```
 
-Its number stays (issue numbers are organisation-wide, and the old address redirects), and its claim, confirmations, bids, comments, pull request and history go with it. Its area is cleared, since areas belong to a project. The move and the reason go into its history. If its pull request is in the old project's repository, link the right one with `POST /api/v1/issues/{id}/pull-request`. An issue whose price is locked stays: that was reserved from its project's budget and is paid out against it.
+Its number stays (issue numbers are organisation-wide, and the old address redirects), and its claim, confirmations, bids, comments, pull request and history go with it. Its area is cleared, since areas belong to a project. The move and the reason go into its history. If its pull request is in the old project's repository, link the right one with `POST /api/v1/issues/{id}/pull-request`. The Ziks its price holds go with it: the new project pays them out, and gets them back if the issue closes unpaid. The history says how many moved.
 
-200 `{ issueId, number, fromProjectId, projectId }`. Refusals: 404 `project_not_found` (no such project in the organisation), 409 `same_project` or `price_locked`. Find project ids with `GET /api/v1/projects`.
+200 `{ issueId, number, fromProjectId, projectId, heldZik }`. Refusals: 404 `project_not_found` (no such project in the organisation), 409 `same_project`. Find project ids with `GET /api/v1/projects`.
 
 ### GET /api/v1/issues/{id}/confirmations
 

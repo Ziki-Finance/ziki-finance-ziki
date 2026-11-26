@@ -925,6 +925,10 @@ export async function IssuesList({
   // New ideas (`/new`) is one of the Overview's tabs (#work-feed): it has the Overview's top, chat box and tabs.
   const isNewIdeasView = ideasView === "new";
   const withOverviewLook = isYourWorkView || isNewIdeasView;
+  // The Overview's top card is the whole app, the organisation, not one project: projects are picked in Projects.
+  const appName = withOverviewLook
+    ? (await loadOrEmpty("app name", () => prisma.organisation.findUnique({ where: { id: organisationId ?? "" }, select: { name: true } }), null))?.name ?? project.name
+    : project.name;
   const tabClass = (current: boolean) =>
     `inline-flex h-8 items-center gap-1.5 rounded-full px-3.5 text-[13px] transition ${
       current ? "bg-white font-semibold text-zk-accent shadow-none" : "font-medium text-zk-muted hover:text-zk-text"
@@ -975,10 +979,11 @@ export async function IssuesList({
   const overviewToolbar = isYourWorkView ? (
     <>
       {overviewTabs}
-      {/* The Filter picks the project only (#project-filter): every project, or one, keeping the tab. The tabs and
-          sections already say what kind of work and where it is, so the Filter doesn't repeat them. */}
+      {/* Projects picks the project only (#project-filter): every project, or one, keeping the tab. The tabs and
+          sections already say what kind of work and where it is, so it doesn't repeat them. */}
       {isOrgMember && orgProjects.length > 1 ? (
         <ToolbarFilterMenu
+          label="Projects"
           summary={filterProject ? filterProject.name : ""}
           groups={[{
             label: "Project",
@@ -2216,18 +2221,19 @@ export async function IssuesList({
     {/* On a phone the icons take their own row above the stages, so they never cover them. */}
     {/* From lg the icons sit at the right of this row; the same room on both sides keeps the tabs centred and clear of them. */}
     {withOverviewLook ? (
-      // The Overview has no stage bar: its tabs filter the list. At the top, a gray card about the app itself: its name,
-      // where it runs and where its code is, with the project's icons (feedback, settings) at the right.
+      // The Overview has no stage bar: its tabs filter the list. At the top, a gray card about the app itself (the
+      // organisation, not one project): its name and where it runs, with the icons (funding, share, settings) at the right.
       <section aria-label="Your app" className="mx-auto mb-4 flex w-full max-w-[920px] flex-wrap items-center justify-between gap-3 rounded-xl border border-zk-border bg-zk-text/[0.045] px-5 py-4">
         <div className="flex min-w-0 items-center gap-3.5">
-          <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-control text-[16px] font-semibold shadow-none" style={TILE_TONES[toneForName(project.name)]}>
-            {project.name.charAt(0).toUpperCase()}
+          <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-control text-[16px] font-semibold shadow-none" style={TILE_TONES[toneForName(appName)]}>
+            {appName.charAt(0).toUpperCase()}
           </span>
           <div className="min-w-0">
-            <p className="m-0 truncate text-[15px] font-semibold text-zk-text">{project.name}</p>
-            {/* Where it runs and where its code is, each with a pencil to edit it in place. */}
+            <p className="m-0 truncate text-[15px] font-semibold text-zk-text">{appName}</p>
+            {/* Where it runs, with a pencil to edit it in place. The code's repository is in each project's settings. */}
             <AppInfoLinks
               slug={slug}
+              showRepo={false}
               siteUrl={projectLinks?.siteUrl ?? null}
               repoUrl={projectLinks?.repoUrl ?? null}
               appStoreUrl={projectLinks?.appStoreUrl ?? null}

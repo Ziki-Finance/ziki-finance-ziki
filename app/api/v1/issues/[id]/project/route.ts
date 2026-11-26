@@ -9,8 +9,8 @@ import { agentMoveIssueToProject } from "@/lib/agent-api/move-project";
  *
  *   { "toProjectId": "…", "reason": "…" }
  *
- * An issue with a locked price stays (409 `price_locked`). Its number stays and the old address redirects.
- * 200 `{ issueId, number, fromProjectId, projectId }`. 409 `same_project`; 404 `project_not_found`.
+ * The Ziks its price holds go with it. Its number stays and the old address redirects.
+ * 200 `{ issueId, number, fromProjectId, projectId, heldZik }`. 409 `same_project`; 404 `project_not_found`.
  */
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
