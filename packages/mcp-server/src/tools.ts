@@ -1754,7 +1754,7 @@ export const TOOLS: readonly ToolDef[] = [
   {
     name: "ziki_move_issue_to_project",
     summary:
-      "Move an issue filed in the wrong project to another project of the organisation, in any state, with the reason (recorded in its history). Any agent may. An issue whose price is locked stays (409 price_locked): that was reserved from its project's budget. Its number, claim, confirmations, bids, comments and pull request go with it; its area is cleared, since areas belong to a project. If its pull request is in the old project's repository, link the right one with ziki_repair_pull_request. Find project ids with ziki_list_projects.",
+      "Move an issue filed in the wrong project to another project of the organisation, in any state, with the reason (recorded in its history). Any agent may. Its number, claim, confirmations, bids, comments, pull request and the Ziks its price holds go with it (answered as heldZik); its area is cleared, since areas belong to a project. If its pull request is in the old project's repository, link the right one with ziki_repair_pull_request. Find project ids with ziki_list_projects.",
     level: "working",
     method: "POST",
     route: "/issues/{id}/project",

@@ -27,12 +27,14 @@ const heldByMyAgent = vi.hoisted(() => vi.fn());
 const deliverWork = vi.hoisted(() => vi.fn());
 const membershipFindFirst = vi.hoisted(() => vi.fn());
 const projectFindFirst = vi.hoisted(() => vi.fn());
+const coinAggregate = vi.hoisted(() => vi.fn(async () => ({ _sum: { amount: null as number | null } })));
 
 const tx = {
   $queryRaw: vi.fn(),
   bug: { findUniqueOrThrow: bugFindUniqueOrThrow, update: bugUpdate, updateMany: bugUpdateMany },
   issueClaim: { findMany: claimFindMany, updateMany: claimUpdateMany },
   bugActivity: { createMany: activityCreateMany },
+  coinEntry: { aggregate: coinAggregate },
 };
 
 vi.mock("@/lib/prisma", () => ({
@@ -235,24 +237,23 @@ describe("Live · Confirmed (#live-confirmed)", () => {
     await expect(agentConfirmLiveWork(manager, scope, "bug-1")).rejects.toMatchObject({ status: 409 });
   });
 
-  it("lets any agent move an issue to another project, but not one whose price is locked (#move-project)", async () => {
+  it("lets any agent move an issue to another project, with the Ziks its price holds (#move-project)", async () => {
     const scope = { organisationId: "org-1", projectId: "web" };
     const worker = { agentId: "agent-w", ownerId: "owner-1", organisationId: "org-1", level: "working" as const };
-    const issue = { id: "bug-1", number: 7, projectId: "web", lockedPriceZik: null, project: { name: "Web" } };
+    const issue = { id: "bug-1", number: 7, projectId: "web", project: { name: "Web" } };
     const body = { toProjectId: "desktop", reason: "It is the desktop app's sign-in." };
     bugFindFirst.mockResolvedValue(issue);
     projectFindFirst.mockResolvedValue({ id: "desktop", name: "Desktop" });
+    coinAggregate.mockResolvedValue({ _sum: { amount: 5000 } });
 
-    expect(await agentMoveIssueToProject(worker, scope, "bug-1", body)).toEqual({ issueId: "bug-1", number: 7, fromProjectId: "web", projectId: "desktop" });
-    expect(bugUpdateMany).toHaveBeenCalledWith({ where: { id: "bug-1", projectId: "web", lockedPriceZik: null }, data: { projectId: "desktop", areaId: null } });
-    expect(activityCreateMany).toHaveBeenCalledWith({ data: [expect.objectContaining({ actorId: "owner-1", metadata: expect.objectContaining({ field: "project", from: "Web", to: "Desktop" }) })] });
+    expect(await agentMoveIssueToProject(worker, scope, "bug-1", body)).toEqual({ issueId: "bug-1", number: 7, fromProjectId: "web", projectId: "desktop", heldZik: 5000 });
+    expect(bugUpdateMany).toHaveBeenCalledWith({ where: { id: "bug-1", projectId: "web" }, data: { projectId: "desktop", areaId: null } });
+    expect(activityCreateMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ actorId: "owner-1", summary: expect.stringContaining("5,000 Ziks"), metadata: expect.objectContaining({ field: "project", from: "Web", to: "Desktop" }) })],
+    });
 
-    // A locked price was reserved from this project's budget and is paid out against it, so the issue stays.
     bugUpdateMany.mockClear();
-    bugFindFirst.mockResolvedValue({ ...issue, lockedPriceZik: 500 });
-    await expect(agentMoveIssueToProject(worker, scope, "bug-1", body)).rejects.toMatchObject({ status: 409, body: { error: "price_locked" } });
     projectFindFirst.mockResolvedValue({ id: "web", name: "Web" });
-    bugFindFirst.mockResolvedValue(issue);
     await expect(agentMoveIssueToProject(worker, scope, "bug-1", { ...body, toProjectId: "web" })).rejects.toMatchObject({ status: 409, body: { error: "same_project" } });
     expect(bugUpdateMany).not.toHaveBeenCalled();
   });
