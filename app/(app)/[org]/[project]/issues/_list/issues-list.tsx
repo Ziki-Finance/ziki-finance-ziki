@@ -168,7 +168,8 @@ const OVERVIEW_STATES = ["open", "in_progress", "done", "merge", "resolved"] as 
 /** How many rows the Overview's list shows a page. */
 const FEED_PAGE_SIZE = 30;
 /**
- * The Work Feed's sections (#work-feed-sections), top to bottom: what needs your OK (new ideas, live work to confirm),
+ * The Work Feed's sections (#work-feed-sections), top to bottom: new ideas (their own section, #ideas-section), what
+ * needs your OK (delivered and live work to confirm),
  * what is being worked on right now, what is waiting for an agent (open, nobody on it yet), and what looks stalled. `?section=` shows one of them in full.
  */
 const OVERVIEW_SECTION_PARAM = "section";
@@ -180,6 +181,8 @@ const FEED_SECTIONS = [
   { key: "stalled", title: "Stalled" },
 ] as const;
 type FeedSection = (typeof FEED_SECTIONS)[number]["key"];
+/** The New ideas section's `?section=` value: ideas aren't issues, so it isn't one of FEED_SECTIONS. */
+const IDEAS_SECTION = "ideas";
 /** How many cards each section shows before its Show all link. */
 const FEED_SECTION_SIZE = 6;
 /** In progress counts as being worked on while its agent checked in this recently (heartbeats come every 15 minutes). */
@@ -669,9 +672,11 @@ export async function IssuesList({
   const overviewSection: FeedSection | null = overviewTab === "all" ? FEED_SECTIONS.find(({ key }) => key === sectionParam)?.key ?? null : null;
   type FeedGroup = { key: FeedSection; title: string; count: number; items: WorkFeedItem[] };
   const emptyFeed = { items: [] as WorkFeedItem[], groups: null as FeedGroup[] | null, total: 0, page: 1, counts: new Map<string, number>() };
-  // New ideas that need your OK (#just-added): this project's open ideas you haven't given a verdict on, newest first.
-  // They top Needs your OK with Approve (your good verdict), and the one the chat just filed flashes there.
+  // New ideas (#ideas-section): this project's open ideas you haven't given a verdict on, newest first, in their own
+  // section at the top with Approve Idea (your good verdict); the one the chat just filed flashes there.
   const ideaSection = toSingleQueryParam(params[OVERVIEW_SECTION_PARAM]);
+  // `?section=ideas`: the New ideas section in full, and no issues.
+  const ideasOnly = overviewTab === "all" && ideaSection === IDEAS_SECTION;
   // On the organisation-wide list (every project), every project's ideas, as the Fixes tab lists them.
   // External feedback is reviewed in its portal. Its converted issue enters the normal feed.
   const ideasToOkWhere: Prisma.IdeaWhereInput = {
@@ -679,12 +684,12 @@ export async function IssuesList({
     ...(allProjects ? { organisationId: organisationId ?? "" } : { projectId: project.id }), isDeleted: false, status: "open", track: "product",
     ...(userId ? { verdicts: { none: { onBehalfOfUserId: userId } } } : {}),
   };
-  const [justAdded, ideasToOkCount] = feedView && overviewTab === "all" && (!ideaSection || ideaSection === "needs")
+  const [justAdded, ideasToOkCount] = feedView && overviewTab === "all" && (!ideaSection || ideasOnly)
     ? await loadOrEmpty("ideas to approve", () => Promise.all([
         prisma.idea.findMany({
           where: ideasToOkWhere,
           orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-          take: ideaSection === "needs" ? 30 : 3,
+          take: ideasOnly ? 30 : FEED_SECTION_SIZE,
           select: { id: true, number: true, title: true, createdAt: true, projectId: true, reporter: { select: { name: true } }, project: { select: { slug: true, organisation: { select: { slug: true } } } } },
         }).then((rows) => rows.map((row) => ({ id: row.id, number: row.number, title: row.title, at: row.createdAt, by: row.reporter?.name ?? null, href: ideaPath(refOf(row.project), row.number), projectName: allProjects ? projectNames.get(row.projectId) ?? null : null }))),
         prisma.idea.count({ where: ideasToOkWhere }),
@@ -852,7 +857,8 @@ export async function IssuesList({
           return [...rows, ...rest];
         };
 
-        // The Work Feed (#work-feed-sections): its three sections, a few cards each, or one of them in full.
+        // The Work Feed (#work-feed-sections): its sections, a few cards each, or one of them in full.
+        if (ideasOnly) return emptyFeed;
         if (overviewTab === "all") {
           const now = currentTime();
           const counts = new Map<string, number>();
@@ -897,13 +903,13 @@ export async function IssuesList({
       }, emptyFeed)
     : emptyFeed;
   // An Overview tab's address, with the Status filter when one is picked.
-  const overviewHref = (tab: OverviewTab, state: string | null, mine: boolean = isMyWorkTab, section: FeedSection | null = null) =>
+  const overviewHref = (tab: OverviewTab, state: string | null, mine: boolean = isMyWorkTab, section: FeedSection | typeof IDEAS_SECTION | null = null) =>
     listHref(new URLSearchParams({ status: YOUR_WORK_STATUS, ...(tab === "all" ? {} : { [OVERVIEW_TAB_PARAM]: tab }), ...(state ? { [OVERVIEW_STATE_PARAM]: state } : {}), ...(mine ? { [OVERVIEW_MINE_PARAM]: "1" } : {}), ...(section ? { [OVERVIEW_SECTION_PARAM]: section } : {}) }));
   // The same Overview tab in another project, or every project.
   const overviewProjectHref = (target: ProjectRef) =>
     listHrefIn(target, new URLSearchParams({ status: YOUR_WORK_STATUS, ...(overviewTab === "all" ? {} : { [OVERVIEW_TAB_PARAM]: overviewTab }), ...(overviewState ? { [OVERVIEW_STATE_PARAM]: overviewState } : {}), ...(isMyWorkTab ? { [OVERVIEW_MINE_PARAM]: "1" } : {}) }));
   // The Work Feed with one of its sections in full, or all three.
-  const sectionHref = (section: FeedSection | null) => overviewHref("all", null, isMyWorkTab, section);
+  const sectionHref = (section: FeedSection | typeof IDEAS_SECTION | null) => overviewHref("all", null, isMyWorkTab, section);
   // New ideas (`/new`) is one of the Overview's tabs (#work-feed): it has the Overview's top, chat box and tabs.
   const isNewIdeasView = ideasView === "new";
   const withOverviewLook = isYourWorkView || isNewIdeasView;
@@ -1838,13 +1844,10 @@ export async function IssuesList({
           // empty tab says what it will hold: the tabs are lists of what happened, not filter results.
           <WorkFeed
             items={feed.items}
-            groups={feed.groups?.map((group) => {
-              // Needs your OK also holds the new ideas (#just-added).
-              const ideas = group.key === "needs" ? { all: ideasToOkCount, shown: justAdded.length } : { all: 0, shown: 0 };
-              return { ...group, moreHref: group.count + ideas.all > group.items.length + ideas.shown ? sectionHref(group.key) : null };
-            })}
+            groups={feed.groups?.map((group) => ({ ...group, moreHref: group.count > group.items.length ? sectionHref(group.key) : null }))}
             justAdded={justAdded}
             justAddedCount={ideasToOkCount}
+            ideasMoreHref={!ideasOnly && ideasToOkCount > justAdded.length ? sectionHref(IDEAS_SECTION) : null}
             groupActions={awaitingConfirmation > 0 && organisationId ? {
               waiting: <ConfirmAllButton organisationId={organisationId} projectId={scopeProjectId} count={awaitingConfirmation} />,
             } : undefined}
