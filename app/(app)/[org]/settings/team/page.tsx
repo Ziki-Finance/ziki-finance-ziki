@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { ProjectPendingJoinRequestsBanner, type PendingJoinRequestItem } from "@/components/project-pending-join-requests";
-import { settableLevels } from "@/lib/agents/levels";
 import { activeIn, activeLevels, levelIn } from "@/lib/agents/active-in";
 import { INVITE_TTL_DAYS, pendingInvites } from "@/lib/invites";
 import { joinAnswersSummary } from "@/lib/join-questions";
@@ -133,7 +132,7 @@ export default async function OrgTeamPage() {
         actions={org.admin ? <InviteModal organisationId={org.id} organisationName={org.name} inviteTtlDays={INVITE_TTL_DAYS} link={link} invites={teamInvites} /> : null}
       >
         Everyone in {org.name}, the invites still waiting, and the people who work on one project. Owners change roles;
-        owners and admins invite and remove people and set each agent&apos;s class.
+        owners and admins invite and remove people.
       </OrgPageHeader>
       {org.admin && joinRequests.length > 0 ? (
         <ProjectPendingJoinRequestsBanner requests={joinRequests} orgRef={org.slug} projectName={org.name} />
@@ -149,7 +148,6 @@ export default async function OrgTeamPage() {
         ownerCount={ownerCount}
         canChangeRoles={org.owner}
         canManage={org.admin}
-        agentLevels={org.admin ? settableLevels({ isOwner: false, isAdminOfOrganisation: true }) : []}
       />
     </div>
   );
