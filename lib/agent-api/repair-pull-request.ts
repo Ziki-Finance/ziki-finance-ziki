@@ -12,6 +12,9 @@ import { parsePullRequestUrl, sameRepo } from "@/lib/github/pull-request-url";
 import { PROJECT_REPOSITORIES_SELECT, projectRepoRefs, repoForPullRequest } from "@/lib/github/project-repositories";
 import { acceptedFixGate, releaseAcceptedFix } from "@/lib/accepted-fix";
 import { latestPullRequestReport } from "@/lib/agent-api/pull-request-report";
+import { releaseStepFor } from "@/lib/agent-api/release-step";
+import { moveTo } from "@/lib/issue-substatus";
+import { statusChangedSummary } from "@/lib/activity-log";
 
 /**
  * Repairing or updating a pull request link (#repair-pr-link, #edit-pr-link).
@@ -96,6 +99,7 @@ export async function repairPullRequestLink(
     select: {
       id: true,
       status: true,
+      substatus: true,
       track: true,
       pullRequestUrl: true,
       pullRequestHeadSha: true,
@@ -240,6 +244,25 @@ export async function repairPullRequestLink(
           data: { pullRequestUrl: next, headSha },
         })
       ).count;
+    }
+    // Live work relinked to another pull request is only Live while that one is merged into the default branch
+    // (#release-step): with no report yet, or one saying otherwise, it steps back into Merge for agents to check.
+    if (!samePullRequest && (bug.substatus === "on_dev" || bug.substatus === "on_staging" || bug.substatus === "on_prod")) {
+      const back = latestReport ? releaseStepFor(bug.substatus, latestReport) : "ready_to_merge";
+      if (back) {
+        const stepped = await tx.bug.updateMany({ where: { id: bug.id, substatus: bug.substatus }, data: moveTo(back) });
+        if (stepped.count) {
+          await tx.bugActivity.create({
+            data: {
+              bugId: bug.id,
+              actorId: agent.ownerId,
+              type: "status_changed",
+              summary: `${statusChangedSummary(bug.substatus, back)}: relinked to ${next}, which isn't reported merged into the default branch`,
+              metadata: { field: "status", from: bug.substatus, to: back, via: "pull_request_relinked", pullRequestUrl: next },
+            },
+          });
+        }
+      }
     }
     if (replacing && previous) {
       await releaseAcceptedFix(tx, { bugId: bug.id, acceptanceId: replacing.acceptanceId, previous, next, actorUserId: agent.ownerId, byManager: replacing.byManager });

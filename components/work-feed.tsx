@@ -28,7 +28,10 @@ export type WorkFeedItem = {
   number: number;
   title: string;
   href: string;
+  /** When it last changed: its newest history entry, else its last update. */
   at: Date;
+  /** Who made that change and what it was ("comment added"), when there is a history entry (#last-change). */
+  lastChange?: { by: string | null; what: string } | null;
   projectName: string | null;
   /** Who is on it, or who it is for. */
   who: string | null;
@@ -112,6 +115,29 @@ function fileKind(type: string, name: string): string {
  */
 export const RAISED =
   "inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 whitespace-nowrap rounded-md border border-zk-ok-fg bg-zk-ok-fg px-2 text-[11.5px] font-bold text-white shadow-none transition hover:brightness-110 disabled:cursor-default disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-electric-blue";
+
+/** Approve Idea (#idea-approve): yellow, with a light bulb, so it reads as an idea's step and not as approving work. */
+export const IDEA_RAISED =
+  "inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 whitespace-nowrap rounded-md border border-zk-warn-bd bg-zk-warn-bd px-2 text-[11.5px] font-bold text-zk-warn-fg shadow-none transition hover:brightness-105 disabled:cursor-default disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-electric-blue";
+
+/** The light bulb on Approve Idea. */
+export function LightBulb() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z" /></svg>
+  );
+}
+
+/** "updated 3 mins ago by Ada (comment added)": when the row last changed, who changed it and what (#last-change). */
+function LastChange({ item }: { item: WorkFeedItem }) {
+  const change = item.lastChange;
+  return (
+    <>
+      updated <LocalTime date={item.at} />
+      {change?.by ? ` by ${change.by}` : ""}
+      {change ? ` (${change.what})` : ""}
+    </>
+  );
+}
 
 /** The thumbs-up on a raised action button. */
 function ThumbsUp() {
@@ -219,7 +245,7 @@ export function WorkFeed({ items, groups, title, toolbar, empty, footer, justAdd
                               <RewardBadge price={item.price} held={item.priceHeld} className="text-[13px]" />
                             </>
                           ) : null}
-                          {" · "}{who} · <LocalTime date={item.at} />
+                          {" · "}{who} · <LastChange item={item} />
                         </span>
                       </span>
                     </button>
@@ -416,7 +442,7 @@ function FeedCard({ item, id, onClose }: { item: WorkFeedItem; id: string; onClo
             <span className="mt-0.5 block truncate text-[13px] text-zk-muted">
               <ProjectTag name={item.projectName} />
               <span style={{ color: tone.color }}>{kind.label}</span> · <span className="tabular-nums">{formatIssueNumber(item.number)}</span>
-              {" · "}{who} · <LocalTime date={item.at} />
+              {" · "}{who} · <LastChange item={item} />
             </span>
           </span>
         </button>
@@ -1029,9 +1055,9 @@ function IdeaOkCard({ idea, flashing }: { idea: JustAddedIdea; flashing: boolean
           {approved ? (
             <span className={PILL} style={PILL_TONES.green}>✓ Approved</span>
           ) : (
-            <button type="button" onClick={approve} disabled={pending} aria-label={`Approve idea #${idea.number}: give it your good verdict`} className={RAISED}>
-              <ThumbsUp />
-              Approve
+            <button type="button" onClick={approve} disabled={pending} aria-label={`Approve idea #${idea.number}: give it your good verdict`} className={IDEA_RAISED}>
+              <LightBulb />
+              Approve Idea
             </button>
           )}
           {error ? <p role="alert" className="m-0 max-w-[220px] text-[12px] text-zk-bad-fg">{error}</p> : null}

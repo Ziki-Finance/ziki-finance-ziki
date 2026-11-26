@@ -32,6 +32,7 @@ import type { AgentContext } from "@/lib/agents/require-agent";
 import { reportPullRequestStatus } from "@/lib/agent-api/pull-request-report";
 import { prGate, type GateReport } from "@/lib/agent-api/pr-gate";
 import { repairPullRequestLink } from "@/lib/agent-api/repair-pull-request";
+import { releaseStepFor } from "@/lib/agent-api/release-step";
 
 const PR = "https://github.com/emerjent/ziki/pull/552";
 const scope = { organisationId: "t1", projectId: "p1" };
@@ -226,6 +227,28 @@ describe("prGate (#pr-reports)", () => {
 
 });
 
+describe("releaseStepFor (#release-step)", () => {
+  it("puts a merge into another branch at Awaiting release, from Merge and from Done · Accepted", () => {
+    const staging = { state: "merged", inDefaultBranch: false };
+    expect(releaseStepFor("ready_to_merge", staging)).toBe("awaiting_release");
+    expect(releaseStepFor("accepted", staging)).toBe("awaiting_release");
+    // Released after all: back to Ready to merge, for the merger to resolve.
+    expect(releaseStepFor("awaiting_release", { state: "merged", inDefaultBranch: true })).toBe("ready_to_merge");
+    // Done · Accepted waits for the manager's review on anything else.
+    expect(releaseStepFor("accepted", { state: "open" })).toBeNull();
+  });
+
+  it("keeps Live work Live only while the report says it is merged into the default branch", () => {
+    expect(releaseStepFor("on_prod", { state: "merged", inDefaultBranch: true })).toBeNull();
+    expect(releaseStepFor("on_dev", { state: "merged", inDefaultBranch: false })).toBe("awaiting_release");
+    expect(releaseStepFor("on_staging", { state: "open" })).toBe("ready_to_merge");
+    expect(releaseStepFor("on_dev", { state: "closed" })).toBe("error");
+    // Force-merged, Broken and Published work follows its own rules.
+    expect(releaseStepFor("force_merged", { state: "open" })).toBeNull();
+    expect(releaseStepFor("published", { state: "closed" })).toBeNull();
+  });
+});
+
 describe("repairPullRequestLink (#edit-pr-link)", () => {
   it("lets the claim holder update their submitted pull request URL to a new PR in the project's repository", async () => {
     db.bug.findFirst.mockResolvedValue(
@@ -364,6 +387,16 @@ describe("repairPullRequestLink (#edit-pr-link)", () => {
     const result = await repairPullRequestLink(checker("dave", "manager"), scope, "bug1", { pullRequestUrl: nextPr });
     expect(result).toMatchObject({ status: 200, body: { repaired: true, previousPullRequestUrl: null, pullRequestUrl: nextPr } });
     expect(db.tx.bug.updateMany).toHaveBeenCalledWith({ where: { id: "bug1", pullRequestUrl: null }, data: { pullRequestUrl: nextPr, pullRequestHeadSha: null } });
+  });
+
+  it("steps Live work back into Merge when a manager relinks it to a pull request not reported merged (#release-step)", async () => {
+    db.bug.findFirst.mockResolvedValue(bug({ status: "resolved", substatus: "on_prod", proofLinks: [], project: { repoUrl: "https://github.com/emerjent/ziki" } }));
+    const nextPr = "https://github.com/emerjent/ziki/pull/1580";
+    const result = await repairPullRequestLink(checker("dave", "manager"), scope, "bug1", { pullRequestUrl: nextPr });
+    expect(result).toMatchObject({ status: 200, body: { repaired: true, pullRequestUrl: nextPr } });
+    // No report on the new link yet: it isn't known to be released, so it waits in Merge for agents to check.
+    expect(db.tx.bug.updateMany).toHaveBeenCalledWith({ where: { id: "bug1", substatus: "on_prod" }, data: { status: "merge", substatus: "ready_to_merge" } });
+    expect(db.tx.bugActivity.create).toHaveBeenCalledWith({ data: expect.objectContaining({ type: "status_changed", metadata: expect.objectContaining({ to: "ready_to_merge", via: "pull_request_relinked" }) }) });
   });
 
   it("rejects a pull request from another repository or an unrelated working agent", async () => {

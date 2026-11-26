@@ -6,7 +6,7 @@ import { quickIdeaVerdictAction } from "@/app/actions/idea-verdicts";
 import type { IdeaListRow } from "@/components/ideas-list";
 import { LocalTime } from "@/components/local-time";
 import { RichText } from "@/components/rich-text";
-import { IssueThumb, PILL } from "@/components/work-feed";
+import { IDEA_RAISED, IssueThumb, LightBulb, PILL } from "@/components/work-feed";
 import { cleanTitle } from "@/lib/issue-title";
 import { PILL_TONES } from "@/lib/pill-tones";
 import { ideaPath, type ProjectRef } from "@/lib/project-paths";
@@ -127,11 +127,11 @@ function IdeaAction({ idea, className = "" }: { idea: IdeaListRow; className?: s
         onClick={approve}
         disabled={pending}
         aria-label={`Approve idea #${idea.number}: give it your good verdict`}
-        // A real button, as on the ideas list before: solid green, raised, with a hover and a press, unlike the pills.
-        className={`inline-flex h-6 cursor-pointer items-center gap-1 whitespace-nowrap rounded-md border border-zk-ok-fg bg-zk-ok-fg px-2 text-[11.5px] font-bold text-white shadow-none transition hover:brightness-110   disabled:cursor-default disabled:opacity-60 ${focus} ${error ? "ring-2 ring-zk-bad-fg" : ""}`}
+        // Approve Idea (#idea-approve): yellow with a light bulb, as in the Work Feed.
+        className={`${IDEA_RAISED} ${error ? "ring-2 ring-zk-bad-fg" : ""}`}
       >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7 10v11M15 5.9 14 10h5.8a2 2 0 0 1 2 2.4l-1.4 7A2 2 0 0 1 18.4 21H7V10l4-8a3.1 3.1 0 0 1 4 3.9zM3 10h4v11H3z" /></svg>
-        Approve
+        <LightBulb />
+        Approve Idea
       </button>
       {error ? <p role="alert" className="m-0 max-w-[220px] text-[12px] text-zk-bad-fg">{error}</p> : null}
     </div>

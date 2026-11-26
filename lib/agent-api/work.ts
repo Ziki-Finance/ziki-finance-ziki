@@ -29,7 +29,7 @@ import { OPEN_BID_WHERE } from "@/lib/open-bids";
 import { abandonTally } from "@/lib/agent-api/abandon";
 import { findIdleInProgress } from "@/lib/agent-api/idle";
 import { findStrandedDeliveries, type StrandedIssue } from "@/lib/agent-api/stranded-delivery";
-import { prGate, reportWanted, type PrGate } from "@/lib/agent-api/pr-gate";
+import { linkStateFromUrl, prGate, reportWanted, type PrGate } from "@/lib/agent-api/pr-gate";
 import { judgeBlockKind } from "@/lib/agent-api/judge-block";
 import { MERGE_CONFLICT_MESSAGE } from "@/lib/agent-api/merge-conflict";
 import { gateReport, latestPullRequestReports, reportedAt, reporterName, type StoredPullRequestReport } from "@/lib/agent-api/pull-request-report";
@@ -729,6 +729,19 @@ async function pullRequestWork(
     if (gate.broken === "old_repository" || gate.broken === "other_repository") work.toRepair.push({ ...issue, linkState: gate.broken });
     const why = reportWanted(gate, report, now);
     if (why) work.toReportPr.push({ ...issue, why });
+  }
+  // Live work whose pull request is outside the project's repositories, such as a fork (#release-step): a manager
+  // repairs the link, and the work steps back into Merge until the right pull request is reported merged.
+  const live = await prisma.bug.findMany({
+    where: { organisationId, projectId, ...PRODUCT_TRACK, isDeleted: false, substatus: { in: ["on_dev", "on_staging", "on_prod"] }, pullRequestUrl: { not: null } },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    select: { id: true, number: true, title: true, status: true, pullRequestUrl: true, pullRequestHeadSha: true },
+  });
+  for (const row of live) {
+    const state = linkStateFromUrl(row.pullRequestUrl, repoForPullRequest(project, row.pullRequestUrl));
+    if (state !== "old_repository" && state !== "other_repository") continue;
+    const gate = prGate(gateReport(null), { pullRequestUrl: row.pullRequestUrl, pullRequestHeadSha: row.pullRequestHeadSha, repo: repoForPullRequest(project, row.pullRequestUrl) });
+    work.toRepair.push({ id: row.id, number: row.number, title: row.title, status: row.status, pullRequestUrl: row.pullRequestUrl!, gate, report: null, linkState: state });
   }
   return work;
 }

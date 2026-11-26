@@ -10,6 +10,7 @@ import { issueIdFor } from "@/lib/issue-ref";
 import { pullRequestReportSchema, checkRunsSchema, pullRequestChecksSummary, type PullRequestCheck } from "@/lib/validations/pull-request-report";
 import type { GateReport } from "@/lib/agent-api/pr-gate";
 import { moveTo } from "@/lib/issue-substatus";
+import { REPORT_MOVES_FROM, releaseStepFor } from "@/lib/agent-api/release-step";
 import { statusChangedSummary } from "@/lib/activity-log";
 import { sameCommit } from "@/lib/github/commit-sha";
 
@@ -211,18 +212,6 @@ const fail = (status: 400 | 403 | 404 | 409, error: string, message: string, fie
  * the issue (as the pull_request webhook does), so judgements and the accept
  * bind to the code that is there now.
  */
-/**
- * Where a report puts an issue in Merge (#substatus): Error when its
- * pull request can't merge as it is (closed without merging, missing,
- * conflicting or with failing checks), else Ready to merge. A merged report
- * leaves it Ready to merge: the merger resolves it.
- */
-export function mergeSubstatusFor(report: { state: string; mergeable?: boolean | null; checks?: string | null }): "ready_to_merge" | "error" {
-  if (report.state === "closed" || report.state === "not_found") return "error";
-  if (report.state === "open" && (report.mergeable === false || report.checks === "failing")) return "error";
-  return "ready_to_merge";
-}
-
 export async function reportPullRequestStatus(
   agent: AgentContext,
   scope: { organisationId: string; projectId: string },
@@ -315,10 +304,11 @@ export async function reportPullRequestStatus(
     if (headMoved) {
       await tx.bug.updateMany({ where: { id: bug.id, pullRequestUrl }, data: { pullRequestHeadSha: body.headSha } });
     }
-    // In Merge, the latest report decides Ready to merge or Error (#substatus).
-    const mergeStep = bug.status === "merge" ? mergeSubstatusFor({ ...body, checks: reportedChecks }) : null;
-    if (mergeStep && mergeStep !== bug.substatus) {
-      const moved = await tx.bug.updateMany({ where: { id: bug.id, status: "merge", pullRequestUrl }, data: moveTo(mergeStep) });
+    // The latest report decides where work past review stands (#release-step): Ready to merge, Error or Awaiting
+    // release in Merge, and Live only while it says the merge is in the default branch.
+    const mergeStep = REPORT_MOVES_FROM.includes(bug.substatus) ? releaseStepFor(bug.substatus, { ...body, checks: reportedChecks }) : null;
+    if (mergeStep) {
+      const moved = await tx.bug.updateMany({ where: { id: bug.id, substatus: bug.substatus, pullRequestUrl }, data: moveTo(mergeStep) });
       if (moved.count) {
         await tx.bugActivity.create({
           data: {
@@ -344,7 +334,7 @@ export async function reportPullRequestStatus(
       checks: reportedChecks ?? null,
       mergeable: body.mergeable ?? null,
       note: body.note,
-      ...(mergeStep && mergeStep !== bug.substatus ? { substatus: { from: bug.substatus, to: mergeStep } } : {}),
+      ...(mergeStep ? { substatus: { from: bug.substatus, to: mergeStep } } : {}),
       ...(headMoved ? { headMoved: { from: bug.pullRequestHeadSha, to: body.headSha ?? null } } : {}),
     };
     await audit(agent, "issue.pull_request_reported", `bug:${bug.id}`, payload, { bugId: bug.id, db: tx });

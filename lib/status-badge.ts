@@ -22,6 +22,7 @@ export const STATUS_BADGE: Record<Substatus, { label: string; tone: PillTone; ic
   ready_to_merge: { label: "Mergeable", tone: "purple", icon: "M6 3v12M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 9a9 9 0 0 1-9 9" },
   // The pull request can't merge: a warning.
   error: { label: "Blocked", tone: "red", icon: "M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01" },
+  awaiting_release: { label: "Awaiting release", tone: "yellow", icon: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 3" },
   // Merged and on dev: a merged branch.
   on_dev: { label: "Merged", tone: "cyan", icon: "M18 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21V9a9 9 0 0 0 9 9" },
   // On staging: layers.

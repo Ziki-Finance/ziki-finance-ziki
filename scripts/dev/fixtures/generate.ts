@@ -269,7 +269,9 @@ const PLAN: Array<[string, string, number]> = [
   ["in_progress", "in_progress", 15],
   ["done", "requires_review", 12],
   ["done", "accepted", 10],
-  ["merge", "ready_to_merge", 8],
+  ["merge", "ready_to_merge", 5],
+  // #release-step: merged into staging, waiting for the release to main.
+  ["merge", "awaiting_release", 3],
   ["merge", "error", 4],
   ["resolved", "on_dev", 6],
   ["resolved", "on_staging", 5],
@@ -281,7 +283,7 @@ const PLAN: Array<[string, string, number]> = [
 ];
 const STATUS_BY_MARKETING = { open: "open", in_progress: "in_progress", requires_review: "done", accepted: "done", published: "resolved", closed: "closed" } as const;
 const CLOSE_REASONS = ["superseded", "not_reproducible", "already_implemented", "duplicate", "not_planned", "withdrawn"];
-const STAGE_ORDER = ["requires_confirmation", "open", "plan_review", "in_progress", "requires_review", "accepted", "ready_to_merge", "error", "on_dev", "on_staging", "on_prod"];
+const STAGE_ORDER = ["requires_confirmation", "open", "plan_review", "in_progress", "requires_review", "accepted", "ready_to_merge", "awaiting_release", "error", "on_dev", "on_staging", "on_prod"];
 
 const combos = TOPICS.flatMap((t) => PROBLEMS.map((p) => ({ t, p })));
 const chosen = sample(combos, PLAN.reduce((n, [, , c]) => n + c, 0) + 30);
@@ -552,6 +554,11 @@ for (const [status, substatus, count] of PLAN) {
       continue;
     }
     if (substatus === "ready_to_merge") continue;
+    if (substatus === "awaiting_release") {
+      report0("merged", { mergedInto: "staging", inDefaultBranch: false, mergeCommitSha: hex(40), note: "Merged into staging; main doesn't have it yet." });
+      activity(bug, reviewer.owner, "Merged into staging, not released: moved to Merge · Awaiting release", clock, "ready_to_merge", "awaiting_release");
+      continue;
+    }
 
     // Merged and Live.
     report0("merged", { mergedInto: "main", inDefaultBranch: true, mergeCommitSha: hex(40), note: "Merged into main." });

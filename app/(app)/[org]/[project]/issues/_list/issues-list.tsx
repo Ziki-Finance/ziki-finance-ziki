@@ -1,3 +1,4 @@
+import { ACTIVITY_LABELS } from "@/lib/activity-log";
 import { PRIMARY_ACTION } from "@/lib/ui-style";
 import { IssuePriorityBadge } from "@/components/issue-priority-badge";
 import { PRODUCT_TRACK } from "@/lib/marketing/track";
@@ -702,6 +703,8 @@ export async function IssuesList({
           id: true, number: true, title: true, createdAt: true, updatedAt: true, projectId: true, summary: true, description: true, status: true,
           project: { select: { slug: true, organisation: { select: { slug: true } } } },
           assignee: { select: { name: true } },
+          // #last-change: the newest history entry, to say who changed it and what.
+          activities: { orderBy: { createdAt: "desc" }, take: 1, select: { type: true, createdAt: true, actor: { select: { name: true } } } },
           reporter: { select: { name: true } },
           // What the card shows when opened (#work-feed): the files on it.
           attachments: { orderBy: { createdAt: "asc" }, take: 4, select: { id: true, filename: true, contentType: true, size: true } },
@@ -775,7 +778,8 @@ export async function IssuesList({
             number: row.number,
             title: row.title,
             href,
-            at: row.updatedAt,
+            at: row.activities[0]?.createdAt ?? row.updatedAt,
+            lastChange: row.activities[0] ? { by: row.activities[0].actor?.name ?? null, what: ACTIVITY_LABELS[row.activities[0].type] } : null,
             projectName: allProjects ? projectNames.get(row.projectId) ?? null : null,
             who: row.claims[0]?.agent?.name ?? row.claims[0]?.beneficiary?.name ?? row.assignee?.name ?? null,
             // Where it is, said on the card in one word with its colour and icon ("Broken", not "Live · Broken").
