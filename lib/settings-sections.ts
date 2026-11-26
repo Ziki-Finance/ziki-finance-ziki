@@ -3,7 +3,7 @@ export const SETTINGS_SECTIONS = [
   {
     id: "account",
     label: "Account",
-    hint: "Profile and security",
+    hint: "Your profile",
     icon: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
   },
   {
@@ -25,9 +25,9 @@ export const SETTINGS_SECTIONS = [
     icon: "M4 8h16v12H4zM12 4v4M9 14h.01M15 14h.01",
   },
   {
-    id: "data",
-    label: "Data & privacy",
-    hint: "Export or delete account",
+    id: "security",
+    label: "Security",
+    hint: "Sign-in, sessions, data & privacy",
     icon: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
   },
 ] as const;

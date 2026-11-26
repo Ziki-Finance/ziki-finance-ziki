@@ -14,8 +14,6 @@ import { sameCommit } from "@/lib/github/commit-sha";
  */
 
 const DAY = 24 * 60 * 60 * 1000;
-/** A milestone due within this many days makes its stuck issues Critical. */
-export const MILESTONE_SOON_DAYS = 7;
 /** Split for longer than this, an issue is at least High. */
 export const LONG_WAIT_DAYS = 7;
 
@@ -24,7 +22,6 @@ export type UrgencySignals = {
   isBoosted: boolean;
   /** Importance marks (`Bug.voteCount`). */
   importance: number;
-  milestone: { title: string; dueDate: Date | null } | null;
   /** When the agents split. */
   since: Date;
 };
@@ -59,8 +56,7 @@ export function yardsticksFor(groups: ImportanceCount[]): ProjectYardsticks {
 
 /**
  * How much the stuck issue holds the project back, and why:
- * - Critical: boosted, in a milestone due within 7 days (or overdue), or
- *   among the project's most important open issues (top 10% by importance);
+ * - Critical: boosted, or among the project's most important open issues (top 10% by importance);
  * - High: high importance (top 30%) or split for over a week;
  * - Medium: any importance marks;
  * - Low: everything else.
@@ -68,12 +64,6 @@ export function yardsticksFor(groups: ImportanceCount[]): ProjectYardsticks {
 export function urgencyOf(s: UrgencySignals, y: ProjectYardsticks, now = Date.now()): { urgency: Urgency; reasons: string[] } {
   const critical: string[] = [];
   if (s.isBoosted) critical.push("Boosted");
-  if (s.milestone?.dueDate) {
-    const days = Math.ceil((s.milestone.dueDate.getTime() - now) / DAY);
-    if (days <= MILESTONE_SOON_DAYS) {
-      critical.push(days < 0 ? `Milestone ${s.milestone.title} overdue` : days === 0 ? `Milestone ${s.milestone.title} due today` : `Milestone ${s.milestone.title} due in ${days} ${days === 1 ? "day" : "days"}`);
-    }
-  }
   if (s.importance > 0 && y.topImportance > 0 && s.importance >= y.topImportance) critical.push(`Among the most important (${s.importance} marks)`);
   if (critical.length) return { urgency: "critical", reasons: critical };
 
@@ -121,7 +111,6 @@ export async function loadYourCall(projectId: string, viewer: YourCallViewer): P
       select: {
         id: true, number: true, title: true, summary: true, substatus: true, pullRequestUrl: true, pullRequestHeadSha: true, updatedAt: true,
         voteCount: true, isBoosted: true, reporterId: true, beneficiaryUserId: true,
-        milestone: { select: { title: true, dueDate: true } },
         project: { select: { slug: true, organisation: { select: { slug: true } } } },
         // The people who delivered the fix: their own agents' judgements never count.
         deliveries: { select: { beneficiaryUserId: true, pullRequestUrl: true } },
@@ -179,7 +168,7 @@ export async function loadYourCall(projectId: string, viewer: YourCallViewer): P
     // An answer counts when the viewer or the one who filed the issue gave it after the split.
     const mine = issue.comments.find((c) => c.createdAt > split.at && (c.authorId === viewer.userId || c.authorId === issue.reporterId || c.authorId === issue.beneficiaryUserId));
     const { urgency, reasons } = urgencyOf(
-      { isBoosted: issue.isBoosted, importance: issue.voteCount, milestone: issue.milestone, since: split.at },
+      { isBoosted: issue.isBoosted, importance: issue.voteCount, since: split.at },
       yardsticks,
     );
     items.push({

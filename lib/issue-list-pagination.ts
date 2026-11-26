@@ -1,6 +1,5 @@
 import { DUPLICATES_PARAM, SHOW_DUPLICATES } from "@/lib/duplicates";
 import { SHOW_RESOLVED, SHOW_RESOLVED_PARAM } from "@/lib/issue-state";
-import { MILESTONE_PARAM } from "@/lib/milestones";
 import { AREA_PARAM } from "@/lib/project-area-filter";
 import { TAGS_PARAM } from "@/lib/tag-filter";
 
@@ -15,7 +14,6 @@ export type IssueListFilterValues = {
   mine: string | null | undefined;
   q: string | undefined;
   sort: string | undefined;
-  milestone: string | undefined;
   tags: string | undefined;
   area: string | null | undefined;
   stage: string | null | undefined;
@@ -29,7 +27,6 @@ export type IssueListFilterValues = {
 export function issueListPaginationParams(values: IssueListFilterValues): Record<string, string> {
   const entries: [string, string | null | undefined][] = [
     ["status", values.status],
-    [MILESTONE_PARAM, values.milestone],
     ["mine", values.mine],
     ["q", values.q],
     [TAGS_PARAM, values.tags],

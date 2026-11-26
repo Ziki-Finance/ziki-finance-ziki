@@ -1,6 +1,5 @@
 import { FeedbackDetail, feedbackDetailSelect } from "@/components/feedback-detail";
 import { PublicContributorForm } from "@/components/public-contributor-form";
-import { optionalUser } from "@/lib/auth-helpers";
 import { publicSubmissionStatus } from "@/lib/public-submission-status";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -25,8 +24,7 @@ export default async function PublicTrackingPage({ params, searchParams }: { par
   if (!idea) notFound();
   const trackingPath = `/${encodeURIComponent(org)}/${encodeURIComponent(projectSlug)}/track/${encodeURIComponent(token)}`;
   if ((await searchParams).view === "confirmation") {
-    const user = await optionalUser();
-    return <div className="w-full pb-6"><PublicContributorForm project={project} orgSlug={org} projectSlug={projectSlug} signedIn={Boolean(user)} returnHref={backHref} initialSubmission={{ title: idea.title, trackingPath, status: publicSubmissionStatus(idea) }} /></div>;
+    return <div className="w-full pb-6"><PublicContributorForm project={project} orgSlug={org} projectSlug={projectSlug} returnHref={backHref} initialSubmission={{ title: idea.title, trackingPath, status: publicSubmissionStatus(idea) }} /></div>;
   }
   return <FeedbackDetail idea={idea} trackingPath={trackingPath} confirmationHref={`${trackingPath}?view=confirmation`} issueHref={idea.issue && project.visibility === "public" ? publicIssueDetailPath(ref, idea.issue.number) : undefined} />;
 }

@@ -11,6 +11,7 @@ import { SECURITY_SEVERITIES, SEVERITY_LABEL } from "@/lib/security-severity";
 import { KindIcon } from "@/components/security-checks/entry-box";
 import { UnlockFixesForm, type UnlockRow } from "@/components/security-checks/unlock-fixes-form";
 import { ZikAmount } from "@/components/zik-symbol";
+import { financeHref } from "@/lib/finance-paths";
 
 export const metadata = { title: "Unlock fixes" };
 
@@ -108,7 +109,7 @@ export default async function UnlockFixesPage({
 
       <p className="mb-0 mt-6 text-center text-xs text-zk-muted">
         Prices: critical <ZikAmount amount={SEVERITY_PRICE.critical} />, high <ZikAmount amount={SEVERITY_PRICE.high} />, medium <ZikAmount amount={SEVERITY_PRICE.medium} />, low <ZikAmount amount={SEVERITY_PRICE.low} />. You have <ZikAmount amount={balance} />.{" "}
-        <Link href="/coins" className="font-semibold text-zk-accent hover:underline">Buy Ziks</Link>
+        <Link href={financeHref("buy")} className="font-semibold text-zk-accent hover:underline">Buy Ziks</Link>
       </p>
     </div>
   );

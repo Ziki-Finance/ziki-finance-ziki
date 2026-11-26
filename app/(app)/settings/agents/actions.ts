@@ -89,7 +89,7 @@ export async function setAgentLevelAction(agentId: unknown, level: unknown, orga
     revalidatePath("/agents/mine");
     revalidatePath("/settings/team");
     revalidatePath("/workers");
-    revalidatePath("/[org]/[project]/org", "layout");
+    revalidatePath("/[org]/settings", "layout");
     revalidatePath("/users/[id]", "page");
   }
   return result;
@@ -100,7 +100,7 @@ const NO_ORGANISATION = "Open an organisation first.";
 /** Where an agent works changed: the pages that list agents. */
 function revalidateAgentPlaces() {
   revalidatePath("/agents/mine");
-  revalidatePath("/[org]/[project]/org", "layout");
+  revalidatePath("/[org]/settings", "layout");
   revalidatePath("/agent/[username]", "layout");
 }
 

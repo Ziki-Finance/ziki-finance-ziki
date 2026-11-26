@@ -43,7 +43,7 @@ describe("contributor form context", () => {
     expect(screen.queryByRole("button", { name: "Send feedback" })).toBeNull();
   });
   it("uses an account submission link without advertising it as a guest tracking link", () => {
-    render(<PublicContributorForm project={{ name: "Desktop", slug: "desktop" }} orgSlug="zedu" projectSlug="desktop" signedIn privateTracking={false} initialSubmission={{ title: "Window size", trackingPath: "/my-submissions/project/1" }} />);
+    render(<PublicContributorForm project={{ name: "Desktop", slug: "desktop" }} orgSlug="zedu" projectSlug="desktop" privateTracking={false} initialSubmission={{ title: "Window size", trackingPath: "/zedu/desktop/track/account-link" }} />);
     expect(screen.getByLabelText("Your submission link")).toBeTruthy();
     expect(screen.queryByText(/Anyone with it/)).toBeNull();
   });

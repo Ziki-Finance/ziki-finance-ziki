@@ -27,7 +27,7 @@ describe("back to the scan after buying Ziks (#deeper-scan-gate)", () => {
   });
 
   it("the Buy Ziks link carries the scan it came from", () => {
-    expect(buyZiksHref("cmabc123")).toBe("/coins?returnTo=%2Fsecurity%2Fchecks%2Fcmabc123%2Fdeeper");
+    expect(buyZiksHref("cmabc123")).toBe("/settings?section=finance&tab=buy&returnTo=%2Fsecurity%2Fchecks%2Fcmabc123%2Fdeeper");
   });
 });
 

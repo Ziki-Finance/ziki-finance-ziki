@@ -5,6 +5,7 @@ import { absoluteUrl } from "@/lib/site-url";
 import { CoinError, appendRows, lockUser, walletSummary, zikOf } from "./ledger";
 import { ZIKS_PER_DOLLAR, payableZik, zikToCents } from "./math";
 import { getStripe } from "./stripe";
+import { financeHref } from "@/lib/finance-paths";
 
 /**
  * Withdrawing earned Ziks (#ziki-coins). A person sets up payouts once (a Stripe
@@ -49,8 +50,8 @@ export async function startPayoutOnboarding(userId: string, email: string | unde
   const link = await stripe.accountLinks.create({
     account: accountId,
     type: "account_onboarding",
-    refresh_url: absoluteUrl("/coins/payouts?payouts=refresh"),
-    return_url: absoluteUrl("/coins/payouts?payouts=return"),
+    refresh_url: absoluteUrl(financeHref("withdraw", { payouts: "refresh" })),
+    return_url: absoluteUrl(financeHref("withdraw", { payouts: "return" })),
   });
   return link.url;
 }

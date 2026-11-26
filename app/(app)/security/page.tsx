@@ -26,7 +26,7 @@ import { OutsideStart } from "@/components/security-checks/outside-start";
 import { WorkspacePickerModal } from "@/components/security-checks/workspace-picker";
 import { listWorkspaceChecks } from "@/lib/security-checks/entry";
 import { parseSecurityTarget, targetAddress } from "@/lib/security-checks/target";
-import { OrgPageHeader, ReadOnlyNote, orgCard, orgListCard } from "../[org]/[project]/org/org-ui";
+import { OrgPageHeader, ReadOnlyNote, orgCard, orgListCard } from "@/app/(app)/[org]/settings/org-ui";
 
 /** Signed out, /security is the public Ziki Security page, so it carries that page's search title and description. */
 export async function generateMetadata() {

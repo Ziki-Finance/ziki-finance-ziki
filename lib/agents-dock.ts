@@ -30,7 +30,7 @@ export function dockVisibleOn(pathname: string | null | undefined): boolean {
   const [first] = segments;
   if (!first) return false;
   if (first === "inbox") return true;
-  if (first === "home" || first === "feed" || first === "activity") return segments.length === 1;
+  if (first === "home" || first === "feed") return segments.length === 1;
   if (isReservedProjectSlug(first) || segments.length < 2 || isProjectFirstPath(path)) return false;
   // Forum pages (/<org>/forum, /<org>/<project>/forum, and threads under them) hide the dock.
   if (segments[1] === "forum" || segments[2] === "forum") return false;
@@ -42,6 +42,8 @@ export function dockVisibleOn(pathname: string | null | undefined): boolean {
   if (segments[1] === "queue") return segments.length === 2;
   // The organisation's Marketing pages (#org-marketing).
   if (segments[1] === "marketing") return true;
+  // The organisation's settings (#org-settings), like the person's own: no dock.
+  if (segments[1] === "settings") return false;
   // A project's pages, after /<org>/<project>.
   const [page, ...below] = segments.slice(2);
   if (!page || page === "new" || page === "ideas" || page === "issues") return true;

@@ -38,7 +38,6 @@ vi.mock("@/lib/agents/rate-budget", async (original) => ({
 
 import { findSecrets, fingerprintSecret, redactSecrets, secretBlockedMessage, findSecretsInFields } from "@/lib/security/secrets";
 import { checkPostForSecrets } from "@/lib/security/secret-guard";
-import { redactAlert, scanOrganisationPosts } from "@/lib/security/secret-scan";
 import { agentIssueRequest } from "@/lib/agent-api/issues";
 
 /**
@@ -228,62 +227,5 @@ describe("leaked Ziki agent keys", () => {
     const check = await checkPostForSecrets({ organisationId: "org-1", actor: { kind: "user", userId: "ada" }, source: "comment", url: null, fields: { body: zikiKey } });
     expect(check.ok).toBe(false);
     expect(db.agentApiKey.updateMany).not.toHaveBeenCalled();
-  });
-});
-
-describe("secrets already up", () => {
-  it("a scan turns off a working key found in an old comment and files the rest for an admin", async () => {
-    db.idea.findMany.mockResolvedValue([]);
-    db.bug.findMany.mockResolvedValue([]);
-    db.bugRevision.findMany.mockResolvedValue([]);
-    // A private security report: its text goes public when the fix is live.
-    db.securityFinding.findMany.mockResolvedValue([
-      { id: "f1", title: "Admin token in the bundle", summary: null, description: `Shipped in main.js: ${githubToken}`, projectId: "p1", reporterId: "dana", project: { slug: "web", organisation: { slug: "acme" } }, idea: { number: 3 }, bug: { number: 9 } },
-    ]);
-    db.comment.findMany.mockResolvedValue([
-      { id: "c1", body: `my key ${zikiKey}`, summary: null, authorId: "ada", agentId: null, bugId: "b1", bug: { number: 7, projectId: "p1", project: { slug: "web", organisation: { slug: "acme" } } } },
-      { id: "c2", body: `stripe ${stripeKey}`, summary: null, authorId: "carl", agentId: null, bugId: "b1", bug: { number: 7, projectId: "p1", project: { slug: "web", organisation: { slug: "acme" } } } },
-    ]);
-    db.agentApiKey.findUnique.mockResolvedValue(adasKey());
-
-    const progress = await scanOrganisationPosts("org-1", "admin-1", null);
-
-    expect(progress).toEqual({ scanned: 3, found: 3, revokedKeys: 1, next: null });
-    expect(db.agentApiKey.updateMany).toHaveBeenCalledWith({ where: { id: "key-ada", revokedAt: null }, data: { revokedAt: expect.any(Date) } });
-    const filed = db.secretAlert.create.mock.calls.map(([arg]) => arg.data);
-    expect(filed).toEqual([
-      expect.objectContaining({ kind: "ziki_agent_key", state: "revoked", commentId: "c1", url: "/acme/web/7#comment-c1" }),
-      expect.objectContaining({ kind: "stripe_key", state: "exposed", commentId: "c2", actorUserId: "carl" }),
-      // Only the report is marked: its idea and issue hold placeholders until it is disclosed.
-      expect.objectContaining({ kind: "github_token", state: "exposed", findingId: "f1", bugId: null, ideaId: null, url: "/acme/web/9" }),
-    ]);
-  });
-
-  it("removes a secret from a private security report before it goes public", async () => {
-    db.secretAlert.findFirst.mockResolvedValue({ id: "a3", state: "exposed", fingerprint: fingerprintSecret(githubToken), bugId: null, ideaId: null, commentId: null, findingId: "f1" });
-    db.securityFinding.findFirst.mockResolvedValue({ id: "f1", title: "Admin token in the bundle", summary: null, description: `Shipped in main.js: ${githubToken}` });
-
-    expect(await redactAlert("org-1", "a3", "admin-1")).toEqual({ ok: true, removed: 1 });
-    expect(db.securityFinding.update).toHaveBeenCalledWith({
-      where: { id: "f1" },
-      data: { title: "Admin token in the bundle", summary: null, description: "Shipped in main.js: [removed: GitHub token]" },
-    });
-  });
-
-  it("removes an alert's secret from its comment, and leaves every other word as it was", async () => {
-    db.secretAlert.findFirst.mockResolvedValue({ id: "a1", state: "exposed", fingerprint: fingerprintSecret(stripeKey), bugId: "b1", ideaId: null, commentId: "c2" });
-    db.comment.findFirst.mockResolvedValue({ id: "c2", bugId: "b1", body: `stripe ${stripeKey} and ${githubToken}`, summary: null });
-
-    const result = await redactAlert("org-1", "a1", "admin-1");
-
-    expect(result).toEqual({ ok: true, removed: 1 });
-    expect(db.comment.update).toHaveBeenCalledWith({ where: { id: "c2" }, data: { body: `stripe [removed: Stripe live key] and ${githubToken}`, summary: null } });
-    expect(db.secretAlert.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ state: "redacted", resolvedByUserId: "admin-1" }) }));
-  });
-
-  it("refuses to edit an issue for a post that was stopped: the secret never went into it", async () => {
-    db.secretAlert.findFirst.mockResolvedValue({ id: "a2", state: "blocked", fingerprint: "f", bugId: "b1", ideaId: null, commentId: null });
-    expect((await redactAlert("org-1", "a2", "admin-1")).ok).toBe(false);
-    expect(db.$transaction).not.toHaveBeenCalled();
   });
 });

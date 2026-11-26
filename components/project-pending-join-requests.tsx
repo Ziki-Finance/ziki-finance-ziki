@@ -35,7 +35,7 @@ export function ProjectPendingJoinRequestsBanner({
   projectName,
 }: {
   requests: PendingJoinRequestItem[];
-  orgRef: ProjectRef;
+  orgRef: ProjectRef | string;
   projectName?: string;
 }) {
   if (requests.length === 0) return null;
@@ -65,7 +65,7 @@ export function ProjectPendingJoinRequestsBanner({
           </Badge>
         </div>
         <Link
-          href={orgPath(orgRef, "invites")}
+          href={orgPath(orgRef, "team")}
           className="text-xs font-semibold text-zk-accent hover:underline"
         >
           Manage in Invites →

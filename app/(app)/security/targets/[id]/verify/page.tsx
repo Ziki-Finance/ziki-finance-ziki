@@ -4,7 +4,7 @@ import { requireUser } from "@/lib/auth-helpers";
 import { currentOrganisationAccess } from "@/lib/organisation-access";
 import { prisma } from "@/lib/prisma";
 import { FINISHED_CHECK_STATUSES, ownershipProofRequired, TARGET_KIND_LABEL } from "@/lib/security-checks";
-import { OrgPageHeader, orgListCard } from "../../../../[org]/[project]/org/org-ui";
+import { OrgPageHeader, orgListCard } from "@/app/(app)/[org]/settings/org-ui";
 import { OwnershipSteps } from "./ownership-steps";
 import { QuickScanLink } from "@/components/security-checks/quick-scan-link";
 import { readQuickScan } from "@/lib/security-checks/entry";

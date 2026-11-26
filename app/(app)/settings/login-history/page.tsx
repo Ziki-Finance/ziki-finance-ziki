@@ -60,7 +60,7 @@ export default async function LoginHistoryPage(props: {
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 pb-10">
       <div className="flex flex-col gap-2.5">
         <Link
-          href="/settings?section=account"
+          href="/settings?section=security"
           className="inline-flex min-h-8 items-center gap-1.5 self-start text-sm font-semibold text-zk-accent hover:underline"
         >
           <svg

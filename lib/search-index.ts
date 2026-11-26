@@ -27,12 +27,13 @@ export function bugSearchDocument(row: Bug): WorkItemDocument {
     description: row.description, status: row.status, substatus: row.substatus,
     substatusOrder: SUBSTATUS_ORDER.indexOf(row.substatus),
     typeId: row.typeId ?? undefined,
-    areaId: row.areaId ?? undefined, milestoneId: row.milestoneId ?? undefined,
+    areaId: row.areaId ?? undefined,
     reporterId: row.reporterId ?? undefined, assigneeId: row.assigneeId ?? undefined,
     createdByAgentId: row.createdByAgentId ?? undefined,
     duplicateOfId: row.duplicateOfId ?? undefined,
     hasType: row.typeId !== null, hasArea: row.areaId !== null,
-    hasMilestone: row.milestoneId !== null, hasAssignee: row.assigneeId !== null,
+    // The live collection still requires hasMilestone until it is rebuilt; milestones are gone, so it is false.
+    hasMilestone: false, hasAssignee: row.assigneeId !== null,
     hasAgentCreator: row.createdByAgentId !== null, hasDuplicateOf: row.duplicateOfId !== null,
     hasBoostedAt: row.boostedAt !== null, isDeleted: row.isDeleted,
     isBoosted: row.isBoosted, boostedAt: epoch(row.boostedAt), voteCount: row.voteCount,
@@ -88,7 +89,7 @@ export function ideaSearchSort(sort: string): string {
 export function typesenseFilter(field: string, value: unknown): string | null {
   if (value === undefined) return null;
   const presenceFields: Record<string, string> = {
-    typeId: "hasType", areaId: "hasArea", milestoneId: "hasMilestone",
+    typeId: "hasType", areaId: "hasArea",
     assigneeId: "hasAssignee", createdByAgentId: "hasAgentCreator", duplicateOfId: "hasDuplicateOf", boostedAt: "hasBoostedAt",
   };
   const literal = (item: string | number | boolean) => typeof item === "string" && !/^[\w-]+$/.test(item)

@@ -20,7 +20,7 @@ A private project someone can't see always answers exactly like a missing one (4
 | Surface | Gate | Result |
 | --- | --- | --- |
 | Every page under `/<org>/<project>` | `requireProject` (`lib/project-route.ts`): public, OR a member of the project, OR a member of its organisation | ✅ Works. Tested for every role in `tests/security/access-control-matrix.test.ts`. The site super admin looped between the page and the organisation switch on any organisation they don't belong to; fixed in #836. |
-| Organisation area `/<org>/<project>/org/*` | Layout requires organisation membership. Invites and join requests are listed for owners and admins only. | ✅ Works. |
+| Organisation settings `/<org>/settings/*` | Layout requires organisation membership. Invites and join requests are listed for owners and admins only. | ✅ Works. |
 | Issue addresses `/<org>/<project>/<n>`, and the issue page's title and share tags | `findProjectIssue`. Signed out: public projects only. | ✅ Fixed in #679 (Ziki #930). |
 | Public issues and project metadata | `findPublicProject`, `findPublicIssue`: public, unarchived, and never a security finding | ✅ Works. |
 | Discover, sitemap, project SEO | `visibility: "public"`, unarchived. The sitemap's issues are also never deleted and never a security finding. | ✅ Works. Maria's SEO work uses the same rule. |

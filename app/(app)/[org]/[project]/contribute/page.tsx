@@ -5,7 +5,6 @@ import { findPublicProject } from "@/lib/public-projects";
 import { publicFeedbackPath } from "@/lib/public-project-paths";
 import { PublicContributorForm } from "@/components/public-contributor-form";
 import { NOINDEX } from "@/lib/seo/site";
-import { optionalUser } from "@/lib/auth-helpers";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Share feedback", robots: NOINDEX };
@@ -21,7 +20,6 @@ export default async function PublicContributePage({
   const ref = { orgSlug: org, projectSlug };
   const project = await findPublicProject(ref, { requireGuestIntake: true });
   if (!project) notFound();
-  const user = await optionalUser();
 
   return (
     <div className="mx-auto w-full max-w-[920px] pb-10">
@@ -46,7 +44,7 @@ export default async function PublicContributePage({
           {project.name} feedback
         </Link>
       </div>
-      <PublicContributorForm project={project} orgSlug={org} projectSlug={projectSlug} signedIn={Boolean(user)} kind={query.type === "problem" || query.type === "improvement" ? query.type : undefined} />
+      <PublicContributorForm project={project} orgSlug={org} projectSlug={projectSlug} kind={query.type === "problem" || query.type === "improvement" ? query.type : undefined} />
     </div>
   );
 }

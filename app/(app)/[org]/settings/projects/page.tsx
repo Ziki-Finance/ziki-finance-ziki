@@ -25,14 +25,10 @@ function settingsHref(slug: string): string {
  * restore archived projects here.
  */
 export default async function OrgProjectsPage({
-  params: routeParams,
   searchParams,
 }: {
-  params: Promise<{ org: string; project: string }>;
   searchParams: Promise<{ error?: string | string[]; notice?: string | string[] }>;
 }) {
-  // The project the URL is in is the one marked current (#project-urls).
-  const { project: currentSlug } = await routeParams;
   const { org } = await loadOrg();
   if (!org) return null;
   const params = await searchParams;
@@ -50,7 +46,6 @@ export default async function OrgProjectsPage({
   ]);
   const active = projects.filter((project) => !project.archivedAt);
   const archived = projects.filter((project) => project.archivedAt);
-  const current = decodeURIComponent(currentSlug);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -79,7 +74,6 @@ export default async function OrgProjectsPage({
         ) : (
           <ul className="m-0 list-none divide-y divide-zk-divider p-0">
             {active.map((project) => {
-              const here = project.slug === current;
               return (
                 <li key={project.id} className="flex items-center gap-4 px-5 py-3.5">
                   <span
@@ -93,7 +87,6 @@ export default async function OrgProjectsPage({
                       <Link href={issuesPath(projectRef(org.slug, project.slug), "your_work")} className="truncate hover:text-zk-accent hover:underline">
                         {project.name}
                       </Link>
-                      {here ? <span className="rounded-full bg-zk-tint px-2 py-0.5 text-[11px] font-bold text-zk-accent">Current</span> : null}
                     </p>
                     <p className="m-0 mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-zk-muted">
                       <span className="font-mono">{project.slug}</span>

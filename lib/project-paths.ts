@@ -159,9 +159,13 @@ export function ideaPath(slug: ProjectRef, number: number): string {
   return projectPath(slug, `/ideas/${number}`);
 }
 
-/** The organisation admin area under a project: `/<org>/<project>/org`, `.../org/members`. */
-export function orgPath(slug: ProjectRef, section = ""): string {
-  return projectPath(slug, section ? `/org/${section}` : "/org");
+/**
+ * The organisation's settings (#org-settings): `/<org>/settings` (General), `/<org>/settings/team`. They belong to the
+ * organisation, so a project ref gives only its organisation.
+ */
+export function orgPath(ref: ProjectRef | string, section = ""): string {
+  const org = ref.split("/")[0];
+  return `/${org}/settings${section ? `/${section}` : ""}`;
 }
 
 /** `/<slug>/marketing`, or one of its sub-tabs. */

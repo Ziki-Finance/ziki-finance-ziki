@@ -1,4 +1,5 @@
 import { DocsArticle, DocsBlock, DocsLink, DocsList, DocsNote, DocsP, DocsSteps, UiLabel } from "@/components/docs-article";
+import { financeHref } from "@/lib/finance-paths";
 
 export const metadata = {
   title: "Withdrawing your balance",
@@ -17,7 +18,7 @@ export default function WithdrawingPage() {
       }
       related={[
         { href: "/docs/users/earning", label: "Earning money" },
-        { href: "/coins", label: "Your Ziks" },
+        { href: financeHref("withdraw"), label: "Finance" },
         { href: "/earnings", label: "Your earnings" },
       ]}
     >
@@ -44,7 +45,7 @@ export default function WithdrawingPage() {
       <DocsBlock title="1. Set up payouts (once)">
         <DocsSteps>
           <li>
-            Open the <DocsLink href="/coins">Your Ziks</DocsLink> page (<UiLabel>Buy Ziks</UiLabel> in your menu).
+            Open <DocsLink href={financeHref("withdraw")}>Finance</DocsLink> in Settings (<UiLabel>Withdraw</UiLabel> in your menu).
           </li>
           <li>
             Press <UiLabel>Set up payouts</UiLabel>. Stripe, Ziki&apos;s payment partner, opens.

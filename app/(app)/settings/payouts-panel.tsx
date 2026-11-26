@@ -10,7 +10,7 @@ import { ZIKS_PER_DOLLAR } from "@/lib/coins/math";
 const PRIMARY = PRIMARY_ACTION;
 
 /**
- * Payouts on the Payouts page (/coins/payouts): set up Stripe once, then withdraw earned Ziks once
+ * Payouts under Settings › Finance › Withdraw: set up Stripe once, then withdraw earned Ziks once
  * they reach the threshold. The server decides everything (lib/coins/withdraw.ts);
  * this only shows what it said.
  */

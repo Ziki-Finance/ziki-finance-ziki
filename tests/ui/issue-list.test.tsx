@@ -90,7 +90,6 @@ vi.mock("@/lib/prisma", () => ({
     deploymentReport: { findMany: vi.fn(async () => []) },
     idea: { count: ideaCount, findMany: ideaFindMany },
     ideaVerdict: { groupBy: ideaVerdictGroupBy, findMany: vi.fn(async () => []) },
-    milestone: { findMany: vi.fn(async () => []) },
     projectArea: { findMany: vi.fn(async () => []) },
     user: { findUnique: vi.fn(async () => ({ keyboardShortcuts: true })) },
   },
@@ -458,13 +457,10 @@ describe("Your call urgency", () => {
   /** A project's open issues as the database counts them: one row per importance value. */
   const spread = (values: number[]) => [...new Set(values)].map((importance) => ({ importance, count: values.filter((v) => v === importance).length }));
   const yardsticks = yardsticksFor(spread([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]));
-  const issue = (over: Partial<UrgencySignals>): UrgencySignals => ({ isBoosted: false, importance: 0, milestone: null, since: days(-1), ...over });
+  const issue = (over: Partial<UrgencySignals>): UrgencySignals => ({ isBoosted: false, importance: 0, since: days(-1), ...over });
 
   it("is Critical when boosted, due soon or overdue, or among the most important, and says why", () => {
     expect(urgencyOf(issue({ isBoosted: true }), yardsticks, NOW)).toEqual({ urgency: "critical", reasons: ["Boosted"] });
-    expect(urgencyOf(issue({ milestone: { title: "Beta", dueDate: days(3) } }), yardsticks, NOW).reasons).toEqual(["Milestone Beta due in 3 days"]);
-    expect(urgencyOf(issue({ milestone: { title: "Beta", dueDate: days(-2) } }), yardsticks, NOW).reasons).toEqual(["Milestone Beta overdue"]);
-    expect(urgencyOf(issue({ milestone: { title: "Beta", dueDate: days(30) } }), yardsticks, NOW).urgency).toBe("low");
     expect(urgencyOf(issue({ importance: 10 }), yardsticks, NOW).urgency).toBe("critical");
   });
 
@@ -551,7 +547,7 @@ describe("Your call list", () => {
   const decision = (authorId: string, at: number) => ({ authorId, body: "**Decision from the owner:** Yes, the fix is ready. Please go ahead and merge it.", createdAt: T(at) });
   const issue = (over: Record<string, unknown> = {}) => ({
     id: "bug-9", number: 9, title: "Fix the header", summary: null, substatus: "requires_review", pullRequestUrl: PR, pullRequestHeadSha: "head2", updatedAt: T(0),
-    voteCount: 0, isBoosted: false, reporterId: "dave", beneficiaryUserId: "dave", milestone: null, project: { slug: "acme", organisation: { slug: "zedu" } },
+    voteCount: 0, isBoosted: false, reporterId: "dave", beneficiaryUserId: "dave", project: { slug: "acme", organisation: { slug: "zedu" } },
     deliveries: [{ beneficiaryUserId: "carl", pullRequestUrl: PR }], comments: [],
     testVerdicts: [verdict({}), verdict({ goodToMerge: false, agentId: "a2", onBehalfOfUserId: "ben", agent: { name: "Ben's agent", ownerUserId: "ben" }, createdAt: T(5), updatedAt: T(5) })],
     confirmations: [], ...over,

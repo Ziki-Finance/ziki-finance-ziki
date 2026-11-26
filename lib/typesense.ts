@@ -19,7 +19,6 @@ export type WorkItemDocument = {
   substatusOrder: number;
   typeId?: string;
   areaId?: string;
-  milestoneId?: string;
   reporterId?: string;
   assigneeId?: string;
   createdByAgentId?: string;
@@ -58,7 +57,6 @@ export const WORK_ITEMS_SCHEMA = {
     { name: "substatusOrder", type: "int32", sort: true },
     { name: "typeId", type: "string", facet: true, optional: true },
     { name: "areaId", type: "string", facet: true, optional: true },
-    { name: "milestoneId", type: "string", facet: true, optional: true },
     { name: "reporterId", type: "string", facet: true, optional: true },
     { name: "assigneeId", type: "string", facet: true, optional: true },
     { name: "createdByAgentId", type: "string", facet: true, optional: true },

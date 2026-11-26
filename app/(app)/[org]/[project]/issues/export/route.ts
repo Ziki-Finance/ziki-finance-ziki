@@ -77,11 +77,8 @@ export async function GET(request: NextRequest, { params: routeParams }: { param
   const organisationId = routeProject.organisationId;
   const projectId = routeProject.id;
   const access = await organisationAccessFor(user.id, organisationId, user.role);
-  const [tagTypes, milestones, areas] = await Promise.all([
+  const [tagTypes, areas] = await Promise.all([
     getIssueTypes(organisationId),
-    organisationId
-      ? prisma.milestone.findMany({ where: { organisationId }, select: { id: true } })
-      : Promise.resolve([]),
     params.area && projectId
       ? prisma.projectArea.findMany({ where: { projectId }, select: { id: true, name: true } })
       : Promise.resolve([]),
@@ -95,7 +92,6 @@ export async function GET(request: NextRequest, { params: routeParams }: { param
     canSeeDeleted: canDeleteTicket(user.role, access.membershipRole),
     tagTypes,
     areas,
-    milestones,
   });
 
   // #425: only the viewer's organisation, exactly as on the list.

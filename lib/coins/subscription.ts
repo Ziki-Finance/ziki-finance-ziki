@@ -6,6 +6,7 @@ import { DISCOUNT_SUBSCRIPTION_STATUSES, LIVE_SUBSCRIPTION_STATUSES, findPlan } 
 import { randomUUID } from "node:crypto";
 import { getStripe } from "./stripe";
 import { TEST_SUBSCRIPTION_PREFIX, isTestSubscription } from "./test-mode";
+import { financeHref } from "@/lib/finance-paths";
 
 /**
  * Ziki plans (#ziki-coins). An owner subscribes through Stripe Checkout and Stripe charges the monthly fee. While the
@@ -78,8 +79,8 @@ export async function createSubscriptionCheckout(userId: string, email: string |
     // On the subscription, so every invoice it makes carries who it is for and which plan (invoice.parent.subscription_details.metadata).
     subscription_data: { metadata: { userId, planId: plan.id } },
     metadata: { userId, planId: plan.id },
-    success_url: absoluteUrl("/coins?subscribed=1"),
-    cancel_url: absoluteUrl(from === "pricing" ? "/pricing" : "/coins?section=plan"),
+    success_url: absoluteUrl(financeHref("plan", { subscribed: "1" })),
+    cancel_url: absoluteUrl(from === "pricing" ? "/pricing" : financeHref("plan")),
   });
   if (!session.url) throw new CoinError("not_configured", "Stripe didn't return a checkout page.");
   return session.url;

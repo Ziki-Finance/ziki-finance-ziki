@@ -9,6 +9,7 @@ import { getStripe } from "./stripe";
 import { discountPercentFor } from "./subscription";
 import { safeReturnTo } from "./return-to";
 import { TEST_CURRENCY, TEST_SESSION_PREFIX } from "./test-mode";
+import { financeHref } from "@/lib/finance-paths";
 
 /**
  * Buying Ziks (#ziki-coins). Checkout takes the money; the webhook
@@ -44,8 +45,8 @@ export async function createPackCheckout(userId: string, email: string | undefin
       },
     ],
     metadata: { userId, packId: pack.id, zik: String(pack.zik), discountPercent: String(discountPercent) },
-    success_url: absoluteUrl(back ? `${back}?bought=1` : "/coins?bought=1"),
-    cancel_url: absoluteUrl(back ? `/coins?returnTo=${encodeURIComponent(back)}` : "/coins"),
+    success_url: absoluteUrl(back ? `${back}?bought=1` : financeHref("buy", { bought: "1" })),
+    cancel_url: absoluteUrl(financeHref("buy", { returnTo: back ?? undefined })),
   });
   if (!session.url) throw new CoinError("not_configured", "Stripe didn't return a checkout page.");
   return session.url;
@@ -77,7 +78,7 @@ export async function createTestPurchase(userId: string, packId: string, returnT
     });
     await appendRows(tx, [{ account: "wallet", userId, kind: "purchase", amount: pack.zik, sourceKey: `purchase:test:${purchase.id}`, purchaseId: purchase.id }]);
   });
-  return back ? `${back}?bought=1` : "/coins?bought=1";
+  return back ? `${back}?bought=1` : financeHref("buy", { bought: "1" });
 }
 
 /** Stripe's processing fee on a payment, in cents, when it can be read. */

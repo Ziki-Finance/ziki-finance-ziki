@@ -82,7 +82,7 @@ export async function createIssueTypeAction(
   }
 
   expireTag(TAGS.issueTypes);
-  revalidatePath("/[org]/[project]/org", "layout");
+  revalidatePath("/[org]/settings", "layout");
   revalidatePath("/[org]/[project]", "layout");
   revalidatePath("/bugs/new");
   return { ok: true };
@@ -206,7 +206,7 @@ export async function updateIssueTypeAction(
   }
 
   expireTag(TAGS.issueTypes);
-  revalidatePath("/[org]/[project]/org", "layout");
+  revalidatePath("/[org]/settings", "layout");
   revalidatePath("/[org]/[project]", "layout");
   revalidatePath("/bugs/new");
   revalidatePath("/bugs");
@@ -241,7 +241,7 @@ export async function toggleIssueTypeActiveAction(
   });
 
   expireTag(TAGS.issueTypes);
-  revalidatePath("/[org]/[project]/org", "layout");
+  revalidatePath("/[org]/settings", "layout");
   revalidatePath("/[org]/[project]", "layout");
   revalidatePath("/bugs/new");
   return { ok: true };
@@ -287,7 +287,7 @@ export async function deleteIssueTypeAction(
   }
 
   expireTag(TAGS.issueTypes);
-  revalidatePath("/[org]/[project]/org", "layout");
+  revalidatePath("/[org]/settings", "layout");
   revalidatePath("/[org]/[project]", "layout");
   revalidatePath("/bugs/new");
   return { ok: true };

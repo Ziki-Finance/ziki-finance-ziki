@@ -81,9 +81,8 @@ export async function acceptJoinRequestAction(formData: FormData): Promise<void>
   const pRef = projectRef(joinRequest.project.organisation.slug, joinRequest.project.slug);
   revalidatePath(projectPath(pRef));
   revalidatePath(ideasPath(pRef));
-  revalidatePath(orgPath(pRef, "invites"));
-  revalidatePath(orgPath(pRef, "members"));
-  revalidatePath("/[org]/[project]/org", "layout");
+  revalidatePath(orgPath(pRef, "team"));
+  revalidatePath("/[org]/settings", "layout");
   revalidatePath("/discover");
 }
 
@@ -144,9 +143,8 @@ export async function rejectJoinRequestAction(formData: FormData): Promise<void>
   const pRef = projectRef(joinRequest.project.organisation.slug, joinRequest.project.slug);
   revalidatePath(projectPath(pRef));
   revalidatePath(ideasPath(pRef));
-  revalidatePath(orgPath(pRef, "invites"));
-  revalidatePath(orgPath(pRef, "members"));
-  revalidatePath("/[org]/[project]/org", "layout");
+  revalidatePath(orgPath(pRef, "team"));
+  revalidatePath("/[org]/settings", "layout");
   revalidatePath("/discover");
 }
 
@@ -180,8 +178,8 @@ export async function removeProjectMemberAction(formData: FormData): Promise<voi
   });
 
   const pRef = projectRef(project.organisation.slug, project.slug);
-  revalidatePath(orgPath(pRef, "members"));
-  revalidatePath("/[org]/[project]/org", "layout");
+  revalidatePath(orgPath(pRef, "team"));
+  revalidatePath("/[org]/settings", "layout");
   revalidatePath("/discover");
 }
 
@@ -227,7 +225,7 @@ export async function joinOpenProjectAction(projectId: string): Promise<JoinOpen
     where: { projectId: project.id, track: "marketing", status: "open", isDeleted: false },
   });
   revalidatePath("/discover");
-  revalidatePath(orgPath(pRef, "members"));
+  revalidatePath(orgPath(pRef, "team"));
   const href = marketingTasks > 0 ? marketingPath(pRef) : await projectHomePath(prisma, project.id, pRef);
   return { ok: true, href };
 }
@@ -309,7 +307,7 @@ export async function requestToJoinProjectAction(projectId: string, rawMessage: 
           organisationId: project.organisationId,
           kind: "join_request",
           title: `${user.name || "Someone"} asked to join ${project.name}`,
-          url: orgPath(pRef, "invites"),
+          url: orgPath(pRef, "team"),
         })),
       })
       .catch((error) => console.error("[join-requests] notifying maintainers failed", error));
@@ -317,6 +315,6 @@ export async function requestToJoinProjectAction(projectId: string, rawMessage: 
 
   revalidatePath("/discover");
   revalidatePath(projectPath(pRef));
-  revalidatePath(orgPath(pRef, "invites"));
+  revalidatePath(orgPath(pRef, "team"));
   return { ok: true };
 }

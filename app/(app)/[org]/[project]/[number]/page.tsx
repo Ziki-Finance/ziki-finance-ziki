@@ -98,10 +98,8 @@ import {
   deletionCounts,
 } from "@/lib/ticket-deletion";
 import { organisationAccessFor } from "@/lib/organisation-access";
-import { MilestoneDue } from "@/components/milestone-due";
 import { LoadError } from "@/components/load-error";
 import { logLoadFailure } from "@/lib/load-error";
-import { dueDateValue, milestoneIssuesHref } from "@/lib/milestones";
 import { canEditTicket } from "@/lib/ticket-editing";
 import { DeleteIssueButton } from "@/components/delete-issue-button";
 import { RestoreIssueButton } from "@/components/restore-issue-button";
@@ -375,7 +373,7 @@ export default async function BugDetailPage({ params, searchParams }: BugPagePro
   // The list page already proved the issue row itself can be read. Comments,
   // the activity log, watches and attachments are newer tables. One of them
   // missing used to reject this whole Promise and blank the page.
-  let loadedBug = await prisma.bug
+  const loadedBug = await prisma.bug
     .findUnique({
       where: { id, organisationId },
       include: {
@@ -384,7 +382,6 @@ export default async function BugDetailPage({ params, searchParams }: BugPagePro
         createdByAgent: { select: { id: true, name: true, ownerUserId: true } },
         linkedIssue: { select: { number: true, title: true, isDeleted: true } },
         idea: { select: { id: true, number: true, rationale: true, convertedAt: true, _count: { select: { verdicts: true } } } },
-        milestone: { select: { id: true, title: true, dueDate: true, isClosed: true } },
         assignee: { select: { id: true, name: true, role: true, image: true } },
         area: { select: { id: true, name: true } },
         project: { select: { slug: true, name: true, goal: true, siteUrl: true, marketingUrl: true, organisation: { select: { slug: true } } } },
@@ -402,52 +399,8 @@ export default async function BugDetailPage({ params, searchParams }: BugPagePro
     })
     .then((bug) => ({ bug }))
     .catch((error: unknown) => ({
-      // `detail` only decides the milestone retry below; it is never shown.
-      detail: error instanceof Error ? error.message : "",
       reference: logLoadFailure("[issue] detail query failed", error),
     }));
-
-  // If the query failed because Bug.milestoneId or Milestone does not exist in
-  // the current database, retry without the milestone relation so the page
-  // continues to load cleanly (#289).
-  if ("detail" in loadedBug && /milestoneId|Milestone/i.test(loadedBug.detail)) {
-    loadedBug = await prisma.bug
-      .findUnique({
-        where: { id, organisationId },
-        include: {
-          type: { select: { id: true, name: true, isActive: true } },
-          reporter: { select: { name: true, role: true, image: true } },
-          createdByAgent: { select: { id: true, name: true, ownerUserId: true } },
-          linkedIssue: { select: { number: true, title: true, isDeleted: true } },
-          idea: { select: { id: true, number: true, rationale: true, convertedAt: true, _count: { select: { verdicts: true } } } },
-          assignee: { select: { id: true, name: true, role: true, image: true } },
-          area: { select: { id: true, name: true } },
-          project: { select: { slug: true, name: true, goal: true, siteUrl: true, marketingUrl: true, organisation: { select: { slug: true } } } },
-          votes: { where: { userId }, select: { id: true, value: true }, take: 1 },
-          duplicateOf: { select: { id: true, number: true, title: true, status: true, isDeleted: true, project: { select: { slug: true, organisation: { select: { slug: true } } } } } },
-          duplicates: {
-            where: { isDeleted: false },
-            select: { id: true, number: true, title: true, status: true, project: { select: { slug: true, organisation: { select: { slug: true } } } } },
-            orderBy: { number: "asc" },
-            take: 20,
-          },
-          _count: { select: { duplicates: { where: { isDeleted: false } } } },
-        },
-      })
-      .then((bug) => ({
-        bug: bug
-          ? {
-              ...bug,
-              milestoneId: null,
-              milestone: null,
-            }
-          : null,
-      }))
-      .catch((error: unknown) => ({
-        detail: error instanceof Error ? error.message : "",
-        reference: logLoadFailure("[issue] fallback detail query without milestone failed", error),
-      }));
-  }
 
   if ("reference" in loadedBug) {
     return issueLoadError(loadedBug.reference);
@@ -1577,20 +1530,7 @@ export default async function BugDetailPage({ params, searchParams }: BugPagePro
                 ) : null
               }
             >
-              {bug.milestone ? (
-                <dl className="mt-4 grid grid-cols-1 gap-3 text-sm text-zk-text2 sm:grid-cols-2">
-                  <div>
-                    <dt className="font-medium text-zk-muted">Milestone</dt>
-                    <dd className="flex flex-wrap items-center gap-2">
-                      <Link href={milestoneIssuesHref(refOf(bug.project), bug.milestone.id)} className="font-bold text-zk-accent hover:underline">
-                        {bug.milestone.title}
-                      </Link>
-                      <MilestoneDue due={dueDateValue(bug.milestone.dueDate) || null} isClosed={bug.milestone.isClosed} />
-                    </dd>
-                  </div>
-                </dl>
-              ) : null}
-            </EditableIssueDescription>
+</EditableIssueDescription>
           </div>
         }
         bidsCount={bidList.length}
@@ -2181,22 +2121,7 @@ export default async function BugDetailPage({ params, searchParams }: BugPagePro
               ) : null
             }
           >
-            {bug.milestone ? (
-              <dl className="mt-4 grid grid-cols-1 gap-3 text-sm text-zk-text2 sm:grid-cols-2">
-                {bug.milestone ? (
-                  <div>
-                    <dt className="font-medium text-zk-muted">Milestone</dt>
-                    <dd className="flex flex-wrap items-center gap-2">
-                      <Link href={milestoneIssuesHref(refOf(bug.project), bug.milestone.id)} className="font-bold text-zk-accent hover:underline">
-                        {bug.milestone.title}
-                      </Link>
-                      <MilestoneDue due={dueDateValue(bug.milestone.dueDate) || null} isClosed={bug.milestone.isClosed} />
-                    </dd>
-                  </div>
-                ) : null}
-              </dl>
-            ) : null}
-          </EditableIssueDescription>
+</EditableIssueDescription>
 
           {issueAttachments.length > 0 ? (
             <section className="rounded-panel border border-zk-border bg-zk-surface p-5 sm:p-6">

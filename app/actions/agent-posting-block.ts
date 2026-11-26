@@ -22,6 +22,6 @@ export async function liftPostingBlockAction(formData: FormData): Promise<void> 
     }
     throw error;
   }
-  revalidatePath("/[org]/[project]/org/agents", "page");
+  revalidatePath("/[org]/settings/agents", "page");
   revalidatePath("/agent/[username]", "page");
 }
