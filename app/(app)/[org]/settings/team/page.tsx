@@ -1,8 +1,4 @@
 import type { Metadata } from "next";
-import { CopyLinkButton } from "@/components/copy-link-button";
-import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
-import { LocalTime } from "@/components/local-time";
-import { Badge } from "@/components/ui/badge";
 import { ProjectPendingJoinRequestsBanner, type PendingJoinRequestItem } from "@/components/project-pending-join-requests";
 import { settableLevels } from "@/lib/agents/levels";
 import { activeIn, activeLevels, levelIn } from "@/lib/agents/active-in";
@@ -10,8 +6,7 @@ import { INVITE_TTL_DAYS, pendingInvites } from "@/lib/invites";
 import { joinAnswersSummary } from "@/lib/join-questions";
 import { MEMBERSHIP_ROLE_LABELS, organisationMembersFrom } from "@/lib/organisations";
 import { prisma } from "@/lib/prisma";
-import { joinedSummary, listShareLinks, shareLinkStatusLabel } from "@/lib/share-invites";
-import { revokeShareLinkAction } from "@/app/(app)/organisations/actions";
+import { currentShareLink } from "@/lib/share-invites";
 import { loadOrg } from "../org-context";
 import { OrgPageHeader, ReadOnlyNote } from "../org-ui";
 import { InviteModal } from "./invite-modal";
@@ -121,62 +116,21 @@ export default async function OrgTeamPage() {
   const { user, org } = await loadOrg();
   if (!org) return null;
 
-  const [members, collaborators, joinRequests, invites, shareLinks] = await Promise.all([
+  const [members, collaborators, joinRequests, invites, link] = await Promise.all([
     loadMembers(org.id, org.admin),
     loadCollaborators(org.id),
     org.admin ? loadJoinRequests(org.id) : Promise.resolve([]),
     org.admin ? quietly("invites", () => pendingInvites(prisma, org.id), []) : Promise.resolve([]),
-    org.admin ? quietly("share links", () => listShareLinks(prisma, org.id), []) : Promise.resolve([]),
+    org.admin ? quietly("invite link", () => currentShareLink(prisma, org.id), null) : Promise.resolve(null),
   ]);
   const ownerCount = members.filter((member) => member.role === "owner").length;
-
-  const links = shareLinks.length === 0 ? null : (
-    <ul className="mt-4 divide-y divide-zk-border border-t border-zk-border">
-      {shareLinks.map((link) => {
-        const who = joinedSummary(link.joinedNames, link.useCount);
-        const name = link.label || "Invite link";
-        const statusClass =
-          link.state === "open" ? "bg-zk-tint text-zk-accent ring-1 ring-zk-border" : link.state === "revoked" ? "bg-zk-bad-bg text-zk-bad-fg" : "bg-zk-chip text-zk-text2";
-        return (
-          <li key={link.id} className="flex flex-wrap items-start gap-3 py-3">
-            <div className="min-w-0 flex-1 space-y-1">
-              <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-zk-text">
-                <span className="truncate">{name}</span>
-                <Badge className={statusClass}>{shareLinkStatusLabel(link.state)}</Badge>
-              </p>
-              <p className="text-xs text-zk-muted">
-                {link.useCount} joined{link.maxUses != null ? ` of ${link.maxUses}` : ""}
-                {who ? ` · ${who}` : ""}
-                {" · "}
-                {link.state === "expired" ? "expired" : "expires"} <LocalTime date={link.expiresAt} />
-              </p>
-              {link.url ? <p className="truncate font-mono text-xs text-zk-text2">{link.url}</p> : null}
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              {link.url ? <CopyLinkButton url={link.url} label="invite" /> : null}
-              {link.state === "open" ? (
-                <form action={revokeShareLinkAction}>
-                  <input type="hidden" name="linkId" value={link.id} />
-                  <ConfirmSubmitButton
-                    aria-label={`Revoke invite link${link.label ? ` ${link.label}` : ""}`}
-                    confirm={{ title: `Revoke ${name}?`, body: "Nobody else can join with it. People who already joined stay members.", confirmLabel: "Revoke link" }}
-                  >
-                    Revoke
-                  </ConfirmSubmitButton>
-                </form>
-              ) : null}
-            </div>
-          </li>
-        );
-      })}
-    </ul>
-  );
+  const teamInvites = invites.map((invite) => ({ id: invite.id, email: invite.email, invitedByName: invite.invitedByName, expiresAt: new Date(invite.expiresAt).toISOString() }));
 
   return (
     <div className="space-y-4">
       <OrgPageHeader
         title="Team"
-        actions={org.admin ? <InviteModal organisationId={org.id} organisationName={org.name} inviteTtlDays={INVITE_TTL_DAYS} links={links} /> : null}
+        actions={org.admin ? <InviteModal organisationId={org.id} organisationName={org.name} inviteTtlDays={INVITE_TTL_DAYS} link={link} invites={teamInvites} /> : null}
       >
         Everyone in {org.name}, the invites still waiting, and the people who work on one project. Owners change roles;
         owners and admins invite and remove people and set each agent&apos;s class.
@@ -190,7 +144,7 @@ export default async function OrgTeamPage() {
         organisationName={org.name}
         viewerId={user.id}
         members={members}
-        invites={invites.map((invite) => ({ id: invite.id, email: invite.email, invitedByName: invite.invitedByName, expiresAt: new Date(invite.expiresAt).toISOString() }))}
+        invites={teamInvites}
         collaborators={collaborators}
         ownerCount={ownerCount}
         canChangeRoles={org.owner}

@@ -2942,15 +2942,12 @@ model OrganisationInvite {
 /// looks up the hash. maxUses null means anyone can join until it expires
 /// or is revoked. A redemption is one person, so the same account cannot
 /// use a seat twice.
+/// An organisation's invite link (#invite-link): one that works at a time, until it is reset or turned off.
 model OrganisationShareLink {
   id             String                        @id @default(cuid())
   organisationId String
   tokenHash      String                        @unique
   tokenEncrypted String
-  /// Optional note so an owner can tell links apart. Never shown to guests.
-  label          String?
-  expiresAt      DateTime
-  maxUses        Int?
   useCount       Int                           @default(0)
   revokedAt      DateTime?
   invitedById    String
