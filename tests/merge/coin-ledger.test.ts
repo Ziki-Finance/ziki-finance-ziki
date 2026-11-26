@@ -84,13 +84,15 @@ const db = vi.hoisted(() => {
       update: async ({ data }: { data: Record<string, unknown> }) => Object.assign(world.project, data),
     },
     rewardEstimate: { count: async () => world.estimates },
-    // Who pays (#payers): "budget-owner" owns the organisation, "funding-admin" is an admin an owner lets fund issues,
-    // "plain-admin" is an admin who doesn't; anyone else is no member.
+    // Who pays (#payers): "owner" and "budget-owner" own the organisation, "funding-admin" is an admin an owner lets fund
+    // issues, "plain-admin" is an admin who doesn't, "member-reporter" is a member; anyone else is no member.
     membership: {
       findUnique: async ({ where }: { where: { organisationId_userId: { userId: string } } }) => (where.organisationId_userId.userId === "budget-owner" ? { role: "owner" } : null),
       findFirst: async ({ where }: { where: { userId: string; OR: Record<string, unknown>[] } }) => {
         const members: Record<string, Record<string, unknown>> = {
+          owner: { role: "owner", canFundIssues: false },
           "budget-owner": { role: "owner", canFundIssues: false },
+          "member-reporter": { role: "member", canFundIssues: false },
           "funding-admin": { role: "admin", canFundIssues: true },
           "plain-admin": { role: "admin", canFundIssues: false },
         };
@@ -201,7 +203,7 @@ import { fundIssue } from "@/lib/coins/fund";
 import { budgetBalance, budgetBlock, fundBudget, issuePriceZik, lockPrice, priceStage, raiseIssuePrice, reserveForIssue, returnUnusedBudget, setBudgetPaused, takeBackBudget, unaffordableIssueIds } from "@/lib/coins/budget";
 import { suggestBudget } from "@/lib/coins/budget-view";
 import { snapEstimate } from "@/lib/coins/ziki-estimates";
-import { budgetStatusOf, classifyIssues } from "@/lib/coins/budget-states";
+import { budgetStatusOf, classifyIssues, fundingLevelOf } from "@/lib/coins/budget-states";
 import { budgetAlertState } from "@/lib/coins/budget-sweeps";
 import { refundEscrow } from "@/lib/coins/escrow";
 import { escrowBalance, escrowByBug, hasEarnedZiks, walletBalance, walletSummary } from "@/lib/coins/ledger";
@@ -314,9 +316,15 @@ describe("funding an issue", () => {
     expect(world.bug.rewardFixedAt).toBeInstanceOf(Date);
   });
 
-  it("refuses someone who doesn't own the issue, and a finished issue", async () => {
+  it("refuses anyone who doesn't pay for the organisation, its reporter included, and a finished issue (#payers)", async () => {
     await buy("stranger", 50, "s2");
     await expect(fundIssue("stranger", "bug", 10, "request-0003")).rejects.toMatchObject({ code: "not_allowed" });
+    // A member who reported the issue is paid the reporter's share, but doesn't fund it.
+    world.bug.reporterId = "member-reporter";
+    await buy("member-reporter", 50, "s4");
+    await expect(fundIssue("member-reporter", "bug", 10, "request-0005")).rejects.toMatchObject({ code: "not_allowed" });
+    expect(await walletBalance(db as never, "member-reporter")).toBe(50);
+    world.bug.reporterId = "owner";
     await buy("owner", 50, "s3");
     world.bug.status = "closed";
     await expect(fundIssue("owner", "bug", 10, "request-0004")).rejects.toMatchObject({ code: "closed" });
@@ -500,7 +508,7 @@ describe("project budgets (#project-budget)", () => {
     await fund(100, "request-b030");
     await reserveForIssue(db as never, "bug"); // 50 from the budget
     await buy("owner", 20, "b-direct");
-    await fundIssue("owner", "bug", 20, "request-b031"); // 20 more, from the reporter
+    await fundIssue("owner", "bug", 20, "request-b031"); // 20 more, from an owner on the issue itself
     expect(await escrowBalance(db as never, "bug")).toBe(70);
 
     expect(await refundEscrow(db as never, "bug")).toBe(70);
@@ -565,6 +573,19 @@ describe("project budgets (#project-budget)", () => {
     expect(suggestBudget({ needs: [4000, 6000], averagePrice: 5000, available: 20_000, minimum: 4000 })).toBe(5000);
     // Holding more than enough still suggests the issue's own price, rounded up to a whole dollar: 4,333 becomes 5,000.
     expect(suggestBudget({ needs: [4333], averagePrice: 4333, available: 100_000, minimum: 4333 })).toBe(5000);
+  });
+
+  it("colours the funding button by whether the budget keeps work going: out when an issue waits for Ziks it lacks, low without room for the next few, paused whatever it holds (#funding-button)", () => {
+    const level = (available: number, waitingNeed: number, paused = false) => fundingLevelOf({ available, waitingNeed, averagePrice: 5000, paused, roomFor: 3 });
+    // 6,000 waits and the budget has 4,000: work has stopped.
+    expect(level(4000, 6000)).toBe("out");
+    // Nothing waits, but the budget is empty: the next priced issue stops.
+    expect(level(0, 0)).toBe("out");
+    // 6,000 waits and 20,000 is there: 14,000 left, short of the 15,000 the next three would need.
+    expect(level(20_000, 6000)).toBe("low");
+    // 21,000 left after what waits: enough for the next three.
+    expect(level(27_000, 6000)).toBe("healthy");
+    expect(level(0, 6000, true)).toBe("paused");
   });
 
   it("pauses and resumes: a paused budget awards and reserves nothing new, keeps its money, and only an owner or admin can pause it", async () => {

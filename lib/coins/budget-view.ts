@@ -5,7 +5,7 @@ import { LOW_BUDGET_ISSUES, PRICED_WHERE, budgetBalance, currentPriceZik, hasBud
 import { zikOf } from "./ledger";
 import { ZIKS_PER_DOLLAR } from "./math";
 import { PAYER_WHERE } from "./payers";
-import { BUDGET_FILTERS, budgetStatusOf, classifyIssues, type BudgetFilterId, type BudgetIssueState, type BudgetSort, type BudgetStatus } from "./budget-states";
+import { BUDGET_FILTERS, budgetStatusOf, classifyIssues, fundingLevelOf, type BudgetFilterId, type BudgetIssueState, type BudgetSort, type BudgetStatus, type FundingLevel } from "./budget-states";
 
 /**
  * What the Budget page shows (#project-budget): the project's figures, the issues with where each stands against the
@@ -189,14 +189,29 @@ export function suggestBudget(input: { needs: number[]; averagePrice: number; av
   return Math.ceil(Math.max(input.minimum, wanted) / ZIKS_PER_DOLLAR) * ZIKS_PER_DOLLAR;
 }
 
-/** The suggested budget for a project, read from its priced issues: see suggestBudget. */
-export async function suggestedBudget(projectId: string, minimum: number): Promise<number> {
-  const priced = await prisma.bug.findMany({
-    where: { projectId, isDeleted: false, ...PRICED_WHERE, status: { not: "closed" } },
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    take: 200,
-    select: { id: true, reward: true, rewardEstimateCount: true, rewardOverrideZik: true, zikiEstimateZik: true, rewardFixedAt: true, lockedPriceZik: true, substatus: true, assigneeId: true, payoutReleasedAt: true },
-  });
+export type FundingNeeds = {
+  /** Priced issues in the project, any state but closed: none means there is nothing to fund yet. */
+  priced: number;
+  /** What the priced issues waiting for funding still need, each its price less what it holds. */
+  needs: number[];
+  /** The project's average price, or 0 with nothing priced. */
+  averagePrice: number;
+  /** In the budget, not yet reserved. */
+  available: number;
+  paused: boolean;
+};
+
+/** What a project's priced issues call for (#price-lock): the read behind the suggested budget and the funding button. */
+export async function fundingNeeds(projectId: string): Promise<FundingNeeds> {
+  const [priced, project] = await Promise.all([
+    prisma.bug.findMany({
+      where: { projectId, isDeleted: false, ...PRICED_WHERE, status: { not: "closed" } },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 200,
+      select: { id: true, reward: true, rewardEstimateCount: true, rewardOverrideZik: true, zikiEstimateZik: true, rewardFixedAt: true, lockedPriceZik: true, substatus: true, assigneeId: true, payoutReleasedAt: true },
+    }),
+    prisma.project.findUnique({ where: { id: projectId }, select: { budgetPausedAt: true } }),
+  ]);
   const prices = priced.flatMap((bug) => {
     const price = currentPriceZik(bug);
     return price === null ? [] : [{ bug, price }];
@@ -207,8 +222,42 @@ export async function suggestedBudget(projectId: string, minimum: number): Promi
     budgetBalance(prisma, projectId),
   ]);
   const heldBy = new Map(held.map((row) => [row.bugId, zikOf(row._sum.amount)]));
-  const averagePrice = prices.length > 0 ? prices.reduce((sum, { price }) => sum + price, 0) / prices.length : minimum;
-  return suggestBudget({ needs: waiting.map(({ bug, price }) => price - (heldBy.get(bug.id) ?? 0)), averagePrice, available, minimum });
+  return {
+    priced: prices.length,
+    needs: waiting.map(({ bug, price }) => Math.max(0, price - (heldBy.get(bug.id) ?? 0))).filter((need) => need > 0),
+    averagePrice: prices.length > 0 ? prices.reduce((sum, { price }) => sum + price, 0) / prices.length : 0,
+    available,
+    paused: Boolean(project?.budgetPausedAt),
+  };
+}
+
+export type ProjectFunding = {
+  /** In the budget, not yet reserved. */
+  available: number;
+  /** What the priced issues waiting for funding need now, all together. */
+  waitingNeed: number;
+  /** How many priced issues are waiting for funding. */
+  waitingCount: number;
+  /** What to suggest: what waits plus room for the next few, less what the budget holds (suggestBudget). */
+  suggested: number;
+  level: FundingLevel;
+};
+
+/**
+ * The project's funding at a glance (#funding-button): for its header's funding button and the Budget page's Fund
+ * section. Null while nothing in the project has a price, so there is nothing to fund yet.
+ */
+export async function projectFunding(projectId: string): Promise<ProjectFunding | null> {
+  const needs = await fundingNeeds(projectId);
+  if (needs.priced === 0) return null;
+  const waitingNeed = needs.needs.reduce((sum, need) => sum + need, 0);
+  return {
+    available: Math.max(0, needs.available),
+    waitingNeed,
+    waitingCount: needs.needs.length,
+    suggested: suggestBudget({ needs: needs.needs, averagePrice: needs.averagePrice, available: needs.available, minimum: 0 }),
+    level: fundingLevelOf({ available: needs.available, waitingNeed, averagePrice: needs.averagePrice, paused: needs.paused, roomFor: LOW_BUDGET_ISSUES }),
+  };
 }
 
 export type BudgetMovement = {

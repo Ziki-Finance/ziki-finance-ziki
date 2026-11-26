@@ -38,6 +38,7 @@ import { SortHeader } from "@/components/sort-header";
 import { PROJECT_LINKS_SLOT_ID, ProjectIconLinks, ProjectLinks } from "@/components/project-links";
 import { AppInfoLinks } from "@/components/app-info-links";
 import { ShareMenu } from "@/components/share-menu";
+import { ProjectFundingButton } from "@/components/coins/project-funding-button";
 import { ProjectPendingJoinRequestsBanner, type PendingJoinRequestItem } from "@/components/project-pending-join-requests";
 import { FirstQuestions } from "@/components/get-started/first-questions";
 import { missingProfileFields, type ProfileField } from "@/lib/agents/work-gate";
@@ -2200,6 +2201,9 @@ export async function IssuesList({
       </div>
   );
 
+  // #funding-button: what the budget holds, coloured by how well it keeps work going, for the people who pay.
+  const fundingButton = organisationId && userId ? <ProjectFundingButton userId={userId} organisationId={organisationId} projectId={project.id} budgetHref={projectPath(ref, "/budget")} /> : null;
+
   return (
     <>
     {/* An issue's back arrow returns here, to this tab, filters and page. */}
@@ -2234,6 +2238,7 @@ export async function IssuesList({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {fundingButton}
           {canContribute ? <ShareMenu orgSlug={project.orgSlug} inviteHref={isOrgAdmin ? orgPath(ref, "invites") : undefined} /> : null}
           <ProjectIconLinks
             settingsHref={isOrgAdmin ? `/projects/${encodeURIComponent(slug)}/settings` : undefined}
@@ -2271,6 +2276,7 @@ export async function IssuesList({
           />
         ) : null}
         {/* The feedback portal, Design and settings, as icons, beside the tabs. */}
+        {!isDeletedView ? fundingButton : null}
         {!isDeletedView && canContribute ? (
           <ShareMenu orgSlug={project.orgSlug} inviteHref={isOrgAdmin ? orgPath(ref, "invites") : undefined} />
         ) : null}
