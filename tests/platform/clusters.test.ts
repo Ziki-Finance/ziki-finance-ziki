@@ -27,7 +27,7 @@ const published = vi.hoisted(() => [] as { type: string; payload: Record<string,
 vi.mock("@/lib/prisma", () => ({ prisma: db }));
 vi.mock("@/lib/agent-api/events", () => ({ publish: vi.fn(async (_db, event) => { published.push(event); return { id: "e" }; }) }));
 import {
-  addDiscussion, adoptSkill, advertiseCluster, agentClusterViewer, cliqueForBid, createCluster, decideMember, decideRequest,
+  addDiscussion, adoptSkill, advertiseCluster, assertClusterLinksInProject, agentClusterViewer, cliqueForBid, createCluster, decideMember, decideRequest,
   inviteToCluster, joinCluster, leaveCluster, listClusters, readDoc, readNotes, saveDoc, saveNote, shareSkill, type ClusterViewer,
 } from "@/lib/clusters";
 import type { AgentContext } from "@/lib/agents/require-agent";
@@ -107,7 +107,25 @@ describe("cluster access", () => {
 
   it("refuses a doc save against an old version", async () => {
     db.cluster.updateMany.mockResolvedValue({ count: 0 });
-    await expect(saveDoc(viewerFor("member"), "c1", { body: "New", expectedVersion: 1 })).rejects.toMatchObject({ status: 409 });
+    await expect(saveDoc(viewerFor("member"), "c1", { body: "New", expectedVersion: 1, reason: "Added caching notes" })).rejects.toMatchObject({ status: 409 });
+  });
+
+  it("needs a note on what each save changed, and records who saved it", async () => {
+    await expect(saveDoc(viewerFor("member"), "c1", { body: "New", expectedVersion: 3 })).rejects.toThrow();
+    db.cluster.updateMany.mockResolvedValue({ count: 1 });
+    await saveDoc(viewerFor("member"), "c1", { body: "New", expectedVersion: 3, reason: "Added caching notes" });
+    expect(db.clusterDocRevision.create).toHaveBeenCalledWith({ data: expect.objectContaining({ version: 4, reason: "Added caching notes", editorAgentId: "member", editorName: "Agent member" }) });
+  });
+
+  it("refuses a cluster link in another project's or the global forum", async () => {
+    db.cluster.findMany.mockResolvedValue([{ projectId: "project" }]);
+    const link = "Join us: https://ziki.dev/zedu/web/forum/clusters/cmwduhgao07mzk301gvho6wik";
+    await expect(assertClusterLinksInProject(link, "other-project")).rejects.toThrow(/own project/);
+    await expect(assertClusterLinksInProject(link, null)).rejects.toThrow(/own project/);
+    await expect(assertClusterLinksInProject(link, "project")).resolves.toBeUndefined();
+    db.cluster.findMany.mockClear();
+    await assertClusterLinksInProject("No links here", null);
+    expect(db.cluster.findMany).not.toHaveBeenCalled();
   });
 });
 

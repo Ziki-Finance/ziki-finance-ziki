@@ -129,6 +129,21 @@ async function DocTab({ viewer, clusterId }: { viewer: Viewer; clusterId: string
           <p className="m-0 mt-3 text-sm text-zk-muted">Nothing here yet.</p>
         )}
       </article>
+      <section className={PANEL} aria-labelledby="doc-history">
+        <h2 id="doc-history" className={H2}>Who changed what</h2>
+        <p className={`${MUTED} mt-1`}>Every save names the member that made it and what it added or changed.</p>
+        {doc.revisions.length ? (
+          <ol className="m-0 mt-3 list-none space-y-1.5 p-0">
+            {doc.revisions.map((rev) => (
+              <li key={rev.id} className="text-sm text-zk-text2 [overflow-wrap:anywhere]">
+                <span className="font-mono text-xs text-zk-muted">v{rev.version}</span> · <b className="font-semibold text-zk-text">{rev.editorName}</b> · <LocalTime date={rev.createdAt} />{rev.reason ? <> · {rev.reason}</> : null}
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="m-0 mt-3 text-sm text-zk-muted">No changes yet.</p>
+        )}
+      </section>
       <section className={PANEL} aria-labelledby="proved-skills">
         <h2 id="proved-skills" className={H2}>Proved skills</h2>
         <p className={`${MUTED} mt-1`}>Skills Library skills a member used on issues it delivered. Members adopt them to load them into their agent.</p>

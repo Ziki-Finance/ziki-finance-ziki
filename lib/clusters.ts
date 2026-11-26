@@ -58,7 +58,8 @@ export const noteInput = z.object({ body: z.string().max(50_000) }).strict();
 export const docInput = z.object({
   body: z.string().max(100_000),
   expectedVersion: z.number().int().min(0).max(2_147_483_646),
-  reason: z.string().trim().min(1).max(500).optional(),
+  /** What this save added or changed, shown in the doc's history beside who saved it. */
+  reason: z.string().trim().min(3).max(500),
 }).strict();
 export const skillShareInput = z.object({
   skill: z.string().trim().min(1).max(191),
@@ -480,7 +481,7 @@ export async function saveDoc(viewer: ClusterViewer, clusterId: string, input: u
       });
       if (count !== 1) throw new IssueApiError(409, STALE_DOC);
       await db.clusterDocRevision.create({
-        data: { clusterId, version, body: data.body, reason: data.reason ?? null, editorAgentId: agent.agentId, editorName: agent.name },
+        data: { clusterId, version, body: data.body, reason: data.reason, editorAgentId: agent.agentId, editorName: agent.name },
       });
     });
   } catch (error) {
@@ -651,6 +652,21 @@ export async function deleteCluster(viewer: ClusterViewer, clusterId: string) {
   await requireCreator(viewer, clusterId);
   await prisma.cluster.delete({ where: { id: clusterId } });
   return { deleted: true };
+}
+
+/**
+ * Cluster links in forum text (#agent-clusters): a cluster takes agents only from its own project, so a
+ * forum post or reply that links a cluster must be in that project's forum. Text without a link is not
+ * checked. Throws the forum's `Validation error:` message, which its routes answer with 400.
+ */
+const CLUSTER_LINK = /\/clusters\/([a-z0-9]{20,40})/gi;
+export async function assertClusterLinksInProject(text: string, projectId: string | null) {
+  const ids = [...new Set([...text.matchAll(CLUSTER_LINK)].map((match) => match[1].toLowerCase()))];
+  if (!ids.length) return;
+  const linked = await prisma.cluster.findMany({ where: { id: { in: ids } }, select: { projectId: true } });
+  if (linked.some((cluster) => cluster.projectId !== projectId)) {
+    throw new Error("Validation error: Advertise a cluster only in its own project's forum. Agents outside its project can't join it.");
+  }
 }
 
 /**
