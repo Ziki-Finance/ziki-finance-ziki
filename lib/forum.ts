@@ -125,6 +125,7 @@ function mapPrismaPostToMessage(post: ForumPostWithRelations, viewerUserId?: str
     organisationSlug: orgSlug ?? undefined,
     projectId: post.projectId ?? undefined,
     projectSlug: projectSlug ?? undefined,
+    projectName: post.project?.name ?? undefined,
     author: {
       name: authorName,
       ownerName: post.authorUser.name,
@@ -236,6 +237,21 @@ export async function listForumMessagesPaginated(
   };
 }
 
+function serverTrendingScore(msg: ForumMessage): number {
+  return msg.helpfulCount * 3 + msg.replies.length * 4 + (msg.verified ? 5 : 0);
+}
+
+function compareForumTrending(a: ForumMessage, b: ForumMessage, orgFirst: boolean): number {
+  const pinDiff = Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned));
+  if (pinDiff !== 0) return pinDiff;
+  if (orgFirst) {
+    const scopeRank = (m: ForumMessage) => (m.scope === "org" ? 0 : 1);
+    const scopeDiff = scopeRank(a) - scopeRank(b);
+    if (scopeDiff !== 0) return scopeDiff;
+  }
+  return serverTrendingScore(b) - serverTrendingScore(a);
+}
+
 export async function listForumMessages(options?: ListForumOptions): Promise<ForumMessage[]> {
   try {
     const where: Prisma.ForumPostWhereInput = {};
@@ -249,14 +265,19 @@ export async function listForumMessages(options?: ListForumOptions): Promise<For
     }
 
     if (options?.scope) {
-      where.scope = options.scope as PrismaForumScope;
       if (options.scope === "platform") {
+        where.scope = "platform";
         where.organisationId = null;
         where.projectId = null;
       } else if (options.scope === "org" && options.organisationId) {
+        // Org rollup: include both org-wide posts and all project posts in this organisation
+        where.scope = { in: ["org", "project"] };
         where.organisationId = options.organisationId;
       } else if (options.scope === "project" && options.projectId) {
+        where.scope = "project";
         where.projectId = options.projectId;
+      } else {
+        where.scope = options.scope as PrismaForumScope;
       }
     }
 
@@ -341,11 +362,16 @@ export async function listForumMessages(options?: ListForumOptions): Promise<For
       },
       orderBy:
         options?.sort === "newest"
-          ? { createdAt: "desc" }
-          : [{ isPinned: "desc" }, { pinnedAt: "desc" }, { createdAt: "desc" }],
+          ? options?.scope === "org"
+            ? [{ scope: "asc" }, { createdAt: "desc" }]
+            : { createdAt: "desc" }
+          : options?.scope === "org"
+            ? [{ isPinned: "desc" }, { scope: "asc" }, { pinnedAt: "desc" }, { createdAt: "desc" }]
+            : [{ isPinned: "desc" }, { pinnedAt: "desc" }, { createdAt: "desc" }],
     });
 
     const mapped = posts.map((p) => mapPrismaPostToMessage(p, options?.viewerUserId));
+    if (options?.sort === "newest") return mapped;
     if (options?.sort === "helpful") {
       return mapped.sort((a, b) => b.helpfulCount - a.helpfulCount);
     }
@@ -355,13 +381,25 @@ export async function listForumMessages(options?: ListForumOptions): Promise<For
     if (options?.sort === "saved") {
       return mapped.sort((a, b) => (b.bookmarkCount ?? 0) - (a.bookmarkCount ?? 0));
     }
-    return mapped;
+    return mapped.sort((a, b) => compareForumTrending(a, b, options?.scope === "org"));
   } catch {
     // If database is not ready or during tests, fall through to in-memory store
   }
 
   // In-memory fallback
   const filtered = memoryForumStore.filter((msg) => {
+    if (options?.scope) {
+      const msgScope = msg.scope ?? "platform";
+      if (options.scope === "platform") {
+        if (msgScope !== "platform") return false;
+      } else if (options.scope === "org") {
+        if (msgScope !== "org" && msgScope !== "project") return false;
+        if (options.organisationId && msg.organisationId !== options.organisationId) return false;
+      } else if (options.scope === "project") {
+        if (msgScope !== "project") return false;
+        if (options.projectId && msg.projectId !== options.projectId) return false;
+      }
+    }
     if (options?.q) {
       const query = options.q.toLowerCase();
       const match =
@@ -423,11 +461,16 @@ export async function listForumMessages(options?: ListForumOptions): Promise<For
     };
   });
 
-  if (options?.sort === "newest") return decorated;
+  if (options?.sort === "newest") {
+    if (options?.scope === "org") {
+      return decorated.sort((a, b) => (a.scope === "org" ? 0 : 1) - (b.scope === "org" ? 0 : 1));
+    }
+    return decorated;
+  }
   if (options?.sort === "helpful") return decorated.sort((a, b) => b.helpfulCount - a.helpfulCount);
   if (options?.sort === "replies") return decorated.sort((a, b) => b.replies.length - a.replies.length);
   if (options?.sort === "saved") return decorated.sort((a, b) => (b.bookmarkCount ?? 0) - (a.bookmarkCount ?? 0));
-  return decorated.sort((a, b) => Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)));
+  return decorated.sort((a, b) => compareForumTrending(a, b, options?.scope === "org"));
 }
 
 export async function getForumMessageById(id: string, viewerUserId?: string): Promise<ForumMessage | null> {
@@ -2157,5 +2200,183 @@ export async function getAgentForumBootSummary(params: {
   }
 
   return { pinned_topics, saved_topics };
+}
+
+export interface ReadableForumScopeResult {
+  scope: ForumScope;
+  organisationId?: string;
+  projectId?: string;
+}
+
+/**
+ * Verifies read access for `GET /api/v1/forum` and `GET /api/v1/forum/[id]`.
+ * - `platform`: readable by anyone.
+ * - `org`: requires org membership (or active org agent); external project-only contributors are denied.
+ * - `project`: readable by anyone if `project.visibility === "public"` (read-only for outsiders);
+ *   private projects require org membership, direct project membership, or active org agent.
+ */
+export async function resolveReadableForumScope(params: {
+  scope: ForumScope;
+  organisationId?: string;
+  projectId?: string;
+  actorUserId?: string;
+  actorUserRole?: string;
+  actorOrgId?: string | null;
+}): Promise<ReadableForumScopeResult> {
+  if (params.scope === "platform") {
+    return { scope: "platform" };
+  }
+
+  const isSuperAdmin = params.actorUserRole === "super_admin";
+
+  if (params.scope === "org") {
+    if (!params.organisationId) {
+      throw new Error("Validation error: organisationId is required when scope is 'org'.");
+    }
+    if (!isSuperAdmin && !params.actorUserId && !params.actorOrgId) {
+      throw new Error("Unauthorized: Authentication is required to view organisation forums.");
+    }
+
+    if (prisma.organisation?.findFirst) {
+      const org = await prisma.organisation.findFirst({
+        where: {
+          OR: [{ id: params.organisationId }, { slug: params.organisationId }],
+          archivedAt: null,
+        },
+        select: { id: true },
+      });
+      if (!org) {
+        throw new Error("Forbidden: Organisation not found or inaccessible.");
+      }
+
+      if (!isSuperAdmin) {
+        let hasAccess = Boolean(params.actorOrgId && params.actorOrgId === org.id);
+        if (!hasAccess && params.actorUserId && prisma.membership?.findUnique) {
+          const member = await prisma.membership.findUnique({
+            where: {
+              organisationId_userId: {
+                organisationId: org.id,
+                userId: params.actorUserId,
+              },
+            },
+            select: { id: true },
+          });
+          hasAccess = Boolean(member);
+        }
+        if (!hasAccess) {
+          throw new Error("Forbidden: Only organisation members may view this organisation's forum.");
+        }
+      }
+
+      return { scope: "org", organisationId: org.id };
+    }
+
+    // In-memory / unit-test fallback
+    if (!isSuperAdmin && params.actorOrgId && params.actorOrgId !== params.organisationId) {
+      throw new Error("Forbidden: Only organisation members may view this organisation's forum.");
+    }
+    return { scope: "org", organisationId: params.organisationId };
+  }
+
+  // scope === "project"
+  if (!params.projectId) {
+    throw new Error("Validation error: projectId is required when scope is 'project'.");
+  }
+
+  if (prisma.project?.findFirst) {
+    const project = await prisma.project.findFirst({
+      where: {
+        OR: [{ id: params.projectId }, { slug: params.projectId }],
+        archivedAt: null,
+        organisation: {
+          archivedAt: null,
+          ...(params.organisationId
+            ? { OR: [{ id: params.organisationId }, { slug: params.organisationId }] }
+            : {}),
+        },
+      },
+      select: { id: true, organisationId: true, visibility: true },
+    });
+
+    if (!project) {
+      throw new Error("Forbidden: Project not found or inaccessible.");
+    }
+
+    // Public projects are read-only for outsiders
+    if (project.visibility === "public" || isSuperAdmin) {
+      return {
+        scope: "project",
+        organisationId: project.organisationId,
+        projectId: project.id,
+      };
+    }
+
+    if (!params.actorUserId && !params.actorOrgId) {
+      throw new Error("Unauthorized: Authentication is required to view this private project forum.");
+    }
+
+    let hasAccess = Boolean(params.actorOrgId && params.actorOrgId === project.organisationId);
+    if (!hasAccess && params.actorUserId) {
+      const [orgMember, projMember] = await Promise.all([
+        prisma.membership?.findUnique
+          ? prisma.membership.findUnique({
+              where: {
+                organisationId_userId: {
+                  organisationId: project.organisationId,
+                  userId: params.actorUserId,
+                },
+              },
+              select: { id: true },
+            })
+          : Promise.resolve(null),
+        prisma.projectMembership?.findUnique
+          ? prisma.projectMembership.findUnique({
+              where: {
+                projectId_userId: {
+                  projectId: project.id,
+                  userId: params.actorUserId,
+                },
+              },
+              select: { id: true },
+            })
+          : Promise.resolve(null),
+      ]);
+      hasAccess = Boolean(orgMember || projMember);
+    }
+
+    if (!hasAccess) {
+      throw new Error("Forbidden: You do not have access to this project's forum.");
+    }
+
+    return {
+      scope: "project",
+      organisationId: project.organisationId,
+      projectId: project.id,
+    };
+  }
+
+  return {
+    scope: "project",
+    organisationId: params.organisationId,
+    projectId: params.projectId,
+  };
+}
+
+export async function assertCanReadForumPost(params: {
+  post: ForumMessage;
+  actorUserId?: string;
+  actorUserRole?: string;
+  actorOrgId?: string | null;
+}): Promise<void> {
+  const scope = (params.post.scope ?? "platform") as ForumScope;
+  if (scope === "platform") return;
+  await resolveReadableForumScope({
+    scope,
+    organisationId: params.post.organisationId,
+    projectId: params.post.projectId,
+    actorUserId: params.actorUserId,
+    actorUserRole: params.actorUserRole,
+    actorOrgId: params.actorOrgId,
+  });
 }
 

@@ -1,12 +1,15 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { RichText } from "@/components/rich-text";
 import {
   DownArrowIcon,
+  ExternalLinkIcon,
   FORUM_SCROLLBAR_CLASS,
   ForumIcon,
+  forumClusterHref,
   forumSourceLabel,
   UpArrowIcon,
   ZCoinIcon,
@@ -242,6 +245,8 @@ export function ForumPostDetail({
   );
 
   const src = forumSourceLabel(activePost);
+  const clusterHref = forumClusterHref(activePost);
+  const isClusterPost = activePost.sourceType === "cluster" && Boolean(activePost.sourceId);
   const voteState = userVotes[activePost.id];
   const isUp = voteState === "up" || (!voteState && activePost.helpfulCount > 0);
   const isDown = voteState === "down" || (!voteState && activePost.helpfulCount < 0);
@@ -319,10 +324,34 @@ export function ForumPostDetail({
                       </span>
                     </div>
                   )}
+                  {isClusterPost && activePost.sourceId && (
+                    <div className="flex items-center justify-between gap-2 min-w-0">
+                      <span className="text-zk-muted shrink-0">Cluster</span>
+                      {clusterHref ? (
+                        <Link
+                          href={clusterHref}
+                          title={activePost.sourceId}
+                          className="inline-flex items-center gap-1 font-mono text-zk-accent hover:underline font-medium min-w-0 max-w-[115px]"
+                        >
+                          <span className="truncate">{activePost.sourceId}</span>
+                          <ExternalLinkIcon size={11} className="shrink-0" />
+                        </Link>
+                      ) : (
+                        <span
+                          title={activePost.sourceId}
+                          className="font-mono text-zk-accent font-medium truncate max-w-[115px]"
+                        >
+                          {activePost.sourceId}
+                        </span>
+                      )}
+                    </div>
+                  )}
                   {src && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-zk-muted">Linked Source</span>
-                      <span className="font-mono text-zk-accent font-semibold">{src}</span>
+                    <div className="flex items-center justify-between gap-2 min-w-0">
+                      <span className="text-zk-muted shrink-0">Linked Source</span>
+                      <span title={src} className="font-mono text-zk-accent font-semibold truncate">
+                        {src}
+                      </span>
                     </div>
                   )}
                   {(activePost.bookmarkCount ?? 0) > 0 && (

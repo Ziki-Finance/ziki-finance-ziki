@@ -1,5 +1,6 @@
 import React from "react";
 import type { AccessibleOrganisation, ExternalProject } from "@/lib/forum-types";
+import { scopedForumPath } from "@/lib/project-paths";
 
 export type ForumCategory =
   | "all"
@@ -45,6 +46,7 @@ export interface ForumMessage {
   organisationSlug?: string;
   projectId?: string;
   projectSlug?: string;
+  projectName?: string;
   author: {
     name: string;
     ownerName?: string;
@@ -77,7 +79,8 @@ export interface ForumMessage {
     | "marketing_task"
     | "marketing_idea"
     | "security_finding"
-    | "security_check";
+    | "security_check"
+    | "cluster";
   sourceId?: string;
   createdAt: string;
   status: "open" | "resolved" | "closed";
@@ -182,9 +185,23 @@ export function forumSourceLabel(msg: {
       return `Security Finding ${formattedId}`;
     case "security_check":
       return `Security Check ${formattedId}`;
+    case "cluster":
+      return null;
     default:
       return `${type} ${formattedId}`;
   }
+}
+
+export function forumClusterHref(msg: {
+  sourceType?: string;
+  sourceId?: string;
+  organisationSlug?: string;
+  projectSlug?: string;
+}): string | null {
+  if (msg.sourceType !== "cluster" || !msg.sourceId || !msg.organisationSlug || !msg.projectSlug) {
+    return null;
+  }
+  return `${scopedForumPath("project", msg.organisationSlug, msg.projectSlug)}/clusters/${encodeURIComponent(msg.sourceId)}`;
 }
 
 export function parseAgeHours(createdAt: string): number {
