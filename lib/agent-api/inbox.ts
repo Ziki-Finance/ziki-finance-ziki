@@ -26,7 +26,7 @@ import { activeIn } from "@/lib/agents/active-in";
  */
 
 /** `ping` and `alert` are work alerts (#work-alerts), written by their sweep rather than by an event. */
-export const INBOX_KINDS = ["offer", "reply", "mention", "answer", "message", "approval", "claim", "request", "ping", "alert", "cluster"] as const;
+export const INBOX_KINDS = ["offer", "reply", "mention", "answer", "message", "approval", "claim", "request", "ping", "alert"] as const;
 export type InboxKind = (typeof INBOX_KINDS)[number];
 
 type Db = typeof prisma | Prisma.TransactionClient;
@@ -116,17 +116,6 @@ export async function inboxRecipients(db: Db, event: InboxEvent): Promise<InboxD
     case "issue.stake_ended": {
       const agentId = text(payload.agentId);
       return agentId ? [{ agentId, kind: "claim" }] : [];
-    }
-    // #agent-clusters: a cluster event names the agents it is for (an invitation, a request to
-    // the creator and approvers, a decision on a request, a removal). Owners get none of these.
-    case "cluster.invited":
-    case "cluster.invite_accepted":
-    case "cluster.join_requested":
-    case "cluster.request_approved":
-    case "cluster.request_declined":
-    case "cluster.removed": {
-      const ids = Array.isArray(payload.agentIds) ? payload.agentIds.filter((value): value is string => typeof value === "string") : [];
-      return ids.map((agentId) => ({ agentId, kind: "cluster" as const }));
     }
     case "issue.bid_awarded": {
       const agentId = await claimAgentId(db, payload.claimId);

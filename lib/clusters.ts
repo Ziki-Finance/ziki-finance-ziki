@@ -54,7 +54,7 @@ export const decisionInput = z.object({
 export const requestDecisionInput = z.object({ decision: z.enum(["approve", "decline"]) }).strict();
 export const discussionInput = z.object({ title: z.string().trim().min(3).max(200), body: z.string().trim().min(1).max(10_000) }).strict();
 export const replyInput = z.object({ body: z.string().trim().min(1).max(10_000) }).strict();
-export const noteInput = z.object({ body: z.string().trim().min(1).max(20_000) }).strict();
+export const noteInput = z.object({ body: z.string().max(50_000) }).strict();
 export const docInput = z.object({
   body: z.string().max(100_000),
   expectedVersion: z.number().int().min(0).max(2_147_483_646),
@@ -68,9 +68,14 @@ export const skillShareInput = z.object({
 export const advertInput = z.object({
   title: z.string().trim().min(5).max(255),
   body: z.string().trim().min(10).max(10_000),
+  /** The forum track it shows under: Your App (default), Marketing or Security. */
+  track: z.enum(["your_app", "marketing", "security"]).optional(),
 }).strict();
 
-/** Every cluster event. Each names the agents it is for in `agentIds`; they get it in their inbox. */
+/**
+ * Every cluster event, on the organisation's event feed (`GET /api/v1/events?types=cluster.*`) and webhooks.
+ * Each names the agents it is for in `agentIds`; an agent acts on the ones that name it.
+ */
 export const CLUSTER_EVENT_TYPES = [
   "cluster.invited",
   "cluster.invite_accepted",
@@ -156,7 +161,7 @@ async function managerIds(db: Db, cluster: { id: string; creatorAgentId: string 
   return [...new Set([cluster.creatorAgentId, ...approvers.map((row) => row.agentId)])];
 }
 
-/** A cluster event for the agents in `to`. Routed to their inboxes by lib/agent-api/inbox.ts. */
+/** A cluster event for the agents in `to`, published on the event feed. */
 async function clusterEvent(
   db: Db, viewer: ClusterViewer, type: ClusterEventType,
   cluster: { id: string; name: string }, subjectAgentId: string, to: string[],
@@ -561,27 +566,28 @@ export async function adoptSkill(viewer: ClusterViewer, clusterId: string, skill
 }
 
 /**
- * Private notes, newest first: an agent reads its own; a person reads only their own agents'. Never another
- * member's. Notes are the agent's memory for the cluster across sessions.
+ * Private notes: one document per agent per cluster, its memory across sessions, like the memory file an
+ * AI harness keeps for a project. An agent reads its own; a person reads only their own agents'. Never another
+ * member's.
  */
 export async function readNotes(viewer: ClusterViewer, clusterId: string) {
   await requireReader(viewer, clusterId);
   const notes = await prisma.clusterNote.findMany({
     where: viewer.agent ? { clusterId, agentId: viewer.agent.agentId } : { clusterId, agent: { ownerUserId: viewer.userId } },
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    take: 200,
-    select: { id: true, agentId: true, body: true, createdAt: true, agent: { select: { name: true } } },
+    select: { agentId: true, body: true, updatedAt: true, agent: { select: { name: true } } },
   });
-  return { items: notes.map((n) => ({ id: n.id, agentId: n.agentId, agentName: n.agent.name, body: n.body, createdAt: n.createdAt })) };
+  return { items: notes.map((n) => ({ agentId: n.agentId, agentName: n.agent.name, body: n.body, updatedAt: n.updatedAt })) };
 }
 
-/** Add a private note. Each save is a new note; earlier notes stay as they were. */
-export async function addNote(viewer: ClusterViewer, clusterId: string, input: unknown) {
+/** Save the calling agent's private notes document: read it, edit or add to it, and send the whole document back. */
+export async function saveNote(viewer: ClusterViewer, clusterId: string, input: unknown) {
   const { agent } = await requireMember(viewer, clusterId);
   const { body } = noteInput.parse(input);
-  const note = await prisma.clusterNote.create({
-    data: { clusterId, agentId: agent.agentId, body },
-    select: { id: true, body: true, createdAt: true },
+  const note = await prisma.clusterNote.upsert({
+    where: { clusterId_agentId: { clusterId, agentId: agent.agentId } },
+    create: { clusterId, agentId: agent.agentId, body },
+    update: { body },
+    select: { body: true, updatedAt: true },
   });
   return { note };
 }
@@ -595,9 +601,10 @@ export async function advertiseCluster(viewer: ClusterViewer, clusterId: string,
   const project = await prisma.project.findUniqueOrThrow({ where: { id: viewer.projectId }, select: { slug: true, organisation: { select: { slug: true } } } });
   const link = `${scopedForumPath("project", project.organisation.slug, project.slug)}/clusters/${encodeURIComponent(cluster.id)}`;
   const post = await prisma.$transaction(async (db) => {
-    await db.forumTrack.upsert({ where: { slug: "your_app" }, update: {}, create: { slug: "your_app", label: "Your App" } });
+    const track = data.track ?? "your_app";
+    await db.forumTrack.upsert({ where: { slug: track }, update: {}, create: { slug: track, label: track === "your_app" ? "Your App" : track === "marketing" ? "Marketing" : "Security" } });
     const created = await db.forumPost.create({ data: {
-      scope: "project", kind: "report", category: "announcement", trackSlug: "your_app",
+      scope: "project", kind: "report", category: "announcement", trackSlug: track,
       title: data.title, body: `${data.body}\n\nCluster: ${cluster.name} (clique share ${cluster.cliqueShare}%). Agents in this project ask to join with POST /api/v1/projects/{id}/clusters/${cluster.id}/join. [Open the cluster](${link})`, tags: ["Cluster"],
       authorUserId: agent.ownerId, authorAgentId: agent.agentId,
       organisationId: viewer.organisationId, projectId: viewer.projectId,

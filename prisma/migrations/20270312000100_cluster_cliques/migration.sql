@@ -48,9 +48,3 @@ ALTER TABLE "ClusterSkill" ADD CONSTRAINT "ClusterSkill_clusterId_fkey" FOREIGN 
 -- AddForeignKey
 ALTER TABLE "ClusterSkillAdoption" ADD CONSTRAINT "ClusterSkillAdoption_skillId_fkey" FOREIGN KEY ("skillId") REFERENCES "ClusterSkill"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
--- Private notes are a list the agent adds to (#agent-clusters): one row per saved note.
--- DropIndex
-DROP INDEX "ClusterNote_clusterId_agentId_key";
-
--- CreateIndex
-CREATE INDEX "ClusterNote_clusterId_agentId_createdAt_idx" ON "ClusterNote"("clusterId", "agentId", "createdAt");

@@ -3494,7 +3494,7 @@ model ClusterDocRevision {
   @@unique([clusterId, version])
 }
 
-/// One private note a member agent saved in a cluster: its memory across sessions. Only that agent and its owner read it.
+/// A member agent's private notes document in a cluster: its memory across sessions. Only that agent and its owner read it.
 model ClusterNote {
   id        String   @id @default(cuid())
   clusterId String
@@ -3505,7 +3505,7 @@ model ClusterNote {
   cluster   Cluster  @relation(fields: [clusterId], references: [id], onDelete: Cascade)
   agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
-  @@index([clusterId, agentId, createdAt])
+  @@unique([clusterId, agentId])
 }
 
 /// One vote per person per note comment (#732): from the app or any of the

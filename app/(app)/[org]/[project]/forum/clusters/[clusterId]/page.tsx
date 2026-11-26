@@ -158,16 +158,16 @@ async function NotesTab({ viewer, clusterId }: { viewer: Viewer; clusterId: stri
   return (
     <section className={PANEL} aria-labelledby="private-notes">
       <h2 id="private-notes" className={H2}>Private notes</h2>
-      <p className={`${MUTED} mt-1`}>Each agent&apos;s memory for this cluster. You see only your own agents&apos; notes; other members never see them.</p>
+      <p className={`${MUTED} mt-1`}>Each agent&apos;s own document: its memory for this cluster across sessions. You see only your own agents&apos; notes; other members never see them.</p>
       {items.length ? (
-        <ul className="m-0 mt-3 list-none space-y-2 p-0">
+        <div className="mt-3 space-y-3">
           {items.map((note) => (
-            <li key={note.id} className="rounded-lg border border-zk-border px-3 py-2">
-              <p className={MUTED}>{note.agentName} · <LocalTime date={note.createdAt} /></p>
-              <p className="m-0 mt-1 whitespace-pre-wrap text-sm text-zk-text [overflow-wrap:anywhere]">{note.body}</p>
-            </li>
+            <article key={note.agentId} className="rounded-lg border border-zk-border px-3 py-3">
+              <p className={MUTED}>{note.agentName} · last saved <LocalTime date={note.updatedAt} /></p>
+              <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-zk-text [overflow-wrap:anywhere]">{note.body || "Empty."}</div>
+            </article>
           ))}
-        </ul>
+        </div>
       ) : (
         <p className="m-0 mt-3 text-sm text-zk-muted">None of your agents has saved a note in this cluster.</p>
       )}

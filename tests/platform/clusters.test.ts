@@ -13,7 +13,7 @@ const db = vi.hoisted(() => ({
   cluster: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn() },
   clusterMember: { createManyAndReturn: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
   clusterPost: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn() },
-  clusterNote: { findMany: vi.fn(), create: vi.fn() },
+  clusterNote: { findMany: vi.fn(), upsert: vi.fn() },
   clusterDocRevision: { findMany: vi.fn(), create: vi.fn() },
   clusterSkill: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
   clusterSkillAdoption: { upsert: vi.fn() },
@@ -27,8 +27,8 @@ const published = vi.hoisted(() => [] as { type: string; payload: Record<string,
 vi.mock("@/lib/prisma", () => ({ prisma: db }));
 vi.mock("@/lib/agent-api/events", () => ({ publish: vi.fn(async (_db, event) => { published.push(event); return { id: "e" }; }) }));
 import {
-  addDiscussion, addNote, adoptSkill, advertiseCluster, agentClusterViewer, cliqueForBid, createCluster, decideMember, decideRequest,
-  inviteToCluster, joinCluster, leaveCluster, listClusters, readDoc, readNotes, saveDoc, shareSkill, type ClusterViewer,
+  addDiscussion, adoptSkill, advertiseCluster, agentClusterViewer, cliqueForBid, createCluster, decideMember, decideRequest,
+  inviteToCluster, joinCluster, leaveCluster, listClusters, readDoc, readNotes, saveDoc, saveNote, shareSkill, type ClusterViewer,
 } from "@/lib/clusters";
 import type { AgentContext } from "@/lib/agents/require-agent";
 
@@ -95,11 +95,14 @@ describe("cluster access", () => {
     expect(db.clusterNote.findMany.mock.calls[1][0].where).toEqual({ clusterId: "c1", agent: { ownerUserId: "person" } });
   });
 
-  it("adds a private note on every save instead of overwriting", async () => {
-    db.clusterNote.create.mockResolvedValue({ id: "n1", body: "Try Safari first", createdAt: new Date() });
-    await addNote(viewerFor("member"), "c1", { body: "Try Safari first" });
-    expect(db.clusterNote.create).toHaveBeenCalledWith(expect.objectContaining({ data: { clusterId: "c1", agentId: "member", body: "Try Safari first" } }));
-    await expect(addNote(viewerFor("member"), "c1", { body: "  " })).rejects.toThrow();
+  it("keeps one private notes document per agent, which the agent rewrites", async () => {
+    db.clusterNote.upsert.mockResolvedValue({ body: "## Strategy\nTry Safari first", updatedAt: new Date() });
+    await saveNote(viewerFor("member"), "c1", { body: "## Strategy\nTry Safari first" });
+    expect(db.clusterNote.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      where: { clusterId_agentId: { clusterId: "c1", agentId: "member" } },
+      update: { body: "## Strategy\nTry Safari first" },
+    }));
+    await expect(saveNote(person, "c1", { body: "x" })).rejects.toMatchObject({ status: 403 });
   });
 
   it("refuses a doc save against an old version", async () => {
@@ -168,7 +171,7 @@ describe("creating and advertising", () => {
     db.forumPost.findFirst.mockResolvedValue(null);
     db.forumPost.create.mockResolvedValue({ id: "p1" });
     expect(await advertiseCluster(viewerFor("creator"), "c1", { title: "Join Web Speedrunners", body: "We win more web bids together." })).toEqual({ postId: "p1" });
-    expect(db.forumPost.create.mock.calls[0][0].data).toMatchObject({ scope: "project", projectId: "project", sourceType: "cluster", sourceId: "c1" });
+    expect(db.forumPost.create.mock.calls[0][0].data).toMatchObject({ scope: "project", projectId: "project", sourceType: "cluster", sourceId: "c1", trackSlug: "your_app" });
     db.forumPost.findFirst.mockResolvedValue({ id: "p1" });
     await expect(advertiseCluster(viewerFor("creator"), "c1", { title: "Join again please", body: "A second advert here." })).rejects.toMatchObject({ status: 409 });
   });
