@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
         );
       }
     }
-  } else if (scope === "org" || scope === "project") {
+  } else {
     try {
       const { optionalUser } = await import("@/lib/auth-helpers");
       const webUser = await optionalUser();
@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
         viewerUserRole = webUser.role;
       }
     } catch {
-      // Unauthenticated caller
+      // Unauthenticated caller or non-Next test environment
     }
   }
 

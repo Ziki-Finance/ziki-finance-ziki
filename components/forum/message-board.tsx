@@ -1,10 +1,17 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { AccessibleOrganisation, ExternalProject } from "@/lib/forum-types";
 import { buildForumSearchParams, parseForumSearchParams } from "@/lib/forum-url";
 import { scopedForumPath, scopedForumPostPath } from "@/lib/project-paths";
+import {
+  buildForumScopeApiUrl,
+  buildForumScopeKey,
+  getCachedForumScope,
+  getForumScopeCacheKey,
+  setCachedForumScope,
+} from "@/components/forum/forum-scope-cache";
 import {
   DEFAULT_EXTERNAL_PROJECTS,
   DEFAULT_ORGANISATIONS,
@@ -119,10 +126,13 @@ export function PublicMessageBoard({
   const [sortBy, setSortBy] = useState<SortOption>(initialUrlFilters.sortBy);
   const [userVotes] = useState<Record<string, "up" | "down">>({});
 
-  // Sync active filters & sort to URL query params in list view
+  // Sync active filters & sort to URL query params in list view without triggering RSC reloads
   const currentUrlQuery = searchParams?.toString() ?? "";
   useEffect(() => {
-    if (view !== "list" || !router || !pathname) return;
+    if (view !== "list") return;
+    const activePath =
+      typeof window !== "undefined" ? window.location.pathname : pathname;
+    if (!activePath) return;
     const nextQuery = buildForumSearchParams({
       trackFilter,
       feedFilter,
@@ -133,8 +143,17 @@ export function PublicMessageBoard({
       searchQuery,
       sortBy,
     });
-    if (nextQuery === currentUrlQuery) return;
-    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+    const currentSearch =
+      typeof window !== "undefined"
+        ? window.location.search.replace(/^\?/, "")
+        : currentUrlQuery;
+    if (nextQuery === currentSearch) return;
+    const nextUrl = nextQuery ? `${activePath}?${nextQuery}` : activePath;
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", nextUrl);
+    } else if (router) {
+      router.replace(nextUrl, { scroll: false });
+    }
   }, [
     view,
     router,
@@ -173,6 +192,31 @@ export function PublicMessageBoard({
     setSelectedScope(initialScopeConfig);
   }
 
+  const [isScopeLoading, setIsScopeLoading] = useState(false);
+  const activeRequestIdRef = useRef(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const selectedScopeRef = useRef<SelectedScope>(selectedScope);
+  useEffect(() => {
+    selectedScopeRef.current = selectedScope;
+  }, [selectedScope]);
+
+  // Seed client SWR cache with SSR initialMessages
+  useEffect(() => {
+    if (initialMessages) {
+      setCachedForumScope(
+        getForumScopeCacheKey(currentUserId, initialScopeConfig),
+        initialMessages,
+      );
+    }
+  }, [currentUserId, initialScopeConfig, initialMessages]);
+
+  // Abort any in-flight scope fetch on unmount
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+
   const [expandedOrgs, setExpandedOrgs] = useState<Record<string, boolean>>({
     zedu: true,
     acme: false,
@@ -184,10 +228,148 @@ export function PublicMessageBoard({
     setExpandedOrgs((prev) => ({ ...prev, [orgId]: !prev[orgId] }));
   };
 
-  const effectiveOrgs =
-    organisations && organisations.length > 0 ? organisations : DEFAULT_ORGANISATIONS;
-  const effectiveExternalProjects =
-    externalProjects !== undefined ? externalProjects : DEFAULT_EXTERNAL_PROJECTS;
+  const effectiveOrgs = React.useMemo(
+    () => (organisations && organisations.length > 0 ? organisations : DEFAULT_ORGANISATIONS),
+    [organisations],
+  );
+  const effectiveExternalProjects = React.useMemo(
+    () => (externalProjects !== undefined ? externalProjects : DEFAULT_EXTERNAL_PROJECTS),
+    [externalProjects],
+  );
+
+  const loadScopeMessages = useCallback(
+    async (targetScope: SelectedScope, fallbackHref?: string) => {
+      abortControllerRef.current?.abort();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+      const reqId = ++activeRequestIdRef.current;
+
+      const cacheKey = getForumScopeCacheKey(currentUserId, targetScope);
+      const cached = getCachedForumScope(cacheKey);
+      if (cached) {
+        setMessages(cached);
+        setIsScopeLoading(false);
+      } else {
+        setIsScopeLoading(true);
+      }
+
+      try {
+        const res = await fetch(buildForumScopeApiUrl(targetScope), {
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        const data = (await res.json()) as { messages?: ForumMessage[] };
+        const nextMessages = Array.isArray(data.messages) ? data.messages : [];
+        setCachedForumScope(cacheKey, nextMessages);
+        if (activeRequestIdRef.current === reqId) {
+          setMessages(nextMessages);
+          setIsScopeLoading(false);
+        }
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          return;
+        }
+        if (activeRequestIdRef.current === reqId) {
+          setIsScopeLoading(false);
+          if (!cached && fallbackHref && router) {
+            router.push(fallbackHref);
+          }
+        }
+      }
+    },
+    [currentUserId, router],
+  );
+
+  const handleSelectScope = useCallback(
+    (nextScope: SelectedScope, href: string) => {
+      if (buildForumScopeKey(nextScope) === buildForumScopeKey(selectedScopeRef.current)) {
+        setView("list");
+        return;
+      }
+      setSelectedScope(nextScope);
+      setView("list");
+      setSelectedPostId(null);
+      setPinnedOnly(false);
+      if (typeof window !== "undefined") {
+        window.history.pushState(null, "", href);
+      }
+      void loadScopeMessages(nextScope, href);
+    },
+    [loadScopeMessages],
+  );
+
+  // Support browser back/forward navigation across client-switched forum scopes
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handlePopState = () => {
+      const segments = window.location.pathname.replace(/\/+$/, "").split("/").filter(Boolean);
+      let nextScope: SelectedScope | null = null;
+      if (segments.length === 1 && segments[0] === "forum") {
+        nextScope = { type: "global", name: "Global Ziki Forum" };
+      } else if (segments.length === 2 && segments[1] === "forum") {
+        const matchedOrg = effectiveOrgs.find(
+          (o) => o.slug === segments[0] || o.id === segments[0],
+        );
+        nextScope = {
+          type: "org",
+          orgId: matchedOrg?.slug || segments[0],
+          name: matchedOrg?.name ?? segments[0],
+        };
+      } else if (segments.length === 3 && segments[2] === "forum") {
+        const matchedOrg = effectiveOrgs.find(
+          (o) => o.slug === segments[0] || o.id === segments[0],
+        );
+        const matchedProj = matchedOrg?.projects.find(
+          (p) => p.slug === segments[1] || p.id === segments[1],
+        );
+        const matchedExt = effectiveExternalProjects.find(
+          (e) =>
+            (e.organisationSlug === segments[0] || e.organisationId === segments[0]) &&
+            (e.slug === segments[1] || e.id === segments[1]),
+        );
+        if (matchedExt) {
+          nextScope = {
+            type: "external",
+            orgId: matchedExt.organisationSlug,
+            projectId: matchedExt.slug || matchedExt.id,
+            name: matchedExt.name,
+          };
+        } else {
+          nextScope = {
+            type: "project",
+            orgId: matchedOrg?.slug || segments[0],
+            projectId: matchedProj?.slug || segments[1],
+            name: matchedProj?.name ?? segments[1],
+          };
+        }
+      }
+
+      if (
+        nextScope &&
+        buildForumScopeKey(nextScope) !== buildForumScopeKey(selectedScopeRef.current)
+      ) {
+        setSelectedScope(nextScope);
+        setView("list");
+        setSelectedPostId(null);
+        void loadScopeMessages(nextScope);
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [effectiveOrgs, effectiveExternalProjects, loadScopeMessages]);
+
+  const activeScope: "platform" | "org" | "project" =
+    selectedScope.type === "org"
+      ? "org"
+      : selectedScope.type === "project" || selectedScope.type === "external"
+        ? "project"
+        : "platform";
+  const activeOrgSlug = selectedScope.orgId ?? orgSlug;
+  const activeProjectSlug = selectedScope.projectId ?? projectSlug;
 
   const activePost = selectedPostId
     ? messages.find((m) => {
@@ -217,7 +399,7 @@ export function PublicMessageBoard({
   const pinnedPosts = messages
     .filter((m) => m.isPinned)
     .sort((a, b) => {
-      if (scope === "org") {
+      if (activeScope === "org") {
         const scopeDiff = (a.scope === "org" ? 0 : 1) - (b.scope === "org" ? 0 : 1);
         if (scopeDiff !== 0) return scopeDiff;
       }
@@ -266,7 +448,7 @@ export function PublicMessageBoard({
       if (sortBy === "trending") {
         const pinDiff = Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned));
         if (pinDiff !== 0) return pinDiff;
-        if (scope === "org") {
+        if (activeScope === "org") {
           const scopeDiff = (a.scope === "org" ? 0 : 1) - (b.scope === "org" ? 0 : 1);
           if (scopeDiff !== 0) return scopeDiff;
         }
@@ -286,7 +468,12 @@ export function PublicMessageBoard({
   ) => {
     if (router) {
       router.push(
-        scopedForumPostPath(postScope ?? scope, postId, postOrgSlug ?? orgSlug, postProjSlug ?? projectSlug),
+        scopedForumPostPath(
+          postScope ?? activeScope,
+          postId,
+          postOrgSlug ?? activeOrgSlug,
+          postProjSlug ?? activeProjectSlug,
+        ),
       );
     } else {
       setSelectedPostId(postId);
@@ -298,7 +485,7 @@ export function PublicMessageBoard({
     setView("list");
     setSelectedPostId(null);
     if (router) {
-      router.push(scopedForumPath(scope, orgSlug, projectSlug));
+      router.push(scopedForumPath(activeScope, activeOrgSlug, activeProjectSlug));
     }
   };
 
@@ -337,7 +524,11 @@ export function PublicMessageBoard({
             onSortByChange={setSortBy}
             hasActiveFilters={hasActiveFilters}
             onClearFilters={handleResetFilters}
-            clustersHref={scope === "project" && orgSlug && projectSlug ? `${scopedForumPath("project", orgSlug, projectSlug)}/clusters` : undefined}
+            clustersHref={
+              activeScope === "project" && activeOrgSlug && activeProjectSlug
+                ? `${scopedForumPath("project", activeOrgSlug, activeProjectSlug)}/clusters`
+                : undefined
+            }
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-[230px_1fr] gap-6 items-stretch">
@@ -346,6 +537,7 @@ export function PublicMessageBoard({
             >
               <ForumSidebar
                 selectedScope={selectedScope}
+                onSelectScope={handleSelectScope}
                 organisations={effectiveOrgs}
                 externalProjects={effectiveExternalProjects}
                 expandedOrgs={expandedOrgs}
@@ -368,6 +560,7 @@ export function PublicMessageBoard({
                 selectedScope={selectedScope}
                 totalCount={messages.length}
                 filteredMessages={filteredMessages}
+                isLoading={isScopeLoading}
                 searchQuery={searchQuery}
                 sortBy={sortBy}
                 userVotes={userVotes}
