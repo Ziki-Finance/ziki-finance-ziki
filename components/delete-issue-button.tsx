@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ButtonHTMLAttributes } from "react";
 import { unstable_rethrow } from "next/navigation";
 import { deleteBugAction } from "@/app/actions/issues";
 import { Button } from "@/components/ui/button";
+import { MENU_ITEM_DANGER_CLASS } from "@/components/menu-item";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import {
@@ -21,6 +22,8 @@ type DeleteBugButtonProps = {
   size?: "sm" | "md";
   label?: string;
   className?: string;
+  /** Drawn as a row of the ⋯ menu (#menu-items), in red. */
+  menuItem?: boolean;
 };
 
 function AlertIcon({ className = "h-3.5 w-3.5 shrink-0" }: { className?: string }) {
@@ -49,6 +52,7 @@ export function DeleteIssueButton({
   size = "md",
   label = "Delete issue",
   className = "",
+  menuItem = false,
 }: DeleteBugButtonProps) {
   const [error, setError] = useState<string | null>(null);
   const errorId = `delete-error-${bugId}`;
@@ -60,9 +64,9 @@ export function DeleteIssueButton({
     size === "sm" ? "px-2.5 py-1 text-xs" : "px-3.5 py-2 text-sm";
 
   return (
-    <div className="flex flex-col items-start gap-1">
-      <Button
-        type="button"
+    <div className={`flex flex-col gap-1 ${menuItem ? "items-stretch" : "items-start"}`}>
+      <TriggerButton
+        menuItem={menuItem}
         variant={variant}
         disabled={pending}
         aria-describedby={error ? errorId : undefined}
@@ -106,7 +110,7 @@ export function DeleteIssueButton({
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 20 20"
             fill="currentColor"
-            className={size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4"}
+            className={size === "sm" && !menuItem ? "h-3.5 w-3.5" : "h-4 w-4"}
             aria-hidden="true"
           >
             <path
@@ -117,7 +121,7 @@ export function DeleteIssueButton({
           </svg>
           <span>{pending ? "Deleting…" : label}</span>
         </span>
-      </Button>
+      </TriggerButton>
       {error ? (
         <p
           id={errorId}
@@ -133,3 +137,25 @@ export function DeleteIssueButton({
 }
 
 export { DeleteIssueButton as DeleteBugButton };
+
+/** The page's button, or a ⋯ menu row (#menu-items). */
+function TriggerButton({
+  menuItem,
+  variant,
+  className,
+  children,
+  ...props
+}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, "type"> & { menuItem: boolean; variant: "danger" | "danger-secondary" | "ghost" }) {
+  if (menuItem) {
+    return (
+      <button type="button" {...props} className={MENU_ITEM_DANGER_CLASS}>
+        {children}
+      </button>
+    );
+  }
+  return (
+    <Button type="button" variant={variant} className={className} {...props}>
+      {children}
+    </Button>
+  );
+}

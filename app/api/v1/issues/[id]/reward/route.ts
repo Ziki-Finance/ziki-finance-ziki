@@ -14,8 +14,7 @@ import { estimateReward, readReward } from "@/lib/agent-api/reward-estimates";
  *
  * The reward is the average of the estimates and the issue's price once 3 are
  * in; it is locked once the issue is funded or 15 are in (409 `reward_fixed`
- * after that), and the organisation's payers (owners, and admins an owner lets pay, #payers) don't estimate (403
- * `payer_cannot_estimate`, #price-lock). 200 `{ issueId, reward, estimates,
+ * after that). Anyone may estimate, the organisation's payers (#payers) included. 200 `{ issueId, reward, estimates,
  * maxEstimates, fixed, mine, replaced }`.
  *
  * GET — the reward, how many estimates it averages, yours, and everyone's

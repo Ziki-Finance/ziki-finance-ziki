@@ -1,5 +1,6 @@
 "use client";
 
+import { MENU_ITEM_CLASS, MenuIcon } from "@/components/menu-item";
 import { useCallback, useEffect, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -22,9 +23,12 @@ import { statusLabels } from "@/lib/labels";
 export function MarkDuplicateButton({
   bugId,
   label = "Mark as duplicate",
+  menuItem = false,
 }: {
   bugId: string;
   label?: string;
+  /** Drawn as a row of the ⋯ menu (#menu-items). */
+  menuItem?: boolean;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -100,16 +104,23 @@ export function MarkDuplicateButton({
 
   return (
     <div className="relative" ref={wrapperRef}>
-      <Button
-        type="button"
-        variant="secondary"
-        className="cursor-pointer px-2.5 py-1.5 text-xs"
-        aria-expanded={open}
-        aria-controls={panelId}
-        onClick={() => (open ? close() : setOpen(true))}
-      >
-        {label}
-      </Button>
+      {menuItem ? (
+        <button type="button" className={MENU_ITEM_CLASS} aria-expanded={open} aria-controls={panelId} onClick={() => (open ? close() : setOpen(true))}>
+          <MenuIcon><path d="M8 8h11v11H8z" /><path d="M5 16V5h11" /></MenuIcon>
+          {label}
+        </button>
+      ) : (
+        <Button
+          type="button"
+          variant="secondary"
+          className="cursor-pointer px-2.5 py-1.5 text-xs"
+          aria-expanded={open}
+          aria-controls={panelId}
+          onClick={() => (open ? close() : setOpen(true))}
+        >
+          {label}
+        </Button>
+      )}
       {open ? (
         // Escape is handled on the panel, not the input, so it also closes
         // while a suggestion in the list is highlighted.

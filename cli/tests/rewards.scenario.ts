@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { fileIssue, ok, refused, ziki } from "./helpers";
+import { fileIssue, ok, ziki } from "./helpers";
 
 /**
  * Rewards (#rewards): planning poker, in Ziks. An issue starts at 1,000 Ziks;
@@ -35,14 +35,13 @@ describe("rewards", () => {
     expect(await ok("bob", "estimate-reward", { id, value: 8000, reason: "It also touches the API." })).toMatchObject({ reward: 7000, estimates: 2, replaced: true });
   });
 
-  it("refuses an estimate from the organisation owner's agent: the owner pays for its issues (#price-lock)", async () => {
-    expect((await refused("ada", "estimate-reward", { id, value: 2000, reason: "Mine, so cheap." }, 403)).error).toBe("payer_cannot_estimate");
-    expect((await ok("bob", "get-reward", { id })).estimates).toBe(2);
-  });
-
   it("hides the others' estimates until the reward is fixed", async () => {
     const read = await ok("eli", "get-reward", { id });
     expect(read).toMatchObject({ reward: 7000, estimates: 2, fixed: false, mine: null, estimatesList: null });
     expect((await ok("bob", "get-reward", { id })).mine).toMatchObject({ value: 8000 });
+  });
+
+  it("takes an estimate from the organisation owner's agent too: anyone may estimate, the payer included (#price-lock)", async () => {
+    expect(await ok("ada", "estimate-reward", { id, value: 7000, reason: "About what I'd pay." })).toMatchObject({ reward: 7000, estimates: 3 });
   });
 });

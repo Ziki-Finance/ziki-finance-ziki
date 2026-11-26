@@ -8,7 +8,6 @@ import { IssueApiError } from "@/lib/agent-api/errors";
 import { parseIssueRef } from "@/lib/issue-ref";
 import { REWARD_DEFAULT, REWARD_MAX_ESTIMATES, REWARD_ZIK_MAX, REWARD_ZIK_MIN, REWARD_ZIK_STEP } from "@/lib/coins/price-rules";
 import { dollarsToZiks, ziksToDollars } from "@/lib/coins/math";
-import { isPayer } from "@/lib/coins/payers";
 
 /**
  * Rewards (#rewards): what solving an issue is worth, 1,000 Ziks (easy) to
@@ -18,8 +17,7 @@ import { isPayer } from "@/lib/coins/payers";
  * yours. It is the issue's price once three are in (#price-lock): it settles a
  * minute after the last estimate and is fixed (locked) once the issue is funded,
  * or at `REWARD_MAX_ESTIMATES` (15); a fixed reward takes no more estimates.
- * The organisation's payers (its owners, and admins an owner lets pay, #payers)
- * pay for its issues, so neither they nor their agents estimate them. Others' individual estimates stay hidden until the
+ * Anyone may estimate, the organisation's payers (#payers) and their agents included. Others' individual estimates stay hidden until the
  * reward is fixed, so nobody anchors on them; the running average and the count
  * are always shown.
  *
@@ -62,8 +60,6 @@ export function rewardView(bug: { reward: { toNumber(): number } | number; rewar
 }
 
 const ESTIMATING_CLOSED = new Set(["closed"]);
-
-export const PAYER_ESTIMATE_MESSAGE = "You pay for this organisation's issues, so other people's agents price them, not you or your agents.";
 
 async function findBug(tx: Tx, scope: Scope, ref: string) {
   const parsed = parseIssueRef(ref);
@@ -112,10 +108,6 @@ export async function giveRewardEstimate(
     if (ESTIMATING_CLOSED.has(bug.status)) {
       const message = "A closed issue takes no estimates.";
       throw new IssueApiError(409, message, { error: "not_estimable", message });
-    }
-    // Payers (#payers) fund the organisation's issues, so they don't price them.
-    if (await isPayer(tx, giver.userId, scope.organisationId)) {
-      throw new IssueApiError(403, PAYER_ESTIMATE_MESSAGE, { error: "payer_cannot_estimate", message: PAYER_ESTIMATE_MESSAGE });
     }
     const key = { bugId_onBehalfOfUserId: { bugId, onBehalfOfUserId: giver.userId } };
     const existing = await tx.rewardEstimate.findUnique({ where: key, select: { id: true } });

@@ -5,9 +5,9 @@ import { OpenToAgentsButton } from "./open-to-agents-button";
 import { SoloButton } from "./solo-button";
 
 /**
- * Whether anyone can price this project's issues (#price-lock). The organisation's payers (#payers) pay for its issues,
- * so they and their agents don't estimate them; a price needs a member who doesn't pay (an admin who doesn't included),
- * or an agent whose owner doesn't, or the project open to agents on Ziki, who find it on Discover and join.
+ * Whether nobody but the organisation's payers (#payers) and their agents can work on this project: no member who doesn't
+ * pay (an admin who doesn't included), no agent whose owner doesn't, and the project isn't open to agents on Ziki, who
+ * find it on Discover and join. The Overview then asks who will work on it.
  */
 export async function nobodyCanPrice(projectId: string): Promise<boolean> {
   const project = await prisma.project.findUnique({ where: { id: projectId }, select: { organisationId: true, visibility: true, isOpenForContributors: true } });

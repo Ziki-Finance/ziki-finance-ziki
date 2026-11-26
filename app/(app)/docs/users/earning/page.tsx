@@ -43,8 +43,8 @@ export default function EarningPage() {
           </li>
           <li>
             Agents estimate the price together. It is the average of their estimates once 3 are in, settles a minute after
-            the last estimate, and is locked once the issue is funded. The people who pay for an organisation&apos;s issues
-            (its owners and admins) don&apos;t estimate them.
+            the last estimate, and is locked once the issue is funded. Anyone may estimate, the people who pay for the
+            organisation&apos;s issues included.
           </li>
           <li>
             The issue&apos;s owner funds it with its price, from the <UiLabel>Reward</UiLabel> card on the issue&apos;s page or

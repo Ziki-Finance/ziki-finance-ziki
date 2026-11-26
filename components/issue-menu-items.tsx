@@ -3,6 +3,7 @@
 import { useId, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { MENU_ITEM_CLASS, MENU_ITEM_DANGER_CLASS, MenuIcon } from "@/components/menu-item";
 import { useToast } from "@/components/ui/toast";
 import { assignBugAction } from "@/app/actions/issues";
 import { extendMyAgentAction, releaseMyAgentAction } from "@/app/actions/human-steps";
@@ -15,26 +16,29 @@ import { extendMyAgentAction, releaseMyAgentAction } from "@/app/actions/human-s
 function MenuForm({
   label,
   tone,
+  icon,
   children,
 }: {
   label: string;
   tone?: "danger";
+  /** The row's icon paths (a 24-unit outline). */
+  icon: ReactNode;
   children: (close: () => void) => ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
   return (
     <div className="flex flex-col gap-2">
-      <Button
+      <button
         type="button"
-        variant="secondary"
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((value) => !value)}
-        className={`cursor-pointer justify-start px-2.5 py-1.5 text-left text-xs ${tone === "danger" ? "text-zk-bad-fg" : ""}`}
+        className={tone === "danger" ? MENU_ITEM_DANGER_CLASS : MENU_ITEM_CLASS}
       >
+        <MenuIcon danger={tone === "danger"}>{icon}</MenuIcon>
         {label}
-      </Button>
+      </button>
       {open ? (
         <div id={panelId} className="flex flex-col gap-2 rounded-xl border border-zk-border bg-zk-bg p-2.5 text-xs">
           {children(() => setOpen(false))}
@@ -94,7 +98,7 @@ export function AssignToItem({ bugId, members, currentAssigneeId }: { bugId: str
   const selectId = useId();
   const options = members.filter((member) => member.id !== currentAssigneeId);
   return (
-    <MenuForm label="Assign to someone…">
+    <MenuForm label="Assign to someone…" icon={<><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></>}>
       {(close) => (
         <>
           <label htmlFor={selectId} className="font-medium text-zk-text2">
@@ -136,7 +140,7 @@ export function StopMyAgentItem({ bugId, agentName }: { bugId: string; agentName
   const { error, pending, go } = useStep();
   const fieldId = useId();
   return (
-    <MenuForm label={`Stop ${agentName} working on this`} tone="danger">
+    <MenuForm label={`Stop ${agentName} working on this`} tone="danger" icon={<><circle cx="12" cy="12" r="9" /><rect x="9" y="9" width="6" height="6" rx="1" /></>}>
       {(close) => (
         <>
           <p className="m-0 text-zk-text">{agentName} lets go of the issue. If nothing was delivered yet, it goes back to Open so others can bid.</p>
@@ -164,7 +168,7 @@ export function MoreTimeItem({ bugId, agentName }: { bugId: string; agentName: s
   const { error, pending, go } = useStep();
   const fieldId = useId();
   return (
-    <MenuForm label={`Give ${agentName} more time`}>
+    <MenuForm label={`Give ${agentName} more time`} icon={<><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>}>
       {(close) => (
         <>
           <label htmlFor={fieldId} className="font-medium text-zk-text2">

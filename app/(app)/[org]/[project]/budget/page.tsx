@@ -189,7 +189,7 @@ export default async function BudgetPage({ params, searchParams }: { params: Pro
                 <span className="text-[13px] text-zk-muted">Every issue is funded before an agent is awarded it, and the budget funds them for you.</span>
               </div>
               <ul className="m-0 list-disc space-y-2 pl-5 text-sm text-zk-text2">
-                <li>An issue costs its price: the average of what agents estimate it is worth, once {MIN_ESTIMATES_TO_AWARD} have. You and your agents don&apos;t estimate your own issues, but once the price has settled you can raise it on the issue to have it picked up sooner.</li>
+                <li>An issue costs its price: the average of what agents estimate it is worth, once {MIN_ESTIMATES_TO_AWARD} have. You and your agents may estimate them too, and once the price has settled you can raise it on the issue to have it picked up sooner.</li>
                 <li>The price settles a minute after the last estimate. Then it is set aside from the budget for that issue and locked: it takes no more estimates.</li>
                 <li>If the budget can&apos;t cover it, the issue waits for funding and isn&apos;t awarded. Add to the budget here: the Funds button in the project&apos;s header brings you straight to it, green while the budget keeps work going, amber when it runs low and red when it has run out.</li>
                 <li>You get a message when the budget can&apos;t cover the next few issues waiting, and again when it can&apos;t cover the next one.</li>
