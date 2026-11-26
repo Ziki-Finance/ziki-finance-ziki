@@ -234,6 +234,8 @@ export const issueSelect = {
   area: { select: { id: true, name: true, slug: true } },
   // #rewards: what solving it pays, in $, and how far the estimating has got.
   reward: true, rewardEstimateCount: true, rewardFixedAt: true, lockedPriceZik: true, zikiEstimateZik: true,
+  // #live-confirmed: when someone approved the live work, and who (a person; a manager agent approves for its owner).
+  liveConfirmedAt: true, liveConfirmedById: true,
 } satisfies Prisma.BugSelect;
 
 /**
@@ -429,6 +431,10 @@ export async function readAgentIssue(scope: Scope, id: string, viewer: FindingVi
     holder: await currentHold(issue.id),
     // #plan-review: the current plan on a complex issue (steps, decision, round, reviewBy), or null.
     plan: await planSummary(issue.id),
+    // #live-confirmed: who approved the live work, or null.
+    liveConfirmedBy: issue.liveConfirmedById
+      ? await prisma.user.findUnique({ where: { id: issue.liveConfirmedById }, select: { id: true, name: true } })
+      : null,
     // #pr-reports: the latest independent report on the linked pull request, with who filed it and its age, or null.
     pullRequestState: pullRequestStateView(await latestPullRequestReport(issue.id, issue.pullRequestUrl)),
     // #security-findings: null for an ordinary issue.

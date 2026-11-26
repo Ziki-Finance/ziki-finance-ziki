@@ -7,6 +7,7 @@ import { notifyAuthor, reportSelect } from "@/lib/agent-api/pull-request-report"
 import { linkStateFromUrl } from "@/lib/agent-api/pr-gate";
 import { statusChangedSummary } from "@/lib/activity-log";
 import { moveTo } from "@/lib/issue-substatus";
+import { REPORT_MOVES_FROM, releaseStepFor } from "@/lib/agent-api/release-step";
 import { GitHubError, githubClientFor } from "@/lib/github/client";
 import { diagnose, diagnosisNote, type Diagnosis } from "@/lib/github/merge-blockers";
 import { readPullRequest } from "@/lib/github/pull-request-snapshot";
@@ -201,10 +202,15 @@ export async function syncPullRequestStatus(
     }
     // Ziki's read knows more than an agent's report (a branch that must be up to date,
     // requested changes, a draft, branch protection), so Error follows the diagnosis.
-    const mergeStep = bug.status === "merge" ? mergeStepFor(diagnosis) : null;
+    // A merge into another branch is Awaiting release, and Live steps back when the merge isn't released (#release-step).
+    // In Merge with an unmerged pull request, Ziki's fuller diagnosis decides Ready to merge or Error.
+    const step = bug.status === "merge" && snapshot.state !== "merged"
+      ? mergeStepFor(diagnosis)
+      : REPORT_MOVES_FROM.includes(bug.substatus) ? releaseStepFor(bug.substatus, { state: snapshot.state, inDefaultBranch: fields.inDefaultBranch }) : null;
+    const mergeStep = step && step !== bug.substatus ? step : null;
     let moved: { from: string; to: string } | null = null;
-    if (mergeStep && mergeStep !== bug.substatus) {
-      const result = await tx.bug.updateMany({ where: { id: bug.id, status: "merge", pullRequestUrl }, data: moveTo(mergeStep) });
+    if (mergeStep) {
+      const result = await tx.bug.updateMany({ where: { id: bug.id, substatus: bug.substatus, pullRequestUrl }, data: moveTo(mergeStep) });
       if (result.count) {
         moved = { from: bug.substatus, to: mergeStep };
         await tx.bugActivity.create({

@@ -10,7 +10,8 @@ import type { Status, Substatus } from "@prisma/client";
  * - In progress: Plan review (a complex issue's awarded agent writes its plan
  *   and its owner approves it, #plan-review) → In progress
  * - Done: Requires review (delivered, being judged) → Accepted (judged good to merge)
- * - Merge: Ready to merge, or Error (the latest pull request report says it can't merge)
+ * - Merge: Ready to merge, or Error (the latest pull request report says it can't merge), or Awaiting release (merged
+ *   into another branch, such as staging, not yet released to the default branch)
  * - Live (`resolved`): On dev → On staging → On prod (where agents report it is deployed), or Published (marketing work a manager accepted),
  *   or Force-merged (merged by the local coder outside Ziki's checks, judged afterwards, #force-merge) and Broken (judged faulty after a force-merge: takes bids for a fix)
  * - Closed
@@ -24,6 +25,7 @@ export const STATUS_OF = {
   accepted: "done",
   ready_to_merge: "merge",
   error: "merge",
+  awaiting_release: "merge",
   on_dev: "resolved",
   on_staging: "resolved",
   on_prod: "resolved",
@@ -38,7 +40,7 @@ export const SUBSTATUSES: Record<Status, readonly Substatus[]> = {
   open: ["requires_confirmation", "open"],
   in_progress: ["plan_review", "in_progress"],
   done: ["requires_review", "accepted"],
-  merge: ["ready_to_merge", "error"],
+  merge: ["ready_to_merge", "error", "awaiting_release"],
   resolved: ["on_dev", "on_staging", "on_prod", "published", "force_merged", "merged_broken"],
   closed: ["closed"],
 };

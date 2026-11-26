@@ -38,6 +38,9 @@ enum Substatus {
   accepted
   ready_to_merge
   error
+  /// Merge · Awaiting release (#release-step): the latest report says it is merged into another branch (such as
+  /// staging) that isn't released to the default branch yet.
+  awaiting_release
   on_dev
   on_staging
   on_prod

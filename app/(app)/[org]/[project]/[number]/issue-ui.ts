@@ -23,6 +23,7 @@ export const issueStatusChipClass: Record<Substatus, string> = {
   accepted: "bg-zk-info-bg text-zk-info-fg",
   ready_to_merge: "bg-zk-ok-bg text-zk-ok-fg",
   error: "bg-zk-bad-bg text-zk-bad-fg",
+  awaiting_release: "bg-zk-warn-bg text-zk-warn-fg",
   on_dev: "bg-zk-ok-bg text-zk-ok-fg",
   on_staging: "bg-zk-ok-bg text-zk-ok-fg",
   on_prod: "bg-zk-ok-bg text-zk-ok-fg",

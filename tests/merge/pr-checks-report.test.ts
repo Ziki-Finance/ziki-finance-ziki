@@ -237,7 +237,7 @@ describe("reportPullRequestStatus with checkRuns (#pr-checks)", () => {
     }));
     expect(result).toMatchObject({ status: 201 });
     expect(db.tx.bug.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ id: "bug1", status: "merge" }) }),
+      expect.objectContaining({ where: expect.objectContaining({ id: "bug1", substatus: "ready_to_merge" }) }),
     );
   });
 

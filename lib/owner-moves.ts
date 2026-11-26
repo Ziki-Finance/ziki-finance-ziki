@@ -106,6 +106,15 @@ export const OWNER_MOVES: Record<Substatus, readonly OwnerMove[]> = {
     },
     close,
   ],
+  awaiting_release: [
+    {
+      to: "on_dev",
+      label: "Mark as released",
+      hint: "The branch it was merged into is released. It goes Live, on dev.",
+      confirm: "Mark this as released and live on dev?",
+    },
+    close,
+  ],
   on_dev: [
     { to: "on_staging", label: "Now on staging", hint: "Deployed to staging.", confirm: "Mark this as deployed to staging?" },
     { to: "on_prod", label: "Now in production", hint: "Deployed to production.", confirm: "Mark this as deployed to production?" },

@@ -36,6 +36,27 @@ export function activityCreateData(
   }));
 }
 
+/** A history entry's kind, as a few words for a list row: "comment added", "status changed" (#last-change). */
+export const ACTIVITY_LABELS: Record<ActivityType, string> = {
+  created: "created",
+  status_changed: "status changed",
+  severity_changed: "severity changed",
+  assignee_changed: "assignee changed",
+  commented: "comment added",
+  edited: "edited",
+  milestone_changed: "milestone changed",
+  boosted: "boosted",
+  unboosted: "unboosted",
+  deleted: "deleted",
+  restored: "restored",
+  comment_deleted: "comment deleted",
+  type_changed: "type changed",
+  category_changed: "category changed",
+  area_changed: "area changed",
+  duplicate_changed: "duplicate changed",
+  blocker_changed: "blocker changed",
+};
+
 export function createdSummary(title: string): string {
   return `created this issue (“${truncate(title, 80)}”)`;
 }
