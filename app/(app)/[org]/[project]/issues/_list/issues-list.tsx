@@ -38,7 +38,7 @@ import { SortHeader } from "@/components/sort-header";
 import { PROJECT_LINKS_SLOT_ID, ProjectIconLinks, ProjectLinks } from "@/components/project-links";
 import { AppInfoLinks } from "@/components/app-info-links";
 import { ShareMenu } from "@/components/share-menu";
-import { ProjectFundingButton } from "@/components/coins/project-funding-button";
+import { ProjectFundingButton, payerProjectFunding } from "@/components/coins/project-funding-button";
 import { ProjectPendingJoinRequestsBanner, type PendingJoinRequestItem } from "@/components/project-pending-join-requests";
 import { FirstQuestions } from "@/components/get-started/first-questions";
 import { missingProfileFields, type ProfileField } from "@/lib/agents/work-gate";
@@ -2202,7 +2202,8 @@ export async function IssuesList({
   );
 
   // #funding-button: what the budget holds, coloured by how well it keeps work going, for the people who pay.
-  const fundingButton = organisationId && userId ? <ProjectFundingButton userId={userId} organisationId={organisationId} projectId={project.id} budgetHref={projectPath(ref, "/budget")} /> : null;
+  const funding = organisationId && userId ? await payerProjectFunding(userId, organisationId, project.id).catch(() => null) : null;
+  const fundingButton = funding ? <ProjectFundingButton funding={funding} budgetHref={projectPath(ref, "/budget")} /> : null;
 
   return (
     <>

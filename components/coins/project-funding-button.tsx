@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { isPayer } from "@/lib/coins/payers";
-import { projectFunding } from "@/lib/coins/budget-view";
+import { projectFunding, type ProjectFunding } from "@/lib/coins/budget-view";
 import type { FundingLevel } from "@/lib/coins/budget-states";
 import { formatZikShort } from "@/lib/coins/math";
 import { ZikSymbol } from "@/components/zik-symbol";
@@ -18,16 +18,18 @@ const LEVEL: Record<FundingLevel, { label: string; tone: string; dot: string }> 
  * The project's funding button (#funding-button), in the project's header beside Share: what the budget holds, in short
  * form, coloured by how well it keeps work going, and a link to the Budget page to fund it. Only the people who pay
  * (#payers) see it, and only once an issue in the project has a price; a Solo project has no funding, so it has none.
+ * This reads what it shows, or null when it isn't shown.
  */
-export async function ProjectFundingButton({ userId, organisationId, projectId, budgetHref }: { userId: string; organisationId: string; projectId: string; budgetHref: string }) {
-  const [payer, project] = await Promise.all([
-    isPayer(prisma, userId, organisationId),
-    prisma.project.findUnique({ where: { id: projectId }, select: { solo: true } }),
-  ]);
-  if (!payer || !project || project.solo) return null;
-  const funding = await projectFunding(projectId);
-  if (!funding) return null;
+export async function payerProjectFunding(userId: string, organisationId: string, projectId: string): Promise<ProjectFunding | null> {
+  // Most viewers don't pay, so the project is read only for those who do.
+  if (!(await isPayer(prisma, userId, organisationId))) return null;
+  const project = await prisma.project.findUnique({ where: { id: projectId }, select: { solo: true } });
+  if (!project || project.solo) return null;
+  return projectFunding(projectId);
+}
 
+/** The button itself, drawn from what payerProjectFunding read. */
+export function ProjectFundingButton({ funding, budgetHref }: { funding: ProjectFunding; budgetHref: string }) {
   const { label, tone, dot } = LEVEL[funding.level];
   // The tooltip just names it; a screen reader, which can't see the number or the colour, also hears both.
   const spoken = `Project budget: ${funding.available.toLocaleString("en-US")} ${funding.available === 1 ? "Zik" : "Ziks"}, ${label.toLowerCase()}`;
