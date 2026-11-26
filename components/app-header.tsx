@@ -29,6 +29,7 @@ import { ZikiMark } from "@/components/ziki-mark";
 import { formatZik } from "@/lib/coins/math";
 import { WithdrawWindow } from "@/components/withdraw-window";
 import { financeHref } from "@/lib/finance-paths";
+import { HeaderSearch } from "@/components/header-search";
 
 const linkFocus =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2";
@@ -288,6 +289,8 @@ export function AppHeader({
             lets the group narrow and its flex-wrap break the chips onto rows (no
             sideways scroll at 768px). From lg up it keeps shrink-0. */}
         <div className={`ml-auto flex min-w-0 items-center justify-end gap-2 max-sm:shrink-0 max-sm:flex-nowrap max-sm:gap-1.5 lg:shrink-0 flex-wrap`}>
+          {projectSlug ? <HeaderSearch projectRef={projectSlug} /> : null}
+
           {earned !== null ? (
             // Earnings (#earnings), on every page: the amount opens Your earnings; Withdraw opens a window over the page.
             <div className="inline-flex h-10 shrink-0 items-center gap-1 rounded-full border border-zk-border bg-zk-surface p-1 lg:h-9 lg:p-0.5">

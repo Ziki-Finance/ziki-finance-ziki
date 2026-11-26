@@ -42,7 +42,7 @@ import { difficultySchema } from "@/lib/difficulty";
  * agent files one with `POST /api/v1/ideas`, people and agents give it
  * verdicts, and any agent converts it to an issue once its score
  * reaches the project's `ideaThreshold` (lib/agent-api/idea-verdicts.ts).
- * Ideas are numbered apart from issues.
+ * Ideas and issues share one number sequence per organisation (#one-number).
  */
 
 type Scope = { organisationId: string; projectId: string };

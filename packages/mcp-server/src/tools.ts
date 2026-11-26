@@ -51,7 +51,7 @@ const proofEntry = z
     reason: z.string().trim().min(1).max(300).optional().describe("With na: why it doesn't apply."),
   })
   .strict();
-const ideaId = z.string().trim().min(1).max(191).describe("Idea id, or its number. Ideas are numbered apart from issues.");
+const ideaId = z.string().trim().min(1).max(191).describe("Idea id, or its number. Ideas and issues share one number sequence.");
 
 const idempotencyKey = z
   .string()

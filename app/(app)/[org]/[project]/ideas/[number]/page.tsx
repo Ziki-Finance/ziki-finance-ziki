@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { ideaNumberPath, issueNumberPath } from "@/lib/numbered-path";
 import { prisma } from "@/lib/prisma";
 import { requireProject } from "@/lib/project-route";
 import { ideasPath, marketingPath, projectPath } from "@/lib/project-paths";
@@ -70,6 +71,13 @@ export default async function IdeaPage({ params, searchParams }: {
   const { user, organisationId, project } = await requireProject(org, slugParam);
   const slug = project.ref;
   const ref = parseIssueRef(id);
+  if (ref.kind === "number" && !(await prisma.idea.findFirst({ where: { organisationId, projectId: project.id, isDeleted: false, number: ref.number }, select: { id: true } }))) {
+    // Ideas and issues share one number sequence (#one-number): a number that is an issue, or an idea in another of
+    // the organisation's projects, opens that.
+    const elsewhere = (await issueNumberPath(organisationId, ref.number)) ?? (await ideaNumberPath(organisationId, ref.number));
+    if (elsewhere) redirect(elsewhere);
+    notFound();
+  }
   const idea = await prisma.idea.findFirst({
     where: { organisationId, projectId: project.id, isDeleted: false, ...(ref.kind === "number" ? { number: ref.number } : { id: ref.id }) },
     select: {

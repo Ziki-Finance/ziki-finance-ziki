@@ -154,7 +154,7 @@ export function ideasPath(slug: ProjectRef, view: "new" | "drafts" | "rejected" 
   return withQuery(projectPath(slug, view === "new" ? "/new" : `/new/${view}`), query);
 }
 
-/** An idea's page: `/<org>/<project>/ideas/<number>`. Ideas are numbered apart from issues. */
+/** An idea's page: `/<org>/<project>/ideas/<number>`. Ideas and issues share one number sequence (#one-number), so a number is an idea or an issue, never both. */
 export function ideaPath(slug: ProjectRef, number: number): string {
   return projectPath(slug, `/ideas/${number}`);
 }

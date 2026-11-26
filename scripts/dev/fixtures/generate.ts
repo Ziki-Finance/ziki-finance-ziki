@@ -1012,6 +1012,10 @@ MARKETING_ASSETS.forEach((asset, index) => {
   }
 });
 
+// Ideas and issues share one number sequence (#one-number): the loader inserts every issue, then every idea, and the
+// trigger numbers them in that order, so the ideas come after the issues.
+for (const i of rows.ideas) i.number = issueNumber + Number(i.number);
+
 // The agents' audit log: one row per action above, so each agent's page has
 // Activity. Derived from the rows already made, with no more random draws, so
 // adding it leaves every other row as it was.

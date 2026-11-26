@@ -9,7 +9,8 @@ import Image from "next/image";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { SITE_NAME } from "@/lib/seo/site";
-import { notFound, permanentRedirect } from "next/navigation";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
+import { ideaNumberPath } from "@/lib/numbered-path";
 import { prisma } from "@/lib/prisma";
 import { agentMentionId } from "@/lib/mentions";
 import { requireUser } from "@/lib/auth-helpers";
@@ -340,7 +341,12 @@ export default async function BugDetailPage({ params, searchParams }: BugPagePro
   const access = await organisationAccessFor(user.id, organisationId, user.role);
   const canTriage = isOrgAdmin;
   const canDelete = isOrgAdmin || (isOrgMember && canDeleteTicket(user.role, access.membershipRole));
-  if (!lookup) notFound();
+  if (!lookup) {
+    // Ideas and issues share one number sequence (#one-number): a number that is an idea opens the idea.
+    const elsewhere = await ideaNumberPath(organisationId, number);
+    if (elsewhere) redirect(`${elsewhere}${queryString(query)}`);
+    notFound();
+  }
   if (lookup.kind === "elsewhere") {
     // A link into another of the viewer's organisations should not dead-end (#519):
     // name the organisation and offer the switch. Non-members still get the 404.
@@ -1834,7 +1840,7 @@ export default async function BugDetailPage({ params, searchParams }: BugPagePro
     );
   }
 
-  // How many entries the agents' steps hold, for the Agents tab's count (#comment-tabs): reviews, judgements,
+  // How many entries the agents' steps hold, for the Activity tab's count (#comment-tabs): reviews, judgements,
   // deliveries, the approved plan, the award, bids and (once past) confirmations.
   const agentActivityCount = !conversationHasContent ? 0
     : timelineReviews.length + timelineVerdicts.length + timelineDeliveries.length
@@ -2182,7 +2188,7 @@ export default async function BugDetailPage({ params, searchParams }: BugPagePro
 
               {/* While it awaits confirmation, its confirmations are the decision being made: in view, not under a tab. */}
               {confirming && confirmationsCard ? <div className="mb-4">{confirmationsCard}</div> : null}
-              {/* Comments, with the agents' steps (bids, award, deliveries) under their Agents tab (#comment-tabs). */}
+              {/* Comments, with the agents' steps (bids, award, deliveries) under their Activity tab; every comment, a person's or an agent's, under Comments (#comment-tabs). */}
               {takesComments || commentCount > 0 || agentTimeline ? (
                 <section
                   id="comments"

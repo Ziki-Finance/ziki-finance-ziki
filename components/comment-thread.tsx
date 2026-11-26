@@ -430,9 +430,9 @@ export function IssueComments({
   children,
   ...props
 }: ThreadProps & {
-  /** The agents' steps on the issue (award, bids, deliveries), at the top of the Agents tab. */
+  /** The agents' steps on the issue (award, bids, deliveries), in the Activity tab. */
   agentActivity?: ReactNode;
-  /** How many entries those steps hold; the Agents tab counts them with the agents' comments. */
+  /** How many entries those steps hold, the Activity tab's count. */
   agentActivityCount?: number;
   /** Top-level comments. */
   count: number;
@@ -441,14 +441,11 @@ export function IssueComments({
   /** Shown under the comments, e.g. "Show earlier". */
   children?: ReactNode;
 }) {
-  // Two tabs (#comment-tabs): People, the default and first, and Agents. A thread goes where its first comment's author
-  // is; its replies stay with it. A link to an agent's comment opens the Agents tab.
-  const people = props.comments.filter((comment) => !comment.agentId);
-  const agents = props.comments.filter((comment) => comment.agentId);
+  // Two tabs (#comment-tabs): Comments, the default and first, holds every comment, a person's or an agent's; Activity
+  // holds the agents' steps on the issue (award, bids, confirmations, the idea). A link to the steps opens Activity.
   const hash = useSyncExternalStore(subscribeHash, () => window.location.hash, () => "");
-  const linkedToAgents = hash === "#conversation" || (hash.startsWith("#comment-") && containsComment(agents, hash.slice("#comment-".length)));
-  const [chosen, setChosen] = useState<"people" | "agents" | null>(null);
-  const tab = chosen ?? (linkedToAgents ? "agents" : "people");
+  const [chosen, setChosen] = useState<"comments" | "activity" | null>(null);
+  const tab = chosen ?? (hash === "#conversation" && agentActivity ? "activity" : "comments");
   if (count === 0 && !composer && !agentActivity) return null;
   const tabClass = (current: boolean) =>
     `inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full px-3 text-[12.5px] transition ${current ? "bg-zk-surface font-semibold text-zk-text shadow-none" : "font-medium text-zk-muted hover:text-zk-text"}`;
@@ -459,26 +456,26 @@ export function IssueComments({
           Comments
           <span className="font-mono font-normal normal-case tracking-normal">{count}</span>
         </h3>
-        <div role="tablist" aria-label="Whose comments" className="flex gap-0.5 rounded-full bg-zk-bg p-0.5">
-          <button type="button" role="tab" aria-selected={tab === "people"} onClick={() => setChosen("people")} className={tabClass(tab === "people")}>
-            People <span className="tabular-nums text-zk-muted">{people.length}</span>
-          </button>
-          <button type="button" role="tab" aria-selected={tab === "agents"} onClick={() => setChosen("agents")} className={tabClass(tab === "agents")}>
-            Agents <span className="tabular-nums text-zk-muted">{agents.length + agentActivityCount}</span>
-          </button>
-        </div>
+        {agentActivity ? (
+          <div role="tablist" aria-label="Comments or activity" className="flex gap-0.5 rounded-full bg-zk-bg p-0.5">
+            <button type="button" role="tab" aria-selected={tab === "comments"} onClick={() => setChosen("comments")} className={tabClass(tab === "comments")}>
+              Comments <span className="tabular-nums text-zk-muted">{props.comments.length}</span>
+            </button>
+            <button type="button" role="tab" aria-selected={tab === "activity"} onClick={() => setChosen("activity")} className={tabClass(tab === "activity")}>
+              Activity <span className="tabular-nums text-zk-muted">{agentActivityCount}</span>
+            </button>
+          </div>
+        ) : null}
       </div>
-      {tab === "people" ? (
-        <div role="tabpanel" aria-label="People's comments">
+      {tab === "comments" ? (
+        <div role="tabpanel" aria-label="Comments">
           {composer}
-          <CommentThread {...props} comments={people} />
-          {people.length === 0 && !composer ? <p className="m-0 text-sm text-zk-muted">No comments from people yet.</p> : null}
+          <CommentThread {...props} />
+          {props.comments.length === 0 && !composer ? <p className="m-0 text-sm text-zk-muted">No comments yet.</p> : null}
         </div>
       ) : (
-        <div role="tabpanel" aria-label="Agents' comments">
+        <div role="tabpanel" aria-label="Activity">
           {agentActivity}
-          <CommentThread {...props} comments={agents} />
-          {agents.length === 0 && !agentActivity ? <p className="m-0 text-sm text-zk-muted">No comments from agents yet.</p> : null}
         </div>
       )}
       {children}
@@ -492,7 +489,4 @@ function subscribeHash(onChange: () => void): () => void {
 }
 
 /** Whether a comment, or a reply under it, has this id. */
-function containsComment(comments: CommentNode[], id: string): boolean {
-  return comments.some((comment) => comment.id === id || containsComment(comment.children, id));
-}
 

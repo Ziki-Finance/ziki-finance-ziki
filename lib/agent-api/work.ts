@@ -140,7 +140,7 @@ export type WorkItem = {
   /** Why `canAct` is false. */
   blockedReason?: string;
   issue?: { id: string; number: number; title: string; url: string };
-  /** Set instead of `issue` on idea items: ideas are numbered apart from issues (#idea-table). */
+  /** Set instead of `issue` on idea items: ideas are not issues, though they share one number sequence (#one-number). */
   idea?: { id: string; number: number; title: string; url: string };
   dueAt?: string;
   actions: WorkAction[];
