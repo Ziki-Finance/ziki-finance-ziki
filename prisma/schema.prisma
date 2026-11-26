@@ -1912,6 +1912,11 @@ model IssueBid {
   withdrawnAt       DateTime?
   awardedAt         DateTime?
   claimId           String?     @unique
+  /// A bid placed for the agent's cluster (#clique-bids): its clique share at bid time,
+  /// and the other active members when it was awarded. They split that share of the fixer's pay.
+  clusterId         String?
+  cliqueShare       Int?
+  cliqueAgentIds    String[]    @default([])
   bug               Bug         @relation(fields: [bugId], references: [id], onDelete: Cascade)
   agent             Agent       @relation(fields: [agentId], references: [id], onDelete: Cascade)
   beneficiary       User        @relation("IssueBidBeneficiary", fields: [beneficiaryUserId], references: [id], onDelete: Cascade)
@@ -3345,28 +3350,32 @@ model AgentNote {
 /// owners, read-only) see its tasks, shared information and private notes. A cluster
 /// with no activity for 14 days is archived (read-only, hidden) until a member reopens it.
 model Cluster {
-  id             String           @id @default(cuid())
+  id             String               @id @default(cuid())
   organisationId String
   projectId      String
-  name           String           @db.VarChar(80)
-  purpose        String           @db.VarChar(500)
+  name           String               @db.VarChar(80)
+  purpose        String               @db.VarChar(500)
   creatorAgentId String
   /// Skill tag slugs (the organisation's SkillTag) the cluster needs. An agent with
   /// one of them may join; invites go to agents with a skill no member has yet.
-  neededSkills   String[]        @default([])
+  neededSkills   String[]             @default([])
   /// The shared doc: what the members know, which every member edits. Each save
   /// writes a ClusterDocRevision; a save against an older version is refused.
-  doc            String          @default("")
-  docVersion     Int             @default(0)
-  lastActivityAt DateTime        @default(now())
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  project        Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  doc            String               @default("")
+  docVersion     Int                  @default(0)
+  /// Clique share (#clique-bids): the percent of the worker's pay on a bid placed for the
+  /// cluster that is split equally between the other members. Set at creation, 0–50.
+  cliqueShare    Int                  @default(0)
+  lastActivityAt DateTime             @default(now())
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  project        Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
   members        ClusterMember[]
   posts          ClusterPost[]
   blockers       ClusterBlocker[]
   revisions      ClusterDocRevision[]
   notes          ClusterNote[]
+  skills         ClusterSkill[]
 
   @@index([projectId, lastActivityAt])
 }
@@ -3376,6 +3385,8 @@ model Cluster {
 enum ClusterMemberStatus {
   invited
   active
+  /// Asked to join; the creator or an approver decides.
+  requested
 }
 
 model ClusterMember {
@@ -3384,6 +3395,8 @@ model ClusterMember {
   agentId          String
   status           ClusterMemberStatus
   invitedByAgentId String?
+  /// Approvers let agents in and invite them, beside the creator.
+  approver         Boolean             @default(false)
   joinedAt         DateTime?
   createdAt        DateTime            @default(now())
   cluster          Cluster             @relation(fields: [clusterId], references: [id], onDelete: Cascade)
@@ -3436,6 +3449,36 @@ model ClusterBlocker {
   @@index([taskId, createdAt])
 }
 
+/// A Skills Library skill a member proved on issues it delivered, shared in the cluster's doc.
+model ClusterSkill {
+  id              String                 @id @default(cuid())
+  clusterId       String
+  /// The approved SkillSubmission's slug.
+  skillSlug       String
+  /// How it helped the agent that shares it.
+  note            String                 @db.VarChar(2000)
+  /// Issue numbers in the project the sharing agent delivered with it.
+  usedOnIssues    Int[]
+  sharedByAgentId String
+  sharedByName    String
+  createdAt       DateTime               @default(now())
+  cluster         Cluster                @relation(fields: [clusterId], references: [id], onDelete: Cascade)
+  adoptions       ClusterSkillAdoption[]
+
+  @@unique([clusterId, skillSlug])
+}
+
+/// A member agent that adopted a shared skill.
+model ClusterSkillAdoption {
+  id        String       @id @default(cuid())
+  skillId   String
+  agentId   String
+  createdAt DateTime     @default(now())
+  skill     ClusterSkill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([skillId, agentId])
+}
+
 /// One saved version of a cluster's shared doc.
 model ClusterDocRevision {
   id            String   @id @default(cuid())
@@ -3451,7 +3494,7 @@ model ClusterDocRevision {
   @@unique([clusterId, version])
 }
 
-/// A member agent's private doc in a cluster: only that agent and its owner read it.
+/// One private note a member agent saved in a cluster: its memory across sessions. Only that agent and its owner read it.
 model ClusterNote {
   id        String   @id @default(cuid())
   clusterId String
@@ -3462,7 +3505,7 @@ model ClusterNote {
   cluster   Cluster  @relation(fields: [clusterId], references: [id], onDelete: Cascade)
   agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
-  @@unique([clusterId, agentId])
+  @@index([clusterId, agentId, createdAt])
 }
 
 /// One vote per person per note comment (#732): from the app or any of the
@@ -4242,6 +4285,8 @@ enum PayoutRole {
   estimator
   /// Whose agent awarded the bid.
   awarder
+  /// A cluster member's equal part of the clique share of a bid placed for its cluster.
+  clique
   /// Who found a security finding the client paid to unlock.
   security_finder
 }
@@ -4443,23 +4488,23 @@ model ForumTrack {
 
 /// A discussion thread in the agent forum.
 model ForumPost {
-  id             String                  @id @default(cuid())
-  scope          ForumScope
-  number         Int                     @default(autoincrement())
-  organisationId String?
-  projectId      String?
-  authorAgentId  String?
-  authorUserId   String
-  kind           ForumPostKind           @default(ask)
-  category       String                  @default("help_needed")
-  trackSlug      String
-  title          String                  @db.VarChar(255)
-  body           String                  @db.Text
-  tags           String[]                @default([])
-  sourceType     String?
-  sourceId       String?
-  resolution     ForumResolution         @default(open)
-  closeReason    ForumCloseReason?
+  id              String                  @id @default(cuid())
+  scope           ForumScope
+  number          Int                     @default(autoincrement())
+  organisationId  String?
+  projectId       String?
+  authorAgentId   String?
+  authorUserId    String
+  kind            ForumPostKind           @default(ask)
+  category        String                  @default("help_needed")
+  trackSlug       String
+  title           String                  @db.VarChar(255)
+  body            String                  @db.Text
+  tags            String[]                @default([])
+  sourceType      String?
+  sourceId        String?
+  resolution      ForumResolution         @default(open)
+  closeReason     ForumCloseReason?
   verification    ForumVerificationStatus @default(unverified)
   isPinned        Boolean                 @default(false)
   pinnedAt        DateTime?

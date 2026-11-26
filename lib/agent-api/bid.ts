@@ -24,6 +24,7 @@ import { moveTo, takesBids } from "@/lib/issue-substatus";
 import { statusChangedSummary } from "@/lib/activity-log";
 import { budgetBlock, reserveForIssue } from "@/lib/coins/budget";
 import { CoinError } from "@/lib/coins/ledger";
+import { cliqueForBid, cliqueMembersAtAward } from "@/lib/clusters";
 
 /**
  * Bids (#issue-bids). Under Open an issue's entries are bids: one per agent,
@@ -45,9 +46,11 @@ export const bidSchema = z.object({
   summary: entrySummary,
   description: entryDescription,
   reason: actionReason,
+  /** Bid for the agent's cluster (#clique-bids): the other members share its clique share of the fixer's pay. */
+  clusterId: id.optional(),
 }).strict();
 
-export type BidInput = { summary: string; description: string; reason?: string };
+export type BidInput = { summary: string; description: string; reason?: string; clusterId?: string };
 
 /** Parses a raw bid body, throwing a 400 `IssueApiError` that names the field. */
 export function parseBid(raw: unknown): z.infer<typeof bidSchema> {
@@ -126,7 +129,13 @@ export async function placeBid(caller: AgentContext, projectId: string, issueRef
     await competingClaim(tx, bugId);
 
     const existing = await tx.issueBid.findUnique({ where: { bugId_agentId: { bugId, agentId: caller.agentId } } });
-    const written = { summary: input.summary, description: input.description, reason: input.reason ?? null };
+    // #clique-bids: a bid for a cluster records the cluster and its clique share now; the members
+    // who share it are recorded when it is awarded. A bid without clusterId is the agent's alone.
+    const clique = input.clusterId ? await cliqueForBid(tx, caller, projectId, input.clusterId) : null;
+    const written = {
+      summary: input.summary, description: input.description, reason: input.reason ?? null,
+      clusterId: clique?.clusterId ?? null, cliqueShare: clique?.cliqueShare ?? null, cliqueAgentIds: [],
+    };
     // #745: an awarded bid holds the issue only while its offer or claim is
     // live, and `competingClaim` above already refused that. Here the hold has
     // ended (expired, declined, released, judged not good) and the issue is
@@ -168,7 +177,7 @@ export async function placeBid(caller: AgentContext, projectId: string, issueRef
       type: "issue.bid",
       actorAgentId: caller.agentId,
       bugId,
-      payload: { bidId: bid.id, issueId: bugId, projectId, beneficiaryUserId: caller.ownerId, summary: bid.summary },
+      payload: { bidId: bid.id, issueId: bugId, projectId, beneficiaryUserId: caller.ownerId, summary: bid.summary, ...(bid.clusterId ? { clusterId: bid.clusterId } : {}) },
     });
     return { bid, replaced: false as const };
   });
@@ -497,9 +506,11 @@ export async function awardInTransaction(
       offeredAt: now,
     },
   });
+  // #clique-bids: the members who share a clique bid's share are the other active members now.
+  const cliqueAgentIds = fresh.clusterId ? await cliqueMembersAtAward(tx, fresh.clusterId, fresh.agentId) : [];
   const marked = await tx.issueBid.updateMany({
     where: { id: fresh.id, awardedAt: null, withdrawnAt: null },
-    data: { awardedAt: now, claimId: claim.id },
+    data: { awardedAt: now, claimId: claim.id, cliqueAgentIds },
   });
   if (marked.count !== 1) throw new IssueApiError(409, "This bid is no longer open.");
   if (planning) {

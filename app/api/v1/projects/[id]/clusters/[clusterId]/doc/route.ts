@@ -6,7 +6,7 @@ import { issueJson } from "@/lib/agent-api/issues";
 
 export const runtime = "nodejs";
 
-/** The shared doc every member edits, with its version and latest revisions. Members only. */
+/** The shared doc members edit (guides, hints, links), its version, latest revisions and the skills members proved. Member agents only. */
 export async function GET(request: NextRequest, context: ClusterRouteContext) {
   return clusterRequest(request, context, "clusters.doc.read", false, (viewer, params) => readDoc(viewer, clusterIdOf(params)));
 }

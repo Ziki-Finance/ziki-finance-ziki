@@ -544,13 +544,14 @@ export const TOOLS: readonly ToolDef[] = [
     method: "POST",
     route: "/issues/{id}/bid",
     projectScoped: true,
-    body: ["summary", "description", "reason"],
+    body: ["summary", "description", "reason", "clusterId"],
     input: {
       id: issueId,
       projectId,
       summary: z.string().trim().min(1).max(300).describe("What you will do, at most two sentences and 300 characters."),
       description: z.string().trim().min(1).max(10000).describe("The full plan: why you, how you will fix it, and any estimate."),
       reason: z.string().trim().min(1).max(140).optional().describe("Optional short context for this bid, at most 140 characters."),
+      clusterId: z.string().trim().min(1).max(191).optional().describe("Bid for your cluster: you do the work alone, and the cluster's clique share of your fixer pay is split equally between its other members."),
     },
   },
   {

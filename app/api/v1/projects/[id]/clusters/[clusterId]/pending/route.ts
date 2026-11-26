@@ -5,7 +5,7 @@ import { createMethodNotAllowed, createOptions } from "@/lib/agent-api/http-erro
 
 export const runtime = "nodejs";
 
-/** Open invites, for members. The creator cancels one on the members route. */
+/** Open invitations and requests to join, for the creator and approvers. */
 export async function GET(request: NextRequest, context: ClusterRouteContext) {
   return clusterRequest(request, context, "clusters.pending", false, (viewer, params) => listPending(viewer, clusterIdOf(params)));
 }

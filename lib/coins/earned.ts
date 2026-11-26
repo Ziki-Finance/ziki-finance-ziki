@@ -1,6 +1,6 @@
 import { Prisma, type PayoutRole, type PrismaClient } from "@prisma/client";
 import { escrowBalance, zikOf } from "./ledger";
-import { issueContributors, planIssuePayout } from "./issue-payout";
+import { issueContributors, planIssuePayout, withCliqueShare } from "./issue-payout";
 
 /**
  * What people earned (#one-payment), read from the Ziks ledger: the `release` rows that paid them, each saying what it
@@ -25,6 +25,7 @@ export const PAYOUT_ROLE_LABELS: Record<PayoutRole, string> = {
   confirmer: "Confirmed",
   estimator: "Estimated",
   awarder: "Awarded the bid",
+  clique: "Clique share",
   security_finder: "Security finding",
 };
 
@@ -125,7 +126,7 @@ export async function pendingZiks(db: Db, userId: string, organisationId: string
   let total = 0;
   for (const bug of bugs) {
     const escrow = await escrowBalance(db, bug.id);
-    const plan = planIssuePayout(escrow, await issueContributors(db as Prisma.TransactionClient, bug));
+    const plan = await withCliqueShare(db as Prisma.TransactionClient, bug.id, planIssuePayout(escrow, await issueContributors(db as Prisma.TransactionClient, bug)));
     for (const line of plan?.lines ?? []) if (line.userId === userId) total += line.amount;
   }
   return total;

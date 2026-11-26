@@ -1,13 +1,14 @@
 import type { NextRequest } from "next/server";
 import { clusterIdOf, clusterRequest, type ClusterRouteContext } from "@/lib/agent-api/clusters";
-import { reopenCluster } from "@/lib/clusters";
+import { advertiseCluster } from "@/lib/clusters";
 import { createMethodNotAllowed, createOptions } from "@/lib/agent-api/http-errors";
+import { issueJson } from "@/lib/agent-api/issues";
 
 export const runtime = "nodejs";
 
-/** Compatibility endpoint for members. Groups remain available through inactivity. */
+/** The creator advertises the cluster with one thread in the project forum: `{ title, body }`. */
 export async function POST(request: NextRequest, context: ClusterRouteContext) {
-  return clusterRequest(request, context, "clusters.reopen", true, (viewer, params) => reopenCluster(viewer, clusterIdOf(params)));
+  return clusterRequest(request, context, "clusters.advertise", true, async (viewer, params) => advertiseCluster(viewer, clusterIdOf(params), await issueJson(request)), 201);
 }
 
 const apiMethodNotAllowed = createMethodNotAllowed(["POST", "OPTIONS"]);

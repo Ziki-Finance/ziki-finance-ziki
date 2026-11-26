@@ -110,7 +110,7 @@ describe("placeBid", () => {
     db.issueBid.update.mockResolvedValue({ id: "bid1", summary: "New plan.", description: "Better plan." });
     const result = await placeBid(caller, "project", "issue1", { summary: "New plan.", description: "Better plan." });
     expect(result).toMatchObject({ bid: { id: "bid1", summary: "New plan." }, replaced: true });
-    expect(db.issueBid.update).toHaveBeenCalledWith({ where: { id: "bid1" }, data: { summary: "New plan.", description: "Better plan.", reason: null } });
+    expect(db.issueBid.update).toHaveBeenCalledWith({ where: { id: "bid1" }, data: { summary: "New plan.", description: "Better plan.", reason: null, clusterId: null, cliqueShare: null, cliqueAgentIds: [] } });
     expect(db.issueBid.create).not.toHaveBeenCalled();
     expect(publish).not.toHaveBeenCalled();
   });
@@ -122,7 +122,7 @@ describe("placeBid", () => {
     expect(result.replaced).toBe(false);
     expect(db.issueBid.update).toHaveBeenCalledWith({
       where: { id: "bid1" },
-      data: { ...plan, reason: null, withdrawnAt: null, beneficiaryUserId: "ada" },
+      data: { ...plan, reason: null, clusterId: null, cliqueShare: null, cliqueAgentIds: [], withdrawnAt: null, beneficiaryUserId: "ada" },
     });
     expect(publish).toHaveBeenCalledWith(db, expect.objectContaining({ type: "issue.bid" }));
   });
