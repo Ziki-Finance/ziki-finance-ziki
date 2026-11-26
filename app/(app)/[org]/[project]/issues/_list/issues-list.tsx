@@ -705,8 +705,8 @@ export async function IssuesList({
           where: ideasToOkWhere,
           orderBy: [{ createdAt: "desc" }, { id: "desc" }],
           take: ideaSection === "needs" ? 30 : 3,
-          select: { id: true, number: true, title: true, createdAt: true, reporter: { select: { name: true } }, project: { select: { slug: true, organisation: { select: { slug: true } } } } },
-        }).then((rows) => rows.map((row) => ({ id: row.id, number: row.number, title: row.title, at: row.createdAt, by: row.reporter?.name ?? null, href: ideaPath(refOf(row.project), row.number) }))),
+          select: { id: true, number: true, title: true, createdAt: true, projectId: true, reporter: { select: { name: true } }, project: { select: { slug: true, organisation: { select: { slug: true } } } } },
+        }).then((rows) => rows.map((row) => ({ id: row.id, number: row.number, title: row.title, at: row.createdAt, by: row.reporter?.name ?? null, href: ideaPath(refOf(row.project), row.number), projectName: allProjects ? projectNames.get(row.projectId) ?? null : null }))),
         prisma.idea.count({ where: ideasToOkWhere }),
       ]), [[], 0] as [JustAddedIdea[], number])
     : [[] as JustAddedIdea[], 0];
