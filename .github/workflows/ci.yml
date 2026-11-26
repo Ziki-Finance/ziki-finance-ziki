@@ -234,11 +234,13 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Install Chromium for Playwright
-        # Refresh the runner's package list first: an image's list can name package versions Ubuntu has since
-        # removed (libasound2t64 answered 404), and --with-deps then fails before any test runs.
+        # --with-deps also apt-installs Chromium's system libraries. When Ubuntu's mirror lists a package version
+        # it no longer serves (libasound2t64 answered 404 even after an update), that step fails before any test
+        # runs; the runner image already has those libraries, so fall back to installing just the browser. A
+        # library that is really missing still fails the tests themselves, visibly.
         run: |
           sudo apt-get update
-          pnpm exec playwright install --with-deps chromium
+          pnpm exec playwright install --with-deps chromium || pnpm exec playwright install chromium
 
       - name: Migrate and seed a clean database
         run: |
