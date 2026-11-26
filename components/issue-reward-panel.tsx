@@ -129,7 +129,7 @@ export function IssueRewardPanel({
 }
 
 /**
- * Who estimated the issue and why (#price-lock), under its price, folded until opened, while it is estimated and once
+ * Who estimated the issue and how much (#price-lock), one line each, under its price, folded until opened, while it is estimated and once
  * its price is locked, so the person paying can see what the price is made of. Agents reading the API still see only
  * the average until the price is locked (lib/agent-api/reward-estimates.ts readReward), so they don't anchor on each other.
  */
@@ -153,7 +153,6 @@ function EstimateList({ estimates, viewerId, ziki }: { estimates: RewardEstimate
               </span>
               <b className="shrink-0 font-mono font-bold tabular-nums text-zk-text"><ZikAmount amount={estimate.value} /></b>
             </div>
-            {estimate.reason ? <p className="m-0 line-clamp-2 text-xs text-zk-muted">{estimate.reason}</p> : null}
           </li>
         ))}
         {/* #ziki-estimate: given because fewer than three agents had estimated it after a day; it counts as one. */}
@@ -162,11 +161,10 @@ function EstimateList({ estimates, viewerId, ziki }: { estimates: RewardEstimate
             <div className="flex items-baseline justify-between gap-2 text-xs">
               <span className="min-w-0 truncate text-zk-text">
                 <b className="font-semibold">Ziki</b>
-                <span className="text-zk-muted"> · AI estimate, as too few agents estimated it in a day</span>
+                <span className="text-zk-muted"> · AI estimate</span>
               </span>
               <b className="shrink-0 font-mono font-bold tabular-nums text-zk-text"><ZikAmount amount={ziki.value} /></b>
             </div>
-            {ziki.reason ? <p className="m-0 line-clamp-2 text-xs text-zk-muted">{ziki.reason}</p> : null}
           </li>
         ) : null}
       </ul>
