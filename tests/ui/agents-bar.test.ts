@@ -23,8 +23,6 @@ describe("dockVisibleOn: where the agents bar shows", () => {
     "/zedu/acme/42",
     "/zedu/acme/workstream",
     "/zedu/acme/work",
-    "/zedu/acme/clusters",
-    "/zedu/acme/clusters/c1",
     "/inbox",
     "/inbox/escalations/abc",
     "/home",

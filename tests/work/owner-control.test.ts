@@ -26,11 +26,13 @@ const checkPostForSecrets = vi.hoisted(() => vi.fn());
 const heldByMyAgent = vi.hoisted(() => vi.fn());
 const deliverWork = vi.hoisted(() => vi.fn());
 const membershipFindFirst = vi.hoisted(() => vi.fn());
+const projectFindFirst = vi.hoisted(() => vi.fn());
+const claimCount = vi.hoisted(() => vi.fn(async () => 0));
 
 const tx = {
   $queryRaw: vi.fn(),
-  bug: { findUniqueOrThrow: bugFindUniqueOrThrow, update: bugUpdate },
-  issueClaim: { findMany: claimFindMany, updateMany: claimUpdateMany },
+  bug: { findUniqueOrThrow: bugFindUniqueOrThrow, update: bugUpdate, updateMany: bugUpdateMany },
+  issueClaim: { findMany: claimFindMany, updateMany: claimUpdateMany, count: claimCount },
   bugActivity: { createMany: activityCreateMany },
 };
 
@@ -39,6 +41,7 @@ vi.mock("@/lib/prisma", () => ({
     bug: { findUnique: bugFindUnique, findFirst: bugFindFirst, findMany: bugFindMany, count: bugCount, update: bugUpdate, updateMany: bugUpdateMany },
     idea: { findFirst: ideaFindFirst },
     membership: { findFirst: membershipFindFirst },
+    project: { findFirst: projectFindFirst },
     $transaction: vi.fn(async (fn: (client: typeof tx) => unknown) => fn(tx)),
   },
 }));
@@ -60,6 +63,7 @@ import { ownerMove } from "@/lib/owner-moves";
 import { ownerAcceptIdeaAction, ownerConfirmAllAction, ownerMoveIssueAction } from "@/app/actions/owner-moves";
 import { confirmLiveWorkAction, deliverForMyAgentAction, giveTestVerdictAction } from "@/app/actions/human-steps";
 import { agentConfirmLiveWork } from "@/lib/agent-api/live-confirmation";
+import { agentMoveIssueToProject } from "@/lib/agent-api/move-project";
 
 const inProgress = {
   id: "bug-1",
@@ -230,5 +234,32 @@ describe("Live · Confirmed (#live-confirmed)", () => {
 
     bugFindFirst.mockResolvedValue({ ...live, substatus: "merged_broken" });
     await expect(agentConfirmLiveWork(manager, scope, "bug-1")).rejects.toMatchObject({ status: 409 });
+  });
+
+  it("lets a manager agent move an Open issue nobody holds to another project, and nothing else (#move-project)", async () => {
+    const scope = { organisationId: "org-1", projectId: "web" };
+    const manager = { agentId: "agent-m", ownerId: "owner-1", organisationId: "org-1", level: "manager" as const };
+    const open = { id: "bug-1", number: 7, status: "open", projectId: "web", lockedPriceZik: null, project: { name: "Web" } };
+    const body = { toProjectId: "desktop", reason: "It is the desktop app's sign-in." };
+    bugFindFirst.mockResolvedValue(open);
+    projectFindFirst.mockResolvedValue({ id: "desktop", name: "Desktop" });
+
+    await expect(agentMoveIssueToProject({ ...manager, level: "working" }, scope, "bug-1", body)).rejects.toMatchObject({ status: 403 });
+    expect(bugUpdateMany).not.toHaveBeenCalled();
+
+    expect(await agentMoveIssueToProject(manager, scope, "bug-1", body)).toEqual({ issueId: "bug-1", number: 7, fromProjectId: "web", projectId: "desktop" });
+    expect(bugUpdateMany).toHaveBeenCalledWith({ where: { id: "bug-1", projectId: "web", status: "open" }, data: { projectId: "desktop", areaId: null } });
+    expect(activityCreateMany).toHaveBeenCalledWith({ data: [expect.objectContaining({ actorId: "owner-1", metadata: expect.objectContaining({ field: "project", from: "Web", to: "Desktop" }) })] });
+
+    // Once work starts, or while someone holds it, or with a price from this project's budget, it stays.
+    bugUpdateMany.mockClear();
+    bugFindFirst.mockResolvedValue({ ...open, status: "in_progress" });
+    await expect(agentMoveIssueToProject(manager, scope, "bug-1", body)).rejects.toMatchObject({ status: 409, body: { error: "not_open" } });
+    bugFindFirst.mockResolvedValue({ ...open, lockedPriceZik: 500 });
+    await expect(agentMoveIssueToProject(manager, scope, "bug-1", body)).rejects.toMatchObject({ status: 409, body: { error: "price_locked" } });
+    bugFindFirst.mockResolvedValue(open);
+    claimCount.mockResolvedValueOnce(1);
+    await expect(agentMoveIssueToProject(manager, scope, "bug-1", body)).rejects.toMatchObject({ status: 409, body: { error: "claimed" } });
+    expect(bugUpdateMany).not.toHaveBeenCalled();
   });
 });

@@ -544,13 +544,14 @@ export const TOOLS: readonly ToolDef[] = [
     method: "POST",
     route: "/issues/{id}/bid",
     projectScoped: true,
-    body: ["summary", "description", "reason"],
+    body: ["summary", "description", "reason", "clusterId"],
     input: {
       id: issueId,
       projectId,
       summary: z.string().trim().min(1).max(300).describe("What you will do, at most two sentences and 300 characters."),
       description: z.string().trim().min(1).max(10000).describe("The full plan: why you, how you will fix it, and any estimate."),
       reason: z.string().trim().min(1).max(140).optional().describe("Optional short context for this bid, at most 140 characters."),
+      clusterId: z.string().trim().min(1).max(191).optional().describe("Bid for your cluster: you do the work alone, and the cluster's clique share of your fixer pay is split equally between its other members."),
     },
   },
   {
@@ -1723,6 +1724,22 @@ export const TOOLS: readonly ToolDef[] = [
     route: "/issues/{id}/live-confirmation",
     projectScoped: true,
     input: { id: issueId, projectId },
+  },
+  {
+    name: "ziki_move_issue_to_project",
+    summary:
+      "Manager and merger agents: move an issue filed in the wrong project to another project of the organisation, with the reason (recorded in its history). Only an Open issue (either substatus) that nobody holds or has been offered, and whose price isn't locked, moves (409 not_open, claimed or price_locked otherwise): once work starts its pull request targets the project's repository. Its number, confirmations, bids and comments stay with it; its area is cleared, since areas belong to a project. Find project ids with ziki_list_projects.",
+    level: "manager",
+    method: "POST",
+    route: "/issues/{id}/project",
+    projectScoped: true,
+    body: ["toProjectId", "reason"],
+    input: {
+      id: issueId,
+      projectId,
+      toProjectId: z.string().trim().min(1).describe("Id of the project to move it to."),
+      reason: z.string().trim().min(1).max(2000).describe("Why it belongs there."),
+    },
   },
   {
     name: "ziki_bulk_confirm",

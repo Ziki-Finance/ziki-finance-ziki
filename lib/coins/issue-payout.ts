@@ -7,6 +7,7 @@ import { appendRows, escrowBalance, lockBug, type CoinRow, type Tx } from "./led
 import { feeOf, feePercent, splitByWeight } from "./math";
 import { ISSUE_ROLES, ISSUE_SHARES, type IssueRole } from "./issue-shares";
 import { PAYER_WHERE } from "./payers";
+import { applyCliqueShare } from "./clique-share";
 
 /**
  * One payment system (#one-payment). Ziks are Ziki's only money: an issue's funded Ziks (its escrow, ./escrow.ts) pay
@@ -32,8 +33,8 @@ export const LIVE_REPORTS_NEEDED = 3;
  */
 export type Contributor = { userId: string; role: IssueRole; weight?: number; agentId?: string | null };
 
-/** One person's pay for one role. */
-export type PayoutLine = { userId: string; role: IssueRole; amount: number; agentId: string | null };
+/** One person's pay for one role. `clique` is a cluster member's part of a clique bid's share (#clique-bids). */
+export type PayoutLine = { userId: string; role: IssueRole | "clique"; amount: number; agentId: string | null };
 
 export type IssuePayoutPlan = { fee: number; lines: PayoutLine[] };
 
@@ -78,6 +79,26 @@ export function planIssuePayout(escrow: number, contributors: readonly Contribut
     lines.push({ userId, role, amount, agentId: agentOf.get(key) ?? null });
   }
   return { fee, lines };
+}
+
+/**
+ * The plan with the clique share taken out of the fixer's pay (#clique-bids), when the fixer's awarded bid was
+ * placed for a cluster: the share goes in equal parts to the other members recorded when it was awarded.
+ */
+export async function withCliqueShare(tx: Tx, bugId: string, plan: IssuePayoutPlan | null): Promise<IssuePayoutPlan | null> {
+  const fixer = plan?.lines.find((line) => line.role === "fixer");
+  // Partial test doubles of the client have no bid table; there is no clique to pay.
+  if (!plan || !fixer?.agentId || typeof (tx as { issueBid?: { findFirst?: unknown } }).issueBid?.findFirst !== "function") return plan;
+  const bid = await tx.issueBid.findFirst({
+    where: { bugId, agentId: fixer.agentId, awardedAt: { not: null }, clusterId: { not: null } },
+    orderBy: { awardedAt: "desc" },
+    select: { cliqueShare: true, cliqueAgentIds: true },
+  });
+  if (!bid?.cliqueShare || !bid.cliqueAgentIds.length) return plan;
+  const agents = await tx.agent.findMany({ where: { id: { in: bid.cliqueAgentIds } }, select: { id: true, ownerUserId: true } });
+  const owner = new Map(agents.map((agent) => [agent.id, agent.ownerUserId]));
+  const members = bid.cliqueAgentIds.filter((id) => owner.has(id)).map((agentId) => ({ agentId, userId: owner.get(agentId)! }));
+  return applyCliqueShare(plan, { percent: bid.cliqueShare, members });
 }
 
 type PayoutBug = {
@@ -191,7 +212,7 @@ async function payOut(tx: Tx, bug: { id: string; number: number; organisationId:
   if (bug.project.solo) return false;
   await lockBug(tx, bug.id);
   const escrow = await escrowBalance(tx, bug.id);
-  const plan = planIssuePayout(escrow, await issueContributors(tx, bug));
+  const plan = await withCliqueShare(tx, bug.id, planIssuePayout(escrow, await issueContributors(tx, bug)));
   // Marked paid even with nothing funded: an unfunded issue pays nobody, now or later.
   await tx.bug.update({ where: { id: bug.id }, data: { payoutReleasedAt: new Date() } });
   if (plan) {
@@ -210,6 +231,15 @@ async function payOut(tx: Tx, bug: { id: string; number: number; organisationId:
       );
     }
     await appendRows(tx, rows);
+    // #clique-bids: the one cluster notice owners get, their share of a clique bid's pay.
+    const clique = plan.lines.filter((line) => line.role === "clique");
+    if (clique.length && typeof (tx as { notification?: unknown }).notification !== "undefined") {
+      await tx.notification.createMany({ data: clique.map((line) => ({
+        userId: line.userId, organisationId: bug.organisationId, bugId: bug.id, kind: "cluster_payout",
+        title: `You received ${line.amount} Ziks as clique share for #${bug.number}`,
+        url: "/earnings",
+      })) });
+    }
   }
   await publish(tx, {
     organisationId: bug.organisationId,

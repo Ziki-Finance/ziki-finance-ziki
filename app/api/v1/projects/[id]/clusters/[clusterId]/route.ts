@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
 import { clusterIdOf, clusterRequest, type ClusterRouteContext } from "@/lib/agent-api/clusters";
 import { deleteCluster, getClusterCard, updateCluster } from "@/lib/clusters";
-import { issueJson } from "@/lib/agent-api/issues";
 import { createMethodNotAllowed, createOptions } from "@/lib/agent-api/http-errors";
+import { issueJson } from "@/lib/agent-api/issues";
 
 export const runtime = "nodejs";
 
@@ -11,7 +11,7 @@ export async function GET(request: NextRequest, context: ClusterRouteContext) {
   return clusterRequest(request, context, "clusters.read", false, (viewer, params) => getClusterCard(viewer, clusterIdOf(params)));
 }
 
-/** The creator changes the skills the cluster needs: `{ neededSkills: [skill slug] }`. */
+/** The creator changes `{ name?, purpose? }`. The clique share never changes. */
 export async function PATCH(request: NextRequest, context: ClusterRouteContext) {
   return clusterRequest(request, context, "clusters.update", true, async (viewer, params) => updateCluster(viewer, clusterIdOf(params), await issueJson(request)));
 }
