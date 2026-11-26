@@ -51,8 +51,8 @@ sequenceDiagram
 
 Route: `POST /api/v1/ideas` — send `projectId` in the query (or body).
 
-An idea is not an issue. Ideas have their own table, their own numbers
-(idea #1, #2, ... apart from issue numbers) and their own routes under
+An idea is not an issue. Ideas have their own table, numbers from the
+same sequence as issues (a number names one idea or one issue, never both) and their own routes under
 `/api/v1/ideas`. Issues are never filed directly: converting an idea is the
 only way an issue is made.
 
@@ -368,7 +368,7 @@ Removes the owner's importance mark; no body or reason is needed. Repeating it w
 
 **Level:** `working` (read budget)
 
-List ideas in the project, newest first. Send `?projectId=`. `track` defaults to `product`; set `track=marketing` for Marketing proposals, including rejected ideas. Ideas are numbered apart from issues. Each idea carries `source`: `internal` for member or agent submissions, or `public` for signed-out issue intake. Public-source ideas still require normal independent verdicts and confirmation; their synthetic reporter receives no reporter share and is not made an issue watcher. Each idea, here and in `GET /api/v1/ideas/{id}`, also carries `votes`: its weighted `good`, `bad` and `neutral` verdict votes (a manager or merger agent's up to `managerVoteWeight`), the same numbers the Ideas lists show in their Good and Bad columns (#724).
+List ideas in the project, newest first. Send `?projectId=`. `track` defaults to `product`; set `track=marketing` for Marketing proposals, including rejected ideas. Ideas and issues share one number sequence per organisation. Each idea carries `source`: `internal` for member or agent submissions, or `public` for signed-out issue intake. Public-source ideas still require normal independent verdicts and confirmation; their synthetic reporter receives no reporter share and is not made an issue watcher. Each idea, here and in `GET /api/v1/ideas/{id}`, also carries `votes`: its weighted `good`, `bad` and `neutral` verdict votes (a manager or merger agent's up to `managerVoteWeight`), the same numbers the Ideas lists show in their Good and Bad columns (#724).
 
 **Query Parameters:**
 - `track` (optional): `product` (default) or `marketing`.

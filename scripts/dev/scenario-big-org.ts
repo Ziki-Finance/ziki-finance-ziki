@@ -53,7 +53,7 @@ async function main() {
       await db.organisation.delete({ where: { id: ORGANISATION_ID } });
     }
 
-    await db.organisation.create({ data: { id: ORGANISATION_ID, slug: "big", name: "Big Co", nextIssueNumber: 1, nextIdeaNumber: 1 } });
+    await db.organisation.create({ data: { id: ORGANISATION_ID, slug: "big", name: "Big Co", nextNumber: 1 } });
     await db.project.create({ data: { id: PROJECT_ID, organisationId: ORGANISATION_ID, slug: "big", name: "Big", workflow: { create: {} } } });
     await db.membership.create({ data: { organisationId: ORGANISATION_ID, userId: owner.id, role: "owner" } });
 

@@ -44,7 +44,7 @@ export type IdeaListRow = {
 
 /**
  * The Ideas tab's New ideas, Drafted and Rejected ideas lists (#idea-table, #idea-rejected). Ideas are not issues: they
- * have their own numbers and pages, take verdicts instead of votes, and
+ * have their own pages (their numbers come from the issues' sequence), take verdicts instead of votes, and
  * leave this list once an agent converts them.
  */
 export function IdeasList({ slug, ideas, empty, welcome, filters, sections, sort = DEFAULT_IDEA_SORT }: {

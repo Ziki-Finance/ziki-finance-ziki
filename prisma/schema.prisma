@@ -503,7 +503,7 @@ model Bug {
   id                        String                  @id @default(cuid())
   /// Human-readable reference (#1, #2, ...), counted per organisation (#517). The
   /// database trigger `Bug_assign_organisation_number` replaces the sequence value
-  /// with `Organisation.nextIssueNumber`, so each organisation starts at #1.
+  /// with `Organisation.nextNumber`, which ideas share (#one-number), so each organisation starts at #1.
   number                    Int                     @default(autoincrement())
   title                     String
   /// The idea's short summary, carried over when it is converted.
@@ -944,11 +944,9 @@ model Organisation {
   /// Set when an owner archives the organisation (#573). Archived organisations are
   /// hidden from the switcher and cannot be selected.
   archivedAt         DateTime?
-  /// #517: the next issue number this organisation hands out. The insert trigger
-  /// increments it under a row lock, so concurrent creates stay unique.
-  nextIssueNumber    Int                     @default(1)
-  /// The next idea number this organisation hands out (#idea-table). Ideas are numbered apart from issues.
-  nextIdeaNumber     Int                     @default(1)
+  /// #517, #one-number: the next number this organisation hands out, to an issue or an idea alike, so a number
+  /// names one thing. The insert triggers increment it under a row lock, so concurrent creates stay unique.
+  nextNumber         Int                     @default(1)
   /// What every award in this organisation is multiplied by when it is written (#points-multiplier). 1 is normal.
   pointsMultiplier   Decimal                 @default(1) @db.Decimal(8, 2)
   createdAt          DateTime                @default(now())
@@ -2056,8 +2054,8 @@ model Idea {
   id                      String            @id @default(cuid())
   /// The private details when this idea is a security finding (#security-findings).
   securityFinding         SecurityFinding?
-  /// Idea #1, #2, ... per organisation. The trigger `Idea_assign_organisation_number`
-  /// replaces the sequence value with `Organisation.nextIdeaNumber`.
+  /// Idea #1, #2, ... per organisation, from the same sequence as issues (#one-number). The trigger
+  /// `Idea_assign_organisation_number` replaces the sequence value with `Organisation.nextNumber`.
   number                  Int               @default(autoincrement())
   title                   String
   /// Up to three plain lines saying what the report is about (lib/validations/report-summary.ts).

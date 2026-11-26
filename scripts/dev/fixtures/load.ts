@@ -112,7 +112,7 @@ export async function loadFixtures(options: { db?: PrismaClient; addExistingUser
     await db.organisation.create({
       // A trigger numbers issues and ideas from these counters, in insert order,
       // so they start at 1 and the rows go in in number order.
-      data: { id: ORGANISATION_ID, slug: fx.organisation.slug, name: fx.organisation.name, description: "Local fixtures: issues in every state, from scripts/dev/fixtures.", nextIssueNumber: 1, nextIdeaNumber: 1 },
+      data: { id: ORGANISATION_ID, slug: fx.organisation.slug, name: fx.organisation.name, description: "Local fixtures: issues in every state, from scripts/dev/fixtures.", nextNumber: 1 },
     });
     await db.project.create({ data: { id: PROJECT_ID, organisationId: ORGANISATION_ID, slug: fx.project.slug, name: fx.project.name, repoUrl: fx.project.repoUrl, workflow: { create: {} }, brief: { create: fx.brief } } });
     await db.projectArea.createMany({ data: fx.areas.map((a) => ({ id: String(a.id), projectId: PROJECT_ID, name: String(a.name), slug: String(a.id).replace(/^fx-area-/, "") })) });

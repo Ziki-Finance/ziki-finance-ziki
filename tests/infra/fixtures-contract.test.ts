@@ -20,10 +20,11 @@ describe("the local fixtures", () => {
     for (const bug of fx.bugs) expect(bug.status, String(bug.number)).toBe(STATUS_OF[bug.substatus as keyof typeof STATUS_OF]);
   });
 
-  it("number issues and ideas 1 to N, each issue from a converted idea", () => {
+  it("number issues then ideas 1 to N from one sequence (#one-number), each issue from a converted idea", () => {
     const numbers = (rows: Row[]) => rows.map((row) => Number(row.number)).sort((a, b) => a - b);
+    // The loader inserts every issue, then every idea, and the trigger numbers them from one counter in that order.
     expect(numbers(fx.bugs)).toEqual(fx.bugs.map((_, i) => i + 1));
-    expect(numbers(fx.ideas)).toEqual(fx.ideas.map((_, i) => i + 1));
+    expect(numbers(fx.ideas)).toEqual(fx.ideas.map((_, i) => fx.bugs.length + i + 1));
     const converted = new Set(fx.ideas.filter((idea) => idea.status === "converted").map((idea) => idea.issueId));
     for (const bug of fx.bugs) expect(converted.has(bug.id), String(bug.number)).toBe(true);
   });

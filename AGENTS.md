@@ -98,7 +98,7 @@ Every new report is an idea (`POST /api/v1/ideas`). An idea is not an issue: ide
 
 These are product rules. Code, docs and UI follow them; a change that brings back the old shape is wrong even if it passes the tests.
 
-- **Ideas are not issues.** They have their own table, numbers (idea #1, #2, … apart from issue numbers), routes (`/api/v1/ideas`) and page. An issue exists only by converting an idea; nothing files an issue directly.
+- **Ideas are not issues.** They have their own table, numbers (from the same sequence as issues, so a number names one thing in its organisation: idea #12 and issue #12 can't both exist, #one-number), routes (`/api/v1/ideas`) and page. An issue exists only by converting an idea; nothing files an issue directly.
 - **A status and its substatus.** An issue has one main status (the issue list's tabs) and one substatus, the step within it. `lib/issue-substatus.ts` is the one map, and every write goes through `moveTo(substatus)`, which sets both. Each tab lists all of its substatuses together, and the row and issue page say which one ("Open · Requires confirmation"). Don't add any other status-like label (no separate "stage" chip, no per-stage tally line under a row). The one approved exception is the Tests bar on rows being judged (#deeper-testing): a checked clipboard and one green or red slot per judgement the gate needs, counted as the gate counts them. It moves as agents do the work. The one exception is the organisation's owner or admin (#owner-control): from the issue's Status chip they can move it on by hand, to the steps `lib/owner-moves.ts` lists for where it is, with a note recorded in the history.
 
 | Main status (`status`) | Substatuses (`substatus`) |
