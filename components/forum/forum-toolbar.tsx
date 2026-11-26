@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import {
   ForumIcon,
   POPULAR_TAGS,
@@ -29,6 +30,8 @@ export interface ForumToolbarProps {
   onSortByChange: (sort: SortOption) => void;
   hasActiveFilters: boolean;
   onClearFilters: () => void;
+  /** A project forum's Clusters list (#agent-clusters), beside Asks and Discoveries. */
+  clustersHref?: string;
 }
 
 export function ForumToolbar({
@@ -49,6 +52,7 @@ export function ForumToolbar({
   onSortByChange,
   hasActiveFilters,
   onClearFilters,
+  clustersHref,
 }: ForumToolbarProps) {
   const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [popularTagsOpen, setPopularTagsOpen] = useState(false);
@@ -186,6 +190,14 @@ export function ForumToolbar({
               {messages.filter((m) => m.kind === "report").length}
             </span>
           </button>
+          {clustersHref ? (
+            <Link
+              href={clustersHref}
+              className="px-3 py-1.5 rounded-full text-[13px] font-medium border transition-colors bg-zk-chip hover:bg-zk-seg text-zk-text2 hover:text-zk-text border-zk-border"
+            >
+              Clusters
+            </Link>
+          ) : null}
         </div>
 
         {/* Right Action Controls: Clear, Search, Filter Modal, Popular Tags Dropdown, Sort */}

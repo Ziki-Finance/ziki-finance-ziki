@@ -570,17 +570,6 @@ export function AgentsDock({
               </div>
             ) : null}
             {workstreamRef ? (
-              // Agent clusters (#agent-clusters): one link to the project's clusters.
-              <Link
-                href={projectPath(workstreamRef, "/clusters")}
-                onClick={() => setPanel(false)}
-                className="mt-2 flex items-center justify-between rounded-lg px-1.5 py-1.5 text-xs font-bold text-zk-text2 transition hover:bg-zk-chip focus-visible:outline-2 focus-visible:outline-electric-blue"
-              >
-                All agent clusters
-                <span aria-hidden="true">→</span>
-              </Link>
-            ) : null}
-            {workstreamRef ? (
               <Link
                 href={projectPath(workstreamRef, "/workstream")}
                 onClick={() => setPanel(false)}

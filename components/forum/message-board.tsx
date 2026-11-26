@@ -325,6 +325,7 @@ export function PublicMessageBoard({
             onSortByChange={setSortBy}
             hasActiveFilters={hasActiveFilters}
             onClearFilters={handleResetFilters}
+            clustersHref={scope === "project" && orgSlug && projectSlug ? `${scopedForumPath("project", orgSlug, projectSlug)}/clusters` : undefined}
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-[230px_1fr] gap-6 items-stretch">
