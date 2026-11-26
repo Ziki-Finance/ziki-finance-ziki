@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { Button } from "@/components/ui/button";
-import { LocalTime } from "@/components/local-time";
 import { auth } from "@/auth";
 import { selectOrganisationAction } from "@/app/(app)/organisations/actions";
 import { requireUser } from "@/lib/auth-helpers";
@@ -14,7 +13,6 @@ import {
   SHARE_LINK_ERRORS,
   previewShareLink,
   shareJoinPath,
-  shareLinkAudience,
 } from "@/lib/share-invites";
 import { AuthSplitFrame } from "../../login/auth-split-frame";
 import { AutoJoin } from "./auto-join";
@@ -123,23 +121,14 @@ export default async function JoinPage({
           </div>
         ) : preview.state !== "open" ? (
           <p role="status" className="rounded-xl bg-zk-warn-bg p-3 text-sm text-zk-warn-fg">
-            {
-              SHARE_LINK_ERRORS[
-                preview.state === "expired"
-                  ? "expired"
-                  : preview.state === "revoked"
-                    ? "revoked"
-                    : "used"
-              ]
-            }
+            {SHARE_LINK_ERRORS.revoked}
           </p>
         ) : user ? (
           <AutoJoin token={token} organisationName={preview.organisation.name} auto={!error} />
         ) : (
           <div className="space-y-4">
-            <p className="text-sm text-zk-text2">{shareLinkAudience(preview)}</p>
             <p className="text-sm text-zk-text2">
-              The link expires <LocalTime date={preview.expiresAt} />. Sign in with Google — if
+              Sign in with Google — if
               you don&apos;t have an account yet, one is created — and {preview.organisation.name} is
               added to it.
             </p>

@@ -16,7 +16,7 @@ import {
   revokeInvite,
   type InviteDelivery,
 } from "@/lib/invites";
-import { acceptShareLink, createShareLink, revokeShareLink } from "@/lib/share-invites";
+import { acceptShareLink, resetShareLink, revokeShareLink } from "@/lib/share-invites";
 import { prisma } from "@/lib/prisma";
 
 import { RATE_LIMIT_MESSAGE, consumeRateLimit } from "@/lib/rate-limit";
@@ -162,87 +162,77 @@ export async function deleteOrganisationAction(formData: FormData): Promise<void
   redirect(`/organisations?notice=${encodeURIComponent("Organisation deleted.")}`);
 }
 
-export type CreateInviteActionResult =
-  | {
-      ok: true;
-      email: string;
-      /** The single-use link, shown to the inviter this once. */
-      link: string;
-      expiresAt: string;
-      delivery: InviteDelivery;
-    }
-  | { ok: false; error: string; field?: string };
+/** How many addresses one Invite takes at a time. */
+const INVITE_BATCH_MAX = 20;
 
-/** An owner or admin invites an email address into their organisation. */
-export async function createInviteAction(
-  _previous: CreateInviteActionResult | undefined,
+export type InviteOutcome =
+  | { ok: true; email: string; delivery: InviteDelivery; link: string }
+  | { ok: false; email: string; error: string };
+
+export type InviteByEmailActionResult = { outcomes: InviteOutcome[] } | { error: string };
+
+/**
+ * An owner or admin invites one or many people by email (#team): addresses separated by commas, spaces or new lines.
+ * Each gets their own single-use link, emailed or told in Ziki when it can be; the outcome for each is returned.
+ */
+export async function inviteByEmailAction(
+  _previous: InviteByEmailActionResult | undefined,
   formData: FormData,
-): Promise<CreateInviteActionResult> {
+): Promise<InviteByEmailActionResult> {
   const user = await requireUser();
+  const organisationId = String(formData.get("organisationId") ?? "");
+  const emails = [...new Set(String(formData.get("emails") ?? "").split(/[\s,;]+/).map((email) => email.trim()).filter(Boolean))];
+  if (emails.length === 0) return { error: "Enter at least one email address." };
+  if (emails.length > INVITE_BATCH_MAX) return { error: `Invite at most ${INVITE_BATCH_MAX} people at a time.` };
   if (!(await consumeRateLimit(`organisation-invite:${user.id}`, CREATE_INVITE_RATE_LIMIT)).allowed) {
-    return { ok: false, error: RATE_LIMIT_MESSAGE };
+    return { error: RATE_LIMIT_MESSAGE };
   }
 
-  const result = await createInvite(prisma, user, {
-    organisationId: String(formData.get("organisationId") ?? ""),
-    email: formData.get("email"),
-  });
-  if (!result.ok) return result;
-
-  let delivery: InviteDelivery = "manual";
-  try {
-    delivery = await deliverInvite(prisma, {
-      invite: result.invite,
-      rawToken: result.rawToken,
-      organisationId: result.organisation.id,
-      organisationName: result.organisation.name,
-      inviter: { id: user.id, name: user.name || user.email || "Someone" },
-    });
-  } catch (error) {
-    // The invite exists and the inviter still gets the link to send.
-    console.error("[invites] could not tell the invitee", {
-      inviteId: result.invite.id,
-      error: error instanceof Error ? error.message : String(error),
-    });
+  const outcomes: InviteOutcome[] = [];
+  for (const email of emails) {
+    const result = await createInvite(prisma, user, { organisationId, email });
+    if (!result.ok) {
+      outcomes.push({ ok: false, email, error: result.error });
+      continue;
+    }
+    let delivery: InviteDelivery = "manual";
+    try {
+      delivery = await deliverInvite(prisma, {
+        invite: result.invite,
+        rawToken: result.rawToken,
+        organisationId: result.organisation.id,
+        organisationName: result.organisation.name,
+        inviter: { id: user.id, name: user.name || user.email || "Someone" },
+      });
+    } catch (error) {
+      // The invite exists and the inviter still gets the link to send.
+      console.error("[invites] could not tell the invitee", {
+        inviteId: result.invite.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+    outcomes.push({ ok: true, email: result.invite.email, delivery, link: inviteUrl(result.rawToken) });
   }
 
   revalidatePath("/[org]/settings", "layout");
-  return {
-    ok: true,
-    email: result.invite.email,
-    link: inviteUrl(result.rawToken),
-    expiresAt: result.invite.expiresAt.toISOString(),
-    delivery,
-  };
+  return { outcomes };
 }
 
-export type CreateShareLinkActionResult =
-  | { ok: true; url: string }
-  | { ok: false; error: string; field?: string };
+export type ResetShareLinkActionResult = { ok: true; url: string } | { ok: false; error: string };
 
-/** An owner or admin creates a link anyone can use, within the limits they set. */
-export async function createShareLinkAction(
-  _previous: CreateShareLinkActionResult | undefined,
-  formData: FormData,
-): Promise<CreateShareLinkActionResult> {
+/** A new invite link for the organisation (#invite-link); the old one stops working. */
+export async function resetShareLinkAction(organisationId: string): Promise<ResetShareLinkActionResult> {
   const user = await requireUser();
   if (!(await consumeRateLimit(`organisation-share:${user.id}`, CREATE_INVITE_RATE_LIMIT)).allowed) {
     return { ok: false, error: RATE_LIMIT_MESSAGE };
   }
-
-  const result = await createShareLink(prisma, user, {
-    organisationId: String(formData.get("organisationId") ?? ""),
-    expiresDays: formData.get("expiresDays"),
-    maxUses: formData.get("maxUses"),
-    label: formData.get("label"),
-  });
+  const result = await resetShareLink(prisma, user, { organisationId });
   if (!result.ok) return result;
-
   revalidatePath("/[org]/settings", "layout");
   return { ok: true, url: result.url };
 }
 
-/** Turn off a share link that hasn't been revoked yet. */
+/** Turn off the organisation's invite link (#invite-link). */
 export async function revokeShareLinkAction(formData: FormData): Promise<void> {
   const user = await requireUser();
   const result = await revokeShareLink(prisma, user, String(formData.get("linkId") ?? ""));
