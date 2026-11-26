@@ -66,7 +66,7 @@ export type RepairResult =
       body: {
         repaired: true;
         issueId: string;
-        previousPullRequestUrl: string;
+        previousPullRequestUrl: string | null;
         pullRequestUrl: string;
         pullRequestHeadSha: string | null;
         /** True when it is the same pull request under the repository's current name. */
@@ -155,13 +155,14 @@ export async function repairPullRequestLink(
   }
 
   const previous = bug.pullRequestUrl;
-  if (!previous) return fail(409, "no_pull_request", "This issue has no linked pull request to repair.");
+  // #attach-pr: an issue with no pull request is given one by naming it.
+  if (!previous && !named) return fail(409, "no_pull_request", "This issue has no linked pull request. Name the one to attach (pullRequestUrl).");
 
   // With no address named, the same number is looked for in the main repository.
   const repo = repoForPullRequest(bug.project, null);
   if (!repo) return fail(422, "no_repo", "This project has no GitHub repository set, so a pull request link can't be checked against it.");
 
-  const old = parsePullRequestUrl(previous);
+  const old = previous ? parsePullRequestUrl(previous) : null;
   const target = named ?? (old ? { owner: repo.owner, repo: repo.repo, number: old.number } : null);
   if (!target) {
     return fail(422, "invalid_url", "The linked address is not a GitHub pull request. Name the pull request to link (pullRequestUrl).");
@@ -180,15 +181,18 @@ export async function repairPullRequestLink(
 
   // #replacement-pr: an accepted fix is bound to its pull request, unless that
   // one was closed without merging: then a replacement may be linked, and it is
-  // reviewed afresh.
-  let replacing: { acceptanceId: string } | null = null;
-  if (!samePullRequest && prisma.agentAuditEvent) {
+  // reviewed afresh. A manager or merger agent may replace it in any case
+  // (#manager-pr-swap), Live work included, for example when the fix was merged
+  // from another pull request; work not yet merged is reviewed afresh.
+  let replacing: { acceptanceId: string; byManager: boolean } | null = null;
+  if (previous && !samePullRequest && prisma.agentAuditEvent) {
     const gate = await acceptedFixGate(bug.id, previous);
     if (gate.acceptance) {
-      if (!gate.replaceable) {
-        return fail(409, "status_changed", "This issue's accepted fix is bound to a different pull request — link the accepted one again. (A replacement is accepted only when the accepted pull request is reported closed without merging.)");
+      const manager = hasLevel(agent.level, "manager");
+      if (!gate.replaceable && !manager) {
+        return fail(409, "status_changed", "This issue's accepted fix is bound to a different pull request — link the accepted one again. (A replacement is accepted only when the accepted pull request is reported closed without merging, or by a manager or merger agent.)");
       }
-      replacing = { acceptanceId: gate.acceptance.id };
+      replacing = { acceptanceId: gate.acceptance.id, byManager: !gate.replaceable };
     }
   }
 
@@ -198,7 +202,7 @@ export async function repairPullRequestLink(
   const latestReport = !samePullRequest && prisma.pullRequestReport ? await latestPullRequestReport(bug.id, next) : null;
   const headSha = samePullRequest ? bug.pullRequestHeadSha : (latestReport?.headSha ?? null);
   const nextProofLinks =
-    Array.isArray(bug.proofLinks) && bug.proofLinks.includes(previous)
+    previous && Array.isArray(bug.proofLinks) && bug.proofLinks.includes(previous)
       ? [...new Set(bug.proofLinks.map((link) => (link === previous ? next : link)))]
       : undefined;
 
@@ -214,14 +218,14 @@ export async function repairPullRequestLink(
     });
     if (changed.count !== 1) return null;
     const counts = { judgements: 0, mergeReviews: 0, deliveries: 0, reviewOffers: 0 };
-    if (samePullRequest) {
+    if (samePullRequest && previous) {
       const where = { bugId: bug.id, pullRequestUrl: previous };
       const data = { pullRequestUrl: next };
       counts.judgements = (await tx.testVerdict.updateMany({ where, data })).count;
       counts.mergeReviews = (await tx.mergeReview.updateMany({ where, data })).count;
       counts.deliveries = (await tx.delivery.updateMany({ where, data })).count;
       counts.reviewOffers = (await tx.reviewOffer.updateMany({ where, data })).count;
-    } else if (isContributor && tx.delivery) {
+    } else if (previous && isContributor && tx.delivery) {
       counts.deliveries = (
         await tx.delivery.updateMany({
           where: {
@@ -237,8 +241,8 @@ export async function repairPullRequestLink(
         })
       ).count;
     }
-    if (replacing) {
-      await releaseAcceptedFix(tx, { bugId: bug.id, acceptanceId: replacing.acceptanceId, previous, next, actorUserId: agent.ownerId });
+    if (replacing && previous) {
+      await releaseAcceptedFix(tx, { bugId: bug.id, acceptanceId: replacing.acceptanceId, previous, next, actorUserId: agent.ownerId, byManager: replacing.byManager });
     }
     await audit(
       agent,

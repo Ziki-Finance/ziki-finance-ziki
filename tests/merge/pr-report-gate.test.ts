@@ -336,6 +336,16 @@ describe("repairPullRequestLink (#edit-pr-link)", () => {
       expect(audit).toHaveBeenCalledWith(expect.anything(), "issue.pull_request_repaired", "bug:bug1", expect.objectContaining({ replacesPullRequestUrl: PR }), expect.anything());
     });
 
+    it("lets a manager agent replace it whatever its state, Live work included, which stays Live (#manager-pr-swap)", async () => {
+      reportOnAccepted("merged");
+      db.bug.findFirst.mockResolvedValue({ ...accepted(), status: "resolved", substatus: "on_prod" });
+      const result = await repairPullRequestLink(checker("dave", "manager"), scope, "bug1", { pullRequestUrl: nextPr });
+      expect(result).toMatchObject({ status: 200, body: { repaired: true, pullRequestUrl: nextPr } });
+      expect(db.tx.agentAuditEvent.update).toHaveBeenCalledWith({ where: { id: "accept1" }, data: { undoneAt: expect.any(Date) } });
+      // Only work not yet merged goes back to review.
+      expect(db.tx.bug.updateMany).toHaveBeenCalledWith({ where: { id: "bug1", status: { in: ["done", "merge"] } }, data: { status: "done", substatus: "requires_review" } });
+    });
+
     it.each(["open", "merged", null])("answers 409 status_changed while the accepted pull request is %s", async (state) => {
       reportOnAccepted(state);
       const result = await repairPullRequestLink(checker("cara", "working"), scope, "bug1", { pullRequestUrl: nextPr });
@@ -343,6 +353,17 @@ describe("repairPullRequestLink (#edit-pr-link)", () => {
       expect(db.$transaction).not.toHaveBeenCalled();
       expect(db.tx.agentAuditEvent.update).not.toHaveBeenCalled();
     });
+  });
+
+  it("lets a manager agent attach a pull request to an issue that has none (#attach-pr)", async () => {
+    db.bug.findFirst.mockResolvedValue(bug({ status: "in_progress", pullRequestUrl: null, proofLinks: [], project: { repoUrl: "https://github.com/emerjent/ziki" } }));
+    const nextPr = "https://github.com/emerjent/ziki/pull/560";
+    expect(await repairPullRequestLink(checker("dave", "manager"), scope, "bug1", {})).toMatchObject({ status: 409, body: { error: "no_pull_request" } });
+    expect(await repairPullRequestLink(checker("erin", "working"), scope, "bug1", { pullRequestUrl: nextPr })).toMatchObject({ status: 403, body: { error: "insufficient_level" } });
+
+    const result = await repairPullRequestLink(checker("dave", "manager"), scope, "bug1", { pullRequestUrl: nextPr });
+    expect(result).toMatchObject({ status: 200, body: { repaired: true, previousPullRequestUrl: null, pullRequestUrl: nextPr } });
+    expect(db.tx.bug.updateMany).toHaveBeenCalledWith({ where: { id: "bug1", pullRequestUrl: null }, data: { pullRequestUrl: nextPr, pullRequestHeadSha: null } });
   });
 
   it("rejects a pull request from another repository or an unrelated working agent", async () => {

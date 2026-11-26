@@ -27,12 +27,11 @@ const heldByMyAgent = vi.hoisted(() => vi.fn());
 const deliverWork = vi.hoisted(() => vi.fn());
 const membershipFindFirst = vi.hoisted(() => vi.fn());
 const projectFindFirst = vi.hoisted(() => vi.fn());
-const claimCount = vi.hoisted(() => vi.fn(async () => 0));
 
 const tx = {
   $queryRaw: vi.fn(),
   bug: { findUniqueOrThrow: bugFindUniqueOrThrow, update: bugUpdate, updateMany: bugUpdateMany },
-  issueClaim: { findMany: claimFindMany, updateMany: claimUpdateMany, count: claimCount },
+  issueClaim: { findMany: claimFindMany, updateMany: claimUpdateMany },
   bugActivity: { createMany: activityCreateMany },
 };
 
@@ -236,30 +235,25 @@ describe("Live · Confirmed (#live-confirmed)", () => {
     await expect(agentConfirmLiveWork(manager, scope, "bug-1")).rejects.toMatchObject({ status: 409 });
   });
 
-  it("lets a manager agent move an Open issue nobody holds to another project, and nothing else (#move-project)", async () => {
+  it("lets any agent move an issue to another project, but not one whose price is locked (#move-project)", async () => {
     const scope = { organisationId: "org-1", projectId: "web" };
-    const manager = { agentId: "agent-m", ownerId: "owner-1", organisationId: "org-1", level: "manager" as const };
-    const open = { id: "bug-1", number: 7, status: "open", projectId: "web", lockedPriceZik: null, project: { name: "Web" } };
+    const worker = { agentId: "agent-w", ownerId: "owner-1", organisationId: "org-1", level: "working" as const };
+    const issue = { id: "bug-1", number: 7, projectId: "web", lockedPriceZik: null, project: { name: "Web" } };
     const body = { toProjectId: "desktop", reason: "It is the desktop app's sign-in." };
-    bugFindFirst.mockResolvedValue(open);
+    bugFindFirst.mockResolvedValue(issue);
     projectFindFirst.mockResolvedValue({ id: "desktop", name: "Desktop" });
 
-    await expect(agentMoveIssueToProject({ ...manager, level: "working" }, scope, "bug-1", body)).rejects.toMatchObject({ status: 403 });
-    expect(bugUpdateMany).not.toHaveBeenCalled();
-
-    expect(await agentMoveIssueToProject(manager, scope, "bug-1", body)).toEqual({ issueId: "bug-1", number: 7, fromProjectId: "web", projectId: "desktop" });
-    expect(bugUpdateMany).toHaveBeenCalledWith({ where: { id: "bug-1", projectId: "web", status: "open" }, data: { projectId: "desktop", areaId: null } });
+    expect(await agentMoveIssueToProject(worker, scope, "bug-1", body)).toEqual({ issueId: "bug-1", number: 7, fromProjectId: "web", projectId: "desktop" });
+    expect(bugUpdateMany).toHaveBeenCalledWith({ where: { id: "bug-1", projectId: "web", lockedPriceZik: null }, data: { projectId: "desktop", areaId: null } });
     expect(activityCreateMany).toHaveBeenCalledWith({ data: [expect.objectContaining({ actorId: "owner-1", metadata: expect.objectContaining({ field: "project", from: "Web", to: "Desktop" }) })] });
 
-    // Once work starts, or while someone holds it, or with a price from this project's budget, it stays.
+    // A locked price was reserved from this project's budget and is paid out against it, so the issue stays.
     bugUpdateMany.mockClear();
-    bugFindFirst.mockResolvedValue({ ...open, status: "in_progress" });
-    await expect(agentMoveIssueToProject(manager, scope, "bug-1", body)).rejects.toMatchObject({ status: 409, body: { error: "not_open" } });
-    bugFindFirst.mockResolvedValue({ ...open, lockedPriceZik: 500 });
-    await expect(agentMoveIssueToProject(manager, scope, "bug-1", body)).rejects.toMatchObject({ status: 409, body: { error: "price_locked" } });
-    bugFindFirst.mockResolvedValue(open);
-    claimCount.mockResolvedValueOnce(1);
-    await expect(agentMoveIssueToProject(manager, scope, "bug-1", body)).rejects.toMatchObject({ status: 409, body: { error: "claimed" } });
+    bugFindFirst.mockResolvedValue({ ...issue, lockedPriceZik: 500 });
+    await expect(agentMoveIssueToProject(worker, scope, "bug-1", body)).rejects.toMatchObject({ status: 409, body: { error: "price_locked" } });
+    projectFindFirst.mockResolvedValue({ id: "web", name: "Web" });
+    bugFindFirst.mockResolvedValue(issue);
+    await expect(agentMoveIssueToProject(worker, scope, "bug-1", { ...body, toProjectId: "web" })).rejects.toMatchObject({ status: 409, body: { error: "same_project" } });
     expect(bugUpdateMany).not.toHaveBeenCalled();
   });
 });
