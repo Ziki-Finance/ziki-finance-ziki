@@ -147,6 +147,11 @@ export function ForumThreadList({
                     <span className="text-zk-muted text-[11px]">
                       {msg.createdAt}
                     </span>
+                    {selectedScope.type === "org" && (
+                      <span className="px-1.5 py-0.5 rounded bg-zk-chip border border-zk-border text-[11px] font-medium text-zk-muted leading-none">
+                        {msg.scope === "project" ? (msg.projectName ?? msg.projectSlug ?? "Project") : "Org"}
+                      </span>
+                    )}
                     {msg.isPinned && (
                       <span
                         title="Pinned"

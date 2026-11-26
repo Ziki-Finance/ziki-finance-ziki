@@ -214,7 +214,15 @@ export function PublicMessageBoard({
     );
   };
 
-  const pinnedPosts = messages.filter((m) => m.isPinned);
+  const pinnedPosts = messages
+    .filter((m) => m.isPinned)
+    .sort((a, b) => {
+      if (scope === "org") {
+        const scopeDiff = (a.scope === "org" ? 0 : 1) - (b.scope === "org" ? 0 : 1);
+        if (scopeDiff !== 0) return scopeDiff;
+      }
+      return 0;
+    });
   const myAgentsCount = currentUserId ? messages.filter(isOwnedByViewer).length : 0;
   const bookmarkedCount = messages.filter((m) => m.bookmarkedByViewer).length;
   const hasActiveFilters =
@@ -258,6 +266,10 @@ export function PublicMessageBoard({
       if (sortBy === "trending") {
         const pinDiff = Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned));
         if (pinDiff !== 0) return pinDiff;
+        if (scope === "org") {
+          const scopeDiff = (a.scope === "org" ? 0 : 1) - (b.scope === "org" ? 0 : 1);
+          if (scopeDiff !== 0) return scopeDiff;
+        }
         return trendingScore(b) - trendingScore(a);
       }
       if (sortBy === "helpful") return b.helpfulCount - a.helpfulCount;

@@ -1,12 +1,14 @@
 import { createMethodNotAllowed, createOptions } from "@/lib/agent-api/http-errors";
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAgent } from "@/lib/agents/require-agent";
+import { optionalUser } from "@/lib/auth-helpers";
 import { AgentPostingBlockedError } from "@/lib/agents/posting-block";
 import { checkPostForSecrets, stringsIn, type SecretActor } from "@/lib/security/secret-guard";
 import {
   listForumMessagesPaginated,
   createForumMessage,
   createForumMessageSchema,
+  resolveReadableForumScope,
 } from "@/lib/forum";
 import type { ForumCategory } from "@/components/forum/message-board";
 
@@ -70,6 +72,7 @@ export async function GET(request: NextRequest) {
   const cursor = searchParams.get("cursor") || undefined;
 
   let viewerUserId: string | undefined;
+  let viewerUserRole: string | undefined;
   let viewerAgentId: string | undefined;
   let viewerOrgId: string | null | undefined;
 
@@ -87,6 +90,16 @@ export async function GET(request: NextRequest) {
         );
       }
     }
+  } else if (scope === "org" || scope === "project") {
+    try {
+      const webUser = await optionalUser();
+      if (webUser) {
+        viewerUserId = webUser.id;
+        viewerUserRole = webUser.role;
+      }
+    } catch {
+      // Unauthenticated caller
+    }
   }
 
   const effectiveScope =
@@ -96,6 +109,33 @@ export async function GET(request: NextRequest) {
         ? undefined
         : scope;
 
+  let resolvedOrganisationId = organisationId;
+  let resolvedProjectId = projectId;
+
+  if (effectiveScope === "org" || effectiveScope === "project") {
+    try {
+      const access = await resolveReadableForumScope({
+        scope: effectiveScope,
+        organisationId,
+        projectId,
+        actorUserId: viewerUserId,
+        actorUserRole: viewerUserRole,
+        actorOrgId: viewerOrgId,
+      });
+      resolvedOrganisationId = access.organisationId ?? organisationId;
+      resolvedProjectId = access.projectId ?? projectId;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Forbidden.";
+      if (msg.startsWith("Unauthorized:")) {
+        return NextResponse.json({ error: msg }, { status: 401 });
+      }
+      if (msg.startsWith("Validation error:")) {
+        return NextResponse.json({ error: msg }, { status: 400 });
+      }
+      return NextResponse.json({ error: msg }, { status: 403 });
+    }
+  }
+
   const page = await listForumMessagesPaginated({
     q,
     category,
@@ -104,8 +144,8 @@ export async function GET(request: NextRequest) {
     scope: effectiveScope,
     track,
     kind,
-    organisationId,
-    projectId,
+    organisationId: resolvedOrganisationId,
+    projectId: resolvedProjectId,
     pinned,
     bookmarked,
     mine,

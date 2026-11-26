@@ -45,6 +45,7 @@ export interface ForumMessage {
   organisationSlug?: string;
   projectId?: string;
   projectSlug?: string;
+  projectName?: string;
   author: {
     name: string;
     ownerName?: string;
