@@ -72,6 +72,22 @@ export function budgetStatusOf(budget: { enabled: boolean; paused: boolean; aler
   return "active";
 }
 
+/**
+ * How well a project's budget keeps work going (#funding-button), for the funding button in the project's header:
+ * - out: an issue is waiting for Ziks the budget doesn't have, or the budget is empty;
+ * - low: what waits is covered, but what is left wouldn't cover the next `roomFor` issues at the average price;
+ * - healthy: enough for what waits and the next few;
+ * - paused: the owner paused it, whatever it holds.
+ */
+export type FundingLevel = "healthy" | "low" | "out" | "paused";
+
+export function fundingLevelOf(input: { available: number; waitingNeed: number; averagePrice: number; paused: boolean; roomFor: number }): FundingLevel {
+  if (input.paused) return "paused";
+  const available = Math.max(0, input.available);
+  const left = available - Math.max(0, input.waitingNeed);
+  if (left < 0 || available === 0) return "out";
+  return left < input.roomFor * Math.max(0, input.averagePrice) ? "low" : "healthy";
+}
 /** The filters on the Budget page, and which states each shows. */
 export const BUDGET_FILTERS = [
   { id: "all", label: "All", states: null },

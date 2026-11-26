@@ -34,14 +34,26 @@ function useAction() {
  * Fund the project (#project-budget): Ziks from the owner's wallet into the budget. The request id is made when the form
  * first draws, so a double click or a retry funds once.
  */
-/** `suggested` (#price-lock) is what the project's priced issues call for; the box starts with it, and it can be changed. */
-export function FundForm({ projectId, wallet, suggested = 0 }: { projectId: string; wallet: number; suggested?: number }) {
+/**
+ * `suggested` (#price-lock) is what the project's priced issues call for, with room for the next few: the box starts with
+ * it. `waiting` is what the issues waiting for funding need now, for an owner who would rather fund only those. Either
+ * can be picked with one tap, and the amount can still be changed.
+ */
+export function FundForm({ projectId, wallet, suggested = 0, waiting = null }: { projectId: string; wallet: number; suggested?: number; waiting?: { need: number; count: number } | null }) {
   const { pending, run, message } = useAction();
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
   const [amount, setAmount] = useState(suggested > 0 ? String(suggested) : "");
   const value = Number(amount);
   const valid = amount !== "" && Number.isInteger(value) && value > 0 && value <= wallet;
   const shortBy = Math.max(0, value - wallet);
+  const choices = [
+    ...(suggested > 0
+      ? [{ id: "suggested", amount: suggested, title: "Keep the project going", hint: `What waits now, and room for the next few issues at your project's average price. New issues are funded from it as they're priced.` }]
+      : []),
+    ...(waiting && waiting.need > 0 && waiting.need !== suggested
+      ? [{ id: "waiting", amount: waiting.need, title: "Just what's waiting", hint: `The ${waiting.count} ${waiting.count === 1 ? "issue" : "issues"} priced and waiting for funding now, nothing more.` }]
+      : []),
+  ];
 
   return (
     <form
@@ -55,7 +67,27 @@ export function FundForm({ projectId, wallet, suggested = 0 }: { projectId: stri
         });
       }}
     >
-      <label className="text-sm font-bold text-zk-text" htmlFor="budget-amount">How many Ziks?</label>
+      {choices.length > 0 ? (
+        <div role="group" aria-label="Suggested amounts" className="grid gap-2 sm:grid-cols-2">
+          {choices.map((choice) => {
+            const on = value === choice.amount;
+            return (
+              <button
+                key={choice.id}
+                type="button"
+                aria-pressed={on}
+                onClick={() => setAmount(String(choice.amount))}
+                className={`flex cursor-pointer flex-col gap-1 rounded-xl border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue ${on ? "border-electric-blue-strong bg-zk-tint" : "border-zk-border bg-zk-surface hover:bg-zk-chip"}`}
+              >
+                <span className="text-sm font-bold text-zk-text">{choice.title}</span>
+                <span className="text-lg font-extrabold tabular-nums text-zk-text">{choice.amount.toLocaleString("en-US")} Ziks</span>
+                <span className="text-xs text-zk-muted">{choice.hint}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+      <label className="text-sm font-bold text-zk-text" htmlFor="budget-amount">{choices.length > 0 ? "Or choose an amount" : "How many Ziks?"}</label>
       <div className="flex flex-col gap-3 sm:flex-row">
         <input
           id="budget-amount"
@@ -69,11 +101,6 @@ export function FundForm({ projectId, wallet, suggested = 0 }: { projectId: stri
           {pending ? "Adding…" : valid ? `Add ${value.toLocaleString("en-US")} ${value === 1 ? "Zik" : "Ziks"}` : "Add to budget"}
         </button>
       </div>
-      {suggested > 0 ? (
-        <p className="m-0 text-xs text-zk-muted">
-          Suggested: {suggested.toLocaleString("en-US")} Ziks, for the priced issues waiting and room for the next few at your project&apos;s average price.
-        </p>
-      ) : null}
       <p className="m-0 text-xs text-zk-muted">
         You have {wallet.toLocaleString("en-US")} {wallet === 1 ? "Zik" : "Ziks"}.{" "}
         <Link href="/coins" className="font-semibold text-zk-accent hover:underline">

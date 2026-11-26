@@ -57,6 +57,11 @@ export function formatZik(zik: number): string {
   return `${Math.round(zik).toLocaleString("en-US")} Zik${zik === 1 ? "" : "s"}`;
 }
 
+/** Ziks in short form, for tight spaces such as the header's funding button: 950, 12.4K, 1.3M. */
+export function formatZikShort(zik: number): string {
+  return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(Math.max(0, Math.round(zik)));
+}
+
 export function formatUsd(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
@@ -67,6 +72,9 @@ export const ZIK_PACKS = [
   { id: "builder", zik: 15 * ZIKS_PER_DOLLAR, label: "Builder" },
   { id: "team", zik: 50 * ZIKS_PER_DOLLAR, label: "Team" },
   { id: "studio", zik: 150 * ZIKS_PER_DOLLAR, label: "Studio" },
+  // For funding whole projects: a large budget in one purchase instead of many Studio packs.
+  { id: "scale", zik: 500 * ZIKS_PER_DOLLAR, label: "Scale" },
+  { id: "enterprise", zik: 1_000 * ZIKS_PER_DOLLAR, label: "Enterprise" },
 ] as const;
 
 export type ZikPack = (typeof ZIK_PACKS)[number];

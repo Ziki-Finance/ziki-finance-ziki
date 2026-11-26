@@ -12,9 +12,11 @@ import { isPayer } from "./payers";
  * close's own transactions.
  */
 
-/** Whether this person may put Ziks behind this issue: its reporter, or someone who pays for its organisation (#payers). */
-export async function canFundIssue(userId: string, bug: { organisationId: string; reporterId: string }): Promise<boolean> {
-  if (bug.reporterId === userId) return true;
+/**
+ * Whether this person may put Ziks behind this issue: only someone who pays for its organisation (#payers), an owner or
+ * an admin an owner lets fund issues. A reporter who isn't one doesn't fund; they are paid the reporter's share.
+ */
+export async function canFundIssue(userId: string, bug: { organisationId: string }): Promise<boolean> {
   return isPayer(prisma, userId, bug.organisationId);
 }
 
@@ -37,10 +39,10 @@ export async function fundIssue(userId: string, bugId: string, amount: number, r
   if (!/^[A-Za-z0-9_-]{8,64}$/.test(requestId)) throw new CoinError("invalid_amount", "Reload the page and try again.");
   const bug = await prisma.bug.findUnique({
     where: { id: bugId },
-    select: { organisationId: true, reporterId: true, status: true, isDeleted: true, payoutReleasedAt: true },
+    select: { organisationId: true, status: true, isDeleted: true, payoutReleasedAt: true },
   });
   if (!bug || bug.isDeleted) throw new CoinError("not_found", "That issue doesn't exist.");
-  if (!(await canFundIssue(userId, bug))) throw new CoinError("not_allowed", "Only the issue's reporter, an owner, or an admin an owner lets fund issues can fund it.");
+  if (!(await canFundIssue(userId, bug))) throw new CoinError("not_allowed", "Only an owner, or an admin an owner lets fund issues, can fund it.");
   if (bug.status === "closed" || bug.payoutReleasedAt) throw new CoinError("closed", "This issue is finished, so it can't take more Ziks.");
 
   return prisma.$transaction(async (tx) => {

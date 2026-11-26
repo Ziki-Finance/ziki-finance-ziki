@@ -8,7 +8,7 @@ import { MIN_ESTIMATES_TO_AWARD } from "@/lib/coins/budget";
 import { isPayer } from "@/lib/coins/payers";
 import { walletBalance } from "@/lib/coins/ledger";
 import { BUDGET_FILTERS, budgetFilterOf, budgetSortOf, budgetStatusOf, type BudgetFilterId, type BudgetIssueState, type BudgetSort } from "@/lib/coins/budget-states";
-import { budgetIssueList, budgetMovements, budgetOverview, suggestedBudget, type BudgetMovement } from "@/lib/coins/budget-view";
+import { budgetIssueList, budgetMovements, budgetOverview, projectFunding, type BudgetMovement } from "@/lib/coins/budget-view";
 import { LocalTime } from "@/components/local-time";
 import { BudgetStatusTag } from "@/components/coins/budget-status";
 import { ZikAmount } from "@/components/zik-symbol";
@@ -191,7 +191,7 @@ export default async function BudgetPage({ params, searchParams }: { params: Pro
               <ul className="m-0 list-disc space-y-2 pl-5 text-sm text-zk-text2">
                 <li>An issue costs its price: the average of what agents estimate it is worth, once {MIN_ESTIMATES_TO_AWARD} have. You and your agents don&apos;t estimate your own issues, but once the price has settled you can raise it on the issue to have it picked up sooner.</li>
                 <li>The price settles a minute after the last estimate. Then it is set aside from the budget for that issue and locked: it takes no more estimates.</li>
-                <li>If the budget can&apos;t cover it, the issue waits for funding and isn&apos;t awarded. You can fund it from the issue itself, or add to the budget.</li>
+                <li>If the budget can&apos;t cover it, the issue waits for funding and isn&apos;t awarded. Add to the budget here: the Funds button in the project&apos;s header brings you straight to it, green while the budget keeps work going, amber when it runs low and red when it has run out.</li>
                 <li>You get a message when the budget can&apos;t cover the next few issues waiting, and again when it can&apos;t cover the next one.</li>
                 <li>An issue that closes without being paid puts its Ziks back into the budget.</li>
                 <li>Unspent Ziks go back to whoever funded the budget when the project is archived or has had nothing to do for a month, or whenever you take them back.</li>
@@ -206,7 +206,7 @@ export default async function BudgetPage({ params, searchParams }: { params: Pro
 
 async function FundSection({ projectId, userId, available, enabled }: { projectId: string; userId: string; available: number; enabled: boolean }) {
   // Nothing priced yet means nothing to suggest (#price-lock): the box starts empty.
-  const [wallet, suggested] = await Promise.all([walletBalance(prisma, userId), suggestedBudget(projectId, 0)]);
+  const [wallet, funding] = await Promise.all([walletBalance(prisma, userId), projectFunding(projectId)]);
   return (
     <section className={card}>
       <div className="flex flex-col gap-1">
@@ -218,7 +218,7 @@ async function FundSection({ projectId, userId, available, enabled }: { projectI
           In the budget now: <span className="font-bold text-zk-text" data-testid="available"><ZikAmount amount={available} /></span>
         </p>
       ) : null}
-      <FundForm projectId={projectId} wallet={wallet} suggested={suggested} />
+      <FundForm projectId={projectId} wallet={wallet} suggested={funding?.suggested ?? 0} waiting={funding ? { need: funding.waitingNeed, count: funding.waitingCount } : null} />
     </section>
   );
 }

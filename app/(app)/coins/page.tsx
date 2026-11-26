@@ -196,7 +196,7 @@ export default async function CoinsPage({ searchParams }: { searchParams?: Promi
                   {discountPercent > 0 ? `Your ${plan?.label ?? ""} plan takes ${discountPercent}% off every pack.` : `Every pack is its Ziks at ${ZIKS_PER_DOLLAR.toLocaleString("en-US")} to the dollar. They go straight into your wallet.`}
                 </span>
               </div>
-              <ul className="m-0 grid list-none gap-3 p-0 sm:grid-cols-2">
+              <ul className="m-0 grid list-none gap-3 p-0 sm:grid-cols-2 lg:grid-cols-3">
                 {ZIK_PACKS.map((pack) => {
                   const full = zikToCents(pack.zik);
                   const price = discountedCents(full, discountPercent);

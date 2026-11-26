@@ -6,8 +6,8 @@ import { localDatabaseUrl } from "../env";
 /**
  * Prices and funds an issue (#price-lock), so a scenario can award it: every issue is funded before it is awarded.
  * The price is the issue's own reward, as if three agents had estimated it a few minutes ago (so it has settled), and
- * the sandbox organisation's owner funds it from Ziks given to them for it, exactly as the issue page's "Just this
- * issue" does. Funding locks the price. Local databases only, like the rest of the scenarios; the sandbox's rebuild
+ * the sandbox organisation's owner (a payer, #payers) funds it on the issue itself from Ziks given to them for it.
+ * Funding locks the price. Local databases only, like the rest of the scenarios; the sandbox's rebuild
  * removes these rows with its issues (cli/setup.ts).
  */
 export async function priceAndFund(issueId: string): Promise<number> {
