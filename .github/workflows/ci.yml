@@ -234,7 +234,11 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Install Chromium for Playwright
-        run: pnpm exec playwright install --with-deps chromium
+        # Refresh the runner's package list first: an image's list can name package versions Ubuntu has since
+        # removed (libasound2t64 answered 404), and --with-deps then fails before any test runs.
+        run: |
+          sudo apt-get update
+          pnpm exec playwright install --with-deps chromium
 
       - name: Migrate and seed a clean database
         run: |
