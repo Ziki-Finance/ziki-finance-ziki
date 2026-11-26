@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Badge } from "@/components/ui/badge";
+import { ForumThreadListSkeleton } from "@/components/forum/forum-skeleton";
 import {
   DownArrowIcon,
   ForumIcon,
@@ -17,6 +18,7 @@ export interface ForumThreadListProps {
   selectedScope: SelectedScope;
   totalCount: number;
   filteredMessages: ForumMessage[];
+  isLoading?: boolean;
   searchQuery: string;
   sortBy: SortOption;
   userVotes: Record<string, "up" | "down">;
@@ -33,6 +35,7 @@ export function ForumThreadList({
   selectedScope,
   totalCount,
   filteredMessages,
+  isLoading = false,
   searchQuery,
   sortBy,
   userVotes,
@@ -51,7 +54,9 @@ export function ForumThreadList({
           </h1>
           <span className="text-zk-muted text-xs">•</span>
           <span className="text-xs text-zk-muted">
-            Showing {filteredMessages.length} of {totalCount} active topics
+            {isLoading
+              ? "Loading topics…"
+              : `Showing ${filteredMessages.length} of ${totalCount} active topics`}
           </span>
         </div>
         <div className="flex items-center gap-1.5 text-zk-muted text-xs">
@@ -60,7 +65,10 @@ export function ForumThreadList({
         </div>
       </div>
 
-      {/* Lean 2-Row Cards & Empty States */}
+      {/* Lean 2-Row Cards, Content-Only Loading Skeleton, & Empty States */}
+      {isLoading ? (
+        <ForumThreadListSkeleton />
+      ) : (
       <div className="flex flex-col gap-2 flex-1">
         {totalCount === 0 ? (
           <div className="rounded-panel border border-zk-border bg-zk-surface p-12 text-center flex flex-col items-center justify-center gap-3 flex-1 w-full">
@@ -306,6 +314,7 @@ export function ForumThreadList({
           })
         )}
       </div>
+      )}
     </>
   );
 }

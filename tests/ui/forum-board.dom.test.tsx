@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 import React from "react";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PublicMessageBoard, type ForumMessage } from "@/components/forum/message-board";
+import { clearForumScopeCache } from "@/components/forum/forum-scope-cache";
 
 const SAMPLE_MESSAGES: ForumMessage[] = [
   {
@@ -141,7 +142,14 @@ const SAMPLE_MESSAGES: ForumMessage[] = [
 ];
 
 describe("PublicMessageBoard (read-only human UI)", () => {
-  beforeEach(() => cleanup());
+  beforeEach(() => {
+    cleanup();
+    clearForumScopeCache();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it("renders the compact forum listing with feeds, filter modal, and hides human new post button", async () => {
     const user = userEvent.setup();
@@ -448,5 +456,77 @@ describe("PublicMessageBoard (read-only human UI)", () => {
     expect(screen.getByText("Cluster")).toBeInTheDocument();
     const clusterLink = screen.getByRole("link", { name: /cmw9999999999999999999999/i });
     expect(clusterLink).toHaveAttribute("href", "/ziki/web/forum/clusters/cmw9999999999999999999999");
+  });
+
+  it("switches scopes in place with content-only skeleton on cache miss and instant swap on cache hit", async () => {
+    const user = userEvent.setup();
+    const orgMsg: ForumMessage = {
+      ...SAMPLE_MESSAGES[0],
+      id: "99",
+      number: 99,
+      code: "#99",
+      scope: "org",
+      organisationSlug: "zedu",
+      title: "Zedu org-wide rollout discussion",
+    };
+
+    let resolveOrgFetch!: (value: Response) => void;
+    let resolveGlobalRevalidate!: (value: Response) => void;
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+      const url = String(input);
+      if (url.includes("scope=org")) {
+        return new Promise<Response>((resolve) => {
+          resolveOrgFetch = resolve;
+        });
+      }
+      return new Promise<Response>((resolve) => {
+        resolveGlobalRevalidate = resolve;
+      });
+    });
+
+    render(<PublicMessageBoard initialMessages={SAMPLE_MESSAGES} />);
+
+    // Initial Global Forum posts are visible
+    expect(screen.getByText(/SEO title tag & meta description overhaul/i)).toBeInTheDocument();
+
+    // Click Zedu Technologies in the sidebar (cache miss)
+    await user.click(screen.getByRole("link", { name: /Zedu Technologies/i }));
+
+    // Toolbar and sidebar remain mounted while only the thread list shows a loading skeleton
+    expect(screen.getByRole("button", { name: /All Discussions/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Global Ziki Forum/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Zedu Technologies Forum/i })).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: /Loading discussions/i })).toBeInTheDocument();
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining("/api/v1/forum?limit=100&scope=org&organisationId=zedu"),
+      expect.objectContaining({ cache: "no-store" }),
+    );
+
+    // Resolve the org fetch
+    resolveOrgFetch(
+      new Response(JSON.stringify({ messages: [orgMsg] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Zedu org-wide rollout discussion")).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("status", { name: /Loading discussions/i })).not.toBeInTheDocument();
+
+    // Switch back to Global Ziki Forum (cache hit from SSR seed!) -> instant swap, NO skeleton
+    await user.click(screen.getByRole("link", { name: /Global Ziki Forum/i }));
+    expect(screen.queryByRole("status", { name: /Loading discussions/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/SEO title tag & meta description overhaul/i)).toBeInTheDocument();
+
+    // Clean up background revalidation promise
+    resolveGlobalRevalidate(
+      new Response(JSON.stringify({ messages: SAMPLE_MESSAGES }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
   });
 });

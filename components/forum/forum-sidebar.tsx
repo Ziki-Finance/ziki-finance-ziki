@@ -14,6 +14,7 @@ import {
 
 export interface ForumSidebarProps {
   selectedScope: SelectedScope;
+  onSelectScope?: (scope: SelectedScope, href: string) => void;
   organisations: AccessibleOrganisation[];
   externalProjects: ExternalProject[];
   expandedOrgs: Record<string, boolean>;
@@ -35,6 +36,7 @@ export interface ForumSidebarProps {
 
 export function ForumSidebar({
   selectedScope,
+  onSelectScope,
   organisations,
   externalProjects,
   expandedOrgs,
@@ -58,13 +60,28 @@ export function ForumSidebar({
     setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
   };
 
+  const handleScopeLinkClick = (
+    e: React.MouseEvent<HTMLAnchorElement>,
+    next: SelectedScope,
+    href: string,
+  ) => {
+    if (!onSelectScope) return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    e.preventDefault();
+    onSelectScope(next, href);
+  };
+
   const visiblePinned = pinnedPosts.slice(0, 5);
+  const globalHref = scopedForumPath("platform");
 
   return (
     <aside className="flex flex-col gap-3 min-w-0 shrink-0 w-full flex-1">
       {/* Global Ziki Forum (Direct Scope Link) */}
       <Link
-        href={scopedForumPath("platform")}
+        href={globalHref}
+        onClick={(e) =>
+          handleScopeLinkClick(e, { type: "global", name: "Global Ziki Forum" }, globalHref)
+        }
         className={`flex items-center justify-between px-2.5 py-1.5 rounded-control text-[13px] font-medium transition-colors cursor-pointer ${
           selectedScope.type === "global"
             ? "bg-zk-tint text-zk-accent font-semibold border border-zk-accent/25"
@@ -171,6 +188,13 @@ export function ForumSidebar({
                 >
                   <Link
                     href={scopedForumPath("org", currentOrgSlug)}
+                    onClick={(e) =>
+                      handleScopeLinkClick(
+                        e,
+                        { type: "org", orgId: currentOrgSlug, name: org.name },
+                        scopedForumPath("org", currentOrgSlug),
+                      )
+                    }
                     className="flex items-center gap-2 truncate flex-1 text-left py-0.5 focus:outline-none"
                   >
                     <ForumIcon size={14} className="text-zk-muted shrink-0">
@@ -204,6 +228,18 @@ export function ForumSidebar({
                         <Link
                           key={proj.id}
                           href={scopedForumPath("project", currentOrgSlug, currentProjSlug)}
+                          onClick={(e) =>
+                            handleScopeLinkClick(
+                              e,
+                              {
+                                type: "project",
+                                orgId: currentOrgSlug,
+                                projectId: currentProjSlug,
+                                name: proj.name,
+                              },
+                              scopedForumPath("project", currentOrgSlug, currentProjSlug),
+                            )
+                          }
                           className={`flex items-center justify-between px-2 py-1 rounded-chip text-xs transition-colors cursor-pointer text-left ${
                             isProjSelected
                               ? "bg-zk-chip text-zk-accent font-semibold"
@@ -251,6 +287,18 @@ export function ForumSidebar({
                 <Link
                   key={ext.id}
                   href={scopedForumPath("project", extOrgSlug, extProjSlug)}
+                  onClick={(e) =>
+                    handleScopeLinkClick(
+                      e,
+                      {
+                        type: "external",
+                        orgId: extOrgSlug,
+                        projectId: extProjSlug,
+                        name: ext.name,
+                      },
+                      scopedForumPath("project", extOrgSlug, extProjSlug),
+                    )
+                  }
                   className={`flex flex-col gap-0.5 px-2.5 py-1.5 rounded-control text-left transition-colors cursor-pointer ${
                     isExtSelected
                       ? "bg-zk-tint text-zk-accent border border-zk-accent/25"

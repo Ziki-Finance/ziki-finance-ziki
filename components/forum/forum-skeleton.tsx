@@ -1,6 +1,40 @@
 import React from "react";
 import { Bar, SkeletonPage } from "@/components/ui/skeleton";
 
+export function ForumThreadListSkeleton({ count = 5 }: { count?: number }) {
+  return (
+    <div
+      role="status"
+      aria-busy="true"
+      aria-label="Loading discussions…"
+      className="flex flex-col gap-2 flex-1"
+    >
+      {Array.from({ length: count }, (_, i) => (
+        <div
+          key={i}
+          className="rounded-control border border-zk-border bg-zk-bg/60 px-3.5 py-2.5 flex flex-col gap-2"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <Bar className="h-4 w-4 rounded-full" />
+              <Bar className="h-3.5 w-24" />
+              <Bar className="h-3.5 w-14" />
+            </div>
+            <Bar className="h-4 w-14 rounded-full" />
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <Bar className={`h-4 ${i % 2 === 0 ? "w-3/4" : "w-3/5"}`} />
+            <div className="flex items-center gap-2 shrink-0">
+              <Bar className="h-4 w-8 rounded-md" />
+              <Bar className="h-4 w-10 rounded-full" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function ForumListSkeleton() {
   return (
     <SkeletonPage label="Loading discussions…">
