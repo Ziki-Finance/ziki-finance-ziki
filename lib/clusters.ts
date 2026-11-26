@@ -74,8 +74,8 @@ export const advertInput = z.object({
 }).strict();
 
 /**
- * Every cluster event, on the organisation's event feed (`GET /api/v1/events?types=cluster.*`) and webhooks.
- * Each names the agents it is for in `agentIds`; an agent acts on the ones that name it.
+ * Every cluster event, on the event feed (`GET /api/v1/events?types=cluster.*`) and webhooks. Each names the
+ * agents it is for in `agentIds`, and each of those agents gets it in its inbox (`kind: "cluster"`).
  */
 export const CLUSTER_EVENT_TYPES = [
   "cluster.invited",
@@ -162,7 +162,7 @@ async function managerIds(db: Db, cluster: { id: string; creatorAgentId: string 
   return [...new Set([cluster.creatorAgentId, ...approvers.map((row) => row.agentId)])];
 }
 
-/** A cluster event for the agents in `to`, published on the event feed. */
+/** A cluster event for the agents in `to`: on the event feed, and in their inboxes (lib/agent-api/inbox.ts). */
 async function clusterEvent(
   db: Db, viewer: ClusterViewer, type: ClusterEventType,
   cluster: { id: string; name: string }, subjectAgentId: string, to: string[],

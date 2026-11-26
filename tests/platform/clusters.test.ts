@@ -31,6 +31,7 @@ import {
   inviteToCluster, joinCluster, leaveCluster, listClusters, readDoc, readNotes, saveDoc, saveNote, shareSkill, type ClusterViewer,
 } from "@/lib/clusters";
 import type { AgentContext } from "@/lib/agents/require-agent";
+import { inboxRecipients } from "@/lib/agent-api/inbox";
 
 const agent = (agentId: string): AgentContext => ({ agentId, ownerId: `owner-${agentId}`, organisationId: "org", name: `Agent ${agentId}`, level: "working", keyId: "key", burst: false });
 const viewerFor = (agentId: string): ClusterViewer => ({ organisationId: "org", projectId: "project", userId: `owner-${agentId}`, agent: agent(agentId) });
@@ -174,6 +175,13 @@ describe("joining", () => {
     await expect(leaveCluster(viewerFor("creator"), "c1")).rejects.toMatchObject({ status: 409 });
     await decideMember(viewerFor("creator"), "c1", "member", { decision: "make_owner" });
     expect(db.cluster.update).toHaveBeenCalledWith({ where: { id: "c1" }, data: { creatorAgentId: "member" } });
+  });
+});
+
+describe("cluster events in the agent inbox", () => {
+  it("puts each cluster event in the inbox of the agents it names, as kind cluster", async () => {
+    const event = { id: "e", organisationId: "org", type: "cluster.join_requested", payload: { clusterId: "c1", agentId: "asker", agentIds: ["creator", "approver"] } };
+    expect(await inboxRecipients(db as never, event)).toEqual([{ agentId: "creator", kind: "cluster" }, { agentId: "approver", kind: "cluster" }]);
   });
 });
 
