@@ -24,3 +24,18 @@ export function feedbackProductSummary(description: string, limit = 170): string
   const short = plain.slice(0, limit - 1).replace(/\s+\S*$/, "").trimEnd();
   return `${short}…`;
 }
+
+/** Legacy platform records are parts of a product, not public-facing products. */
+export function isFeedbackPlatform(record: { name: string; slug: string }): boolean {
+  return FEEDBACK_PLATFORMS.some(platform => platform.slug === record.name.trim().toLowerCase() || platform.slug === record.slug.trim().toLowerCase());
+}
+
+export function feedbackProductCards<T extends { id: string; slug: string; name: string; description: string }>(records: readonly T[], organisationName: string): T[] {
+  let platformProductAdded = false;
+  return records.flatMap(record => {
+    if (!isFeedbackPlatform(record)) return [record];
+    if (platformProductAdded) return [];
+    platformProductAdded = true;
+    return [{ ...record, name: organisationName, description: `Share your experience and help improve ${organisationName}.` }];
+  });
+}

@@ -2,9 +2,9 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ project: vi.fn(), user: vi.fn(), ideas: vi.fn() }));
+const mocks = vi.hoisted(() => ({ project: vi.fn(), user: vi.fn(), ideas: vi.fn(), count: vi.fn() }));
 vi.mock("@/lib/public-projects", () => ({ findFeedbackProject: mocks.project }));
-vi.mock("@/lib/public-feedback-ideas", () => ({ listPublicFeedbackIdeas: mocks.ideas }));
+vi.mock("@/lib/public-feedback-ideas", () => ({ listPublicFeedbackIdeas: mocks.ideas, countPublicFeedbackIdeas: mocks.count }));
 vi.mock("@/lib/auth-helpers", () => ({ optionalUser: mocks.user }));
 vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("not-found"); } }));
 vi.mock("@/components/public-product-overview", () => ({
@@ -28,18 +28,19 @@ describe("external feedback flow", () => {
     mocks.project.mockResolvedValue({ name: "Desktop", slug: "desktop", organisation: { slug: "team", name: "Team" } });
     mocks.user.mockResolvedValue(null);
     mocks.ideas.mockResolvedValue([]);
+    mocks.count.mockResolvedValue(0);
   });
 
   it.each(["web", "mobile", "desktop"])("opens the %s product information before the report form", async project => {
     mocks.project.mockResolvedValue({ name: project, slug: project, organisation: { slug: "team", name: "Team" } });
     const page = await FeedbackPage({ params: Promise.resolve({ org: "team", project }), searchParams: Promise.resolve({}) });
     expect(renderToStaticMarkup(page)).toContain(`About ${project}`);
-    expect(mocks.ideas).toHaveBeenCalledWith("team", { projectSlug: project, query: undefined, status: undefined, take: 7 });
+    expect(mocks.ideas).toHaveBeenCalledWith("team", { projectSlug: project, query: undefined, status: undefined, skip: 0, take: 30 });
   });
 
   it("scopes inline feedback search to the selected product", async () => {
     await FeedbackPage({ params: Promise.resolve({ org: "team", project: "desktop" }), searchParams: Promise.resolve({ q: "save", status: "open" }) });
-    expect(mocks.ideas).toHaveBeenCalledWith("team", { projectSlug: "desktop", query: "save", status: "open", take: 7 });
+    expect(mocks.ideas).toHaveBeenCalledWith("team", { projectSlug: "desktop", query: "save", status: "open", skip: 0, take: 30 });
   });
 
   it.each(["problem", "improvement"])("keeps guest %s reporting linked to its selected project", async type => {

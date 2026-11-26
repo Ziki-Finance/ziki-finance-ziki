@@ -1,5 +1,7 @@
+import { PaginationControls } from "@/components/pagination-controls";
 import { FeedbackProjectJoin } from "@/components/feedback-project-join";
-import { listPublicFeedbackIdeas } from "@/lib/public-feedback-ideas";
+import { optionalUser } from "@/lib/auth-helpers";
+import { countPublicFeedbackIdeas, listPublicFeedbackIdeas } from "@/lib/public-feedback-ideas";
 import type { FeedbackSearch } from "@/components/project-feedback-portal";
 import { PublicProductOverview } from "@/components/public-product-overview";
 import { PublicFeedbackIdeaDetail } from "@/components/public-feedback-idea-detail";
@@ -18,7 +20,7 @@ export default async function ProjectFeedbackPortalPage({
   searchParams,
 }: {
   params: Promise<{ org: string; project: string }>;
-  searchParams: Promise<FeedbackSearch & { type?: string; idea?: string; view?: string }>;
+  searchParams: Promise<FeedbackSearch & { type?: string; idea?: string; view?: string; page?: string }>;
 }) {
   const [{ org, project: projectSlug }, query] = await Promise.all([params, searchParams]);
   const ref = { orgSlug: org, projectSlug };
@@ -28,8 +30,15 @@ export default async function ProjectFeedbackPortalPage({
   if (query.view === "join") return <FeedbackProjectJoin orgSlug={org} projectSlug={projectSlug} />;
   if (query.idea !== undefined) return <PublicFeedbackIdeaDetail project={ref} number={Number(query.idea)} />;
   if (query.view !== "share" && query.type !== "problem" && query.type !== "improvement") {
-    const ideas = await listPublicFeedbackIdeas(org, { projectSlug, query: query.q?.trim().slice(0, 200), status: query.status, take: 7 });
-    return <PublicProductOverview product={project} ideas={ideas} query={query.q} status={query.status} />;
+    const options = { projectSlug, query: query.q?.trim().slice(0, 200), status: query.status };
+    const total = await countPublicFeedbackIdeas(org, options);
+    const totalPages = Math.max(1, Math.ceil(total / 30));
+    const requestedPage = Number(query.page);
+    const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? Math.min(requestedPage, totalPages) : 1;
+    const ideas = await listPublicFeedbackIdeas(org, { ...options, skip: (page - 1) * 30, take: 30 });
+    const user = await optionalUser();
+    const pagination = <div className="pt-4"><PaginationControls page={page} totalPages={totalPages} totalCount={total} from={total ? (page - 1) * 30 + 1 : 0} to={Math.min(page * 30, total)} basePath={publicFeedbackPath(ref)} queryParams={{ q: options.query, status: query.status }} itemLabel="feedback item" /></div>;
+    return <PublicProductOverview product={project} ideas={ideas} query={query.q} status={query.status} signedIn={Boolean(user)} pagination={pagination} />;
   }
   const orgFeedbackHref = publicFeedbackPath(ref);
 

@@ -1,35 +1,27 @@
-import { PaginationControls } from "@/components/pagination-controls";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { FeedbackPageHeader } from "@/components/feedback-page-header";
-import { FeedbackPortalSidebar } from "@/components/feedback-portal-sidebar";
-import { FeedbackIdeasToolbar } from "@/components/feedback-ideas-toolbar";
-import { PublicFeedbackIdeas } from "@/components/public-feedback-ideas";
+import { notFound, redirect } from "next/navigation";
 import { OrgFeedbackPortal } from "@/components/org-feedback-portal";
 import { listOrgFeedbackProjects } from "@/lib/public-projects";
-import { countPublicFeedbackIdeas, listPublicFeedbackIdeas } from "@/lib/public-feedback-ideas";
-import { FEEDBACK_PLATFORMS } from "@/lib/feedback-product-info";
+import { feedbackProductCards } from "@/lib/feedback-product-info";
+import { publicFeedbackPath, publicOrgFeedbackPath } from "@/lib/public-project-paths";
 import { NOINDEX } from "@/lib/seo/site";
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Feedback portal", robots: NOINDEX };
+export const metadata: Metadata = { title: "Feedback", robots: NOINDEX };
 export default async function OrganisationFeedbackPage({ params, searchParams }: { params: Promise<{ org: string }>; searchParams: Promise<{ q?: string; view?: string; project?: string; platform?: string; status?: string; page?: string }> }) {
   const [{ org }, query] = await Promise.all([params, searchParams]);
   const data = await listOrgFeedbackProjects(org);
   if (!data) notFound();
-  if (query.view !== "ideas") return <OrgFeedbackPortal orgSlug={data.organisation.slug} orgName={data.organisation.name} projects={data.projects} initialQuery={query.q?.slice(0, 200)} />;
-  const selected = data.projects.find(project => project.slug === query.project);
-  const platform = FEEDBACK_PLATFORMS.find(item => item.slug === query.platform);
-  const projectSlugs = platform && !selected ? data.projects.filter(project => project.platforms.includes(platform.slug)).map(project => project.slug) : undefined;
-  const requestedPage = Number(query.page);
-  const requested = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? Math.min(requestedPage, 1000000) : 1;
-  const pageSize = 30;
-  const options = { projectSlug: selected?.slug, projectSlugs, query: query.q?.trim().slice(0, 200), status: query.status };
-  const total = await countPublicFeedbackIdeas(org, options);
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const page = Math.min(requested, totalPages);
-  const ideas = await listPublicFeedbackIdeas(org, { ...options, skip: (page - 1) * pageSize, take: pageSize });
-  const portal = `/${encodeURIComponent(org)}/feedback`;
-  const base = portal + "?view=ideas" + (platform ? "&platform=" + encodeURIComponent(platform.slug) : "");
-  const pagination = <div className="pt-4"><PaginationControls page={page} totalPages={totalPages} totalCount={total} from={total ? (page - 1) * pageSize + 1 : 0} to={Math.min(page * pageSize, total)} basePath={portal} queryParams={{ view: "ideas", project: selected?.slug, platform: platform?.slug, q: query.q?.slice(0, 200), status: query.status }} itemLabel="feedback item" /></div>;
-  return <div className="space-y-4 pb-6"><FeedbackPageHeader title={selected ? `${selected.name} feedback ideas` : "All feedback ideas"} identity={data.organisation.name} description={`Browse feedback shared across ${data.organisation.name} projects.`} /><div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]"><PublicFeedbackIdeas orgSlug={org} ideas={ideas} showProject pagination={pagination} toolbar={<FeedbackIdeasToolbar key={(query.q ?? "") + (query.status ?? "") + (selected?.slug ?? "")} baseHref={base} query={query.q} status={query.status} project={selected?.slug} projects={data.projects} />} /><FeedbackPortalSidebar orgSlug={org} projectName={selected?.name} shareHref={selected ? `/${encodeURIComponent(org)}/${encodeURIComponent(selected.slug)}/feedback?view=share` : portal} /></div></div>;
+  // Keep old bookmarks working without retaining a second feedback-list screen.
+  if (query.view === "ideas") {
+    const products = feedbackProductCards(data.projects, data.organisation.name);
+    const selected = data.projects.find(item => item.slug === query.project);
+    const target = selected ?? (products.length === 1 ? products[0] : undefined);
+    if (!target) redirect(publicOrgFeedbackPath(data.organisation.slug));
+    const filters = new URLSearchParams();
+    if (query.q?.trim()) filters.set("q", query.q.trim().slice(0, 200));
+    if (query.status) filters.set("status", query.status);
+    if (query.page && /^[1-9]\d*$/.test(query.page)) filters.set("page", query.page);
+    redirect(publicFeedbackPath({ orgSlug: data.organisation.slug, projectSlug: target.slug }) + (filters.size ? "?" + filters.toString() : ""));
+  }
+  return <OrgFeedbackPortal orgSlug={data.organisation.slug} orgName={data.organisation.name} projects={data.projects} />;
 }

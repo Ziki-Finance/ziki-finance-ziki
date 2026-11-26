@@ -19,7 +19,7 @@ describe("contributor form context", () => {
     fireEvent.change(screen.getByLabelText(/Where does this happen/), { target: { value: "Reports page" } });
     fireEvent.change(screen.getByLabelText(/What would you like to happen/), { target: { value: "Share reports with the team" } });
     fireEvent.click(screen.getByRole("button", { name: "Send feedback" }));
-    await screen.findByText("Feedback received");
+    await screen.findByText("Feedback sent. Keep your tracking link for updates.");
     const call = fetchMock.mock.calls.find(([, options]) => options?.method === "POST");
     const body = JSON.parse(call![1].body);
     expect(body.stepsToReproduce).toBe("Reports page");
@@ -31,21 +31,22 @@ describe("contributor form context", () => {
     render(<PublicContributorForm project={{ name: "Desktop", slug: "desktop" }} orgSlug="zedu" projectSlug="desktop" />);
     fireEvent.change(screen.getByLabelText(/Your feedback/), { target: { value: "Remember my desktop window size." } });
     fireEvent.click(screen.getByRole("button", { name: "Send feedback" }));
-    await screen.findByText("Feedback received");
+    await screen.findByText("Feedback sent. Keep your tracking link for updates.");
     expect(navigation.replace).toHaveBeenCalledWith("/zedu/desktop/track/test?view=confirmation");
   });
-  it("reopens a saved report's confirmation with its current status", () => {
+  it("reopens a saved report's confirmation without duplicate summary or action buttons", () => {
     render(<PublicContributorForm project={{ name: "Desktop", slug: "desktop" }} orgSlug="zedu" projectSlug="desktop" initialSubmission={{ title: "Remember my window size", trackingPath: "/zedu/desktop/track/test", status: "Not proceeding" }} />);
-    expect(screen.getByText("Feedback received")).toBeTruthy();
-    expect(screen.getByText("Remember my window size")).toBeTruthy();
-    expect(screen.getByText("Not proceeding")).toBeTruthy();
-    expect(screen.getByRole("link", { name: /Track your report/ }).getAttribute("href")).toBe("/zedu/desktop/track/test");
+    expect(screen.getByText("Feedback sent. Keep your tracking link for updates.")).toBeTruthy();
+    expect(screen.getByLabelText("Tracking link")).toBeTruthy();
+    expect(screen.queryByText("Remember my window size")).toBeNull();
+    expect(screen.queryByRole("link", { name: /Track your report/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: /Back to product/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "Send feedback" })).toBeNull();
   });
   it("uses an account submission link without advertising it as a guest tracking link", () => {
     render(<PublicContributorForm project={{ name: "Desktop", slug: "desktop" }} orgSlug="zedu" projectSlug="desktop" privateTracking={false} initialSubmission={{ title: "Window size", trackingPath: "/zedu/desktop/track/account-link" }} />);
-    expect(screen.getByLabelText("Your submission link")).toBeTruthy();
-    expect(screen.queryByText(/Anyone with it/)).toBeNull();
+    expect(screen.getByLabelText("Submission link")).toBeTruthy();
+    expect(screen.queryByText(/Anyone with this link/)).toBeNull();
   });
   it("opens the same neutral form from a legacy problem link", () => {
     render(<PublicContributorForm project={{ name: "Web", slug: "web" }} orgSlug="zedu" projectSlug="web" kind="problem" />);

@@ -2,7 +2,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import type { PublicProjectRef } from "@/lib/public-project-paths";
-import { feedbackProductPlatforms, feedbackProductSummary } from "@/lib/feedback-product-info";
+import { feedbackProductPlatforms, feedbackProductSummary, isFeedbackPlatform } from "@/lib/feedback-product-info";
 
 export function publicTrackingTokenHash(token: string): string {
   return createHash("sha256").update(token).digest("hex");
@@ -61,7 +61,7 @@ export function feedbackProjectDescription(project: {
   if (project.visibility === "public" && project.goal?.trim()) {
     return project.goal.trim();
   }
-  return "Explore this project, share your experience, and suggest improvements. Click to learn more.";
+  return "Explore this product, share your experience, and suggest improvements. Click to learn more.";
 }
 
 const PLATFORM_PRIORITY: Record<string, number> = {
@@ -116,8 +116,9 @@ export async function findFeedbackProject(
   if (!project) return null;
   return {
     ...project,
+    name: isFeedbackPlatform(project) ? project.organisation.name : project.name,
     // Never expose internal goal text for a private project on external feedback pages.
-    goal: project.visibility === "public" ? project.goal : null,
+    goal: project.visibility === "public" && !isFeedbackPlatform(project) ? project.goal : null,
   };
 }
 

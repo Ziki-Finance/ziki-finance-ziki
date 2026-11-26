@@ -18,7 +18,7 @@ export const feedbackDetailSelect = {
   verdicts: { select: { id: true, opinion: true, votes: true, summary: true, updatedAt: true, agent: { select: { name: true } } }, orderBy: { updatedAt: "desc" } },
 } satisfies Prisma.IdeaSelect;
 type Detail = Prisma.IdeaGetPayload<{ select: typeof feedbackDetailSelect }>;
-export function FeedbackDetail({ idea, confirmationHref, trackingPath, issueHref }: { idea: Detail; confirmationHref?: string; trackingPath?: string; issueHref?: string }) {
+export function FeedbackDetail({ idea, confirmationHref, trackingPath, issueHref, justSubmitted = false }: { idea: Detail; confirmationHref?: string; trackingPath?: string; issueHref?: string; justSubmitted?: boolean }) {
   const votes = { good: 0, bad: 0, neutral: 0 };
   for (const verdict of idea.verdicts) votes[verdict.opinion] += verdict.votes;
   const threshold = idea.project.workflow?.ideaThreshold ?? 3;
@@ -26,6 +26,7 @@ export function FeedbackDetail({ idea, confirmationHref, trackingPath, issueHref
   const tone = idea.status === "rejected" || awaitingRejection ? "red" : idea.status === "converted" ? "green" : idea.status === "archived" ? "grey" : "teal";
   return <div className="space-y-4 pb-6">
     <FeedbackPageHeader title={idea.title} identity={idea.project.name} description={`${idea.project.name} · Idea #${idea.number}`} />
+    {justSubmitted ? <p role="status" className="rounded-control bg-zk-ok-bg px-4 py-3 text-sm text-zk-ok-fg">Sent. Keep your tracking link for updates.</p> : null}
     <p className="text-sm text-zk-muted">Submitted by {feedbackSubmitterName(idea)} · <LocalTime date={idea.createdAt} /></p>
     <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
       <div className="min-w-0 space-y-4">

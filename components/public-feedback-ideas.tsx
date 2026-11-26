@@ -7,9 +7,9 @@ import { LocalTime } from "@/components/local-time";
 import { feedbackSubmitterName, type FeedbackIdea } from "@/lib/public-feedback-ideas";
 import { publicFeedbackPath } from "@/lib/public-project-paths";
 const labels = { open: "Awaiting review", converted: "Became an issue", rejected: "Rejected", archived: "Archived" };
-export function PublicFeedbackIdeas({ orgSlug, ideas, showProject = false, title = "Feedback ideas", toolbar, viewAllHref, pagination }: { orgSlug: string; ideas: FeedbackIdea[]; showProject?: boolean; title?: string; toolbar?: ReactNode; viewAllHref?: string; pagination?: ReactNode }) {
+export function PublicFeedbackIdeas({ orgSlug, ideas, showProject = false, title = "Feedback ideas", toolbar, viewAllHref, pagination, actions }: { orgSlug: string; ideas: FeedbackIdea[]; showProject?: boolean; title?: string; toolbar?: ReactNode; viewAllHref?: string; pagination?: ReactNode; actions?: ReactNode }) {
   return <section aria-label={title} className="overflow-hidden rounded-panel border border-zk-border bg-zk-surface p-4 sm:p-5">
-    {toolbar}<div className="mb-2.5 flex flex-wrap items-center justify-between gap-2"><h2 className="text-sm font-semibold">{title}</h2>{viewAllHref ? <Link href={viewAllHref} className="text-xs text-zk-accent hover:underline">Show all feedback →</Link> : null}</div>
+    {toolbar}<div className="mb-2.5 flex flex-wrap items-center justify-between gap-2"><h2 className="text-sm font-semibold">{title}</h2>{actions}{viewAllHref ? <Link href={viewAllHref} className="text-xs text-zk-accent hover:underline">Show all feedback →</Link> : null}</div>
     {ideas.length ? <div className="rounded-panel bg-zk-bg p-3 sm:p-4"><ul className="space-y-3">{(viewAllHref ? ideas.slice(0, 7) : ideas).map(idea => {
       const awaitingRejection = idea.status === "open" && !idea.issue && isBadIdea(ideaVotes(idea.verdicts), idea.project.workflow?.ideaThreshold ?? 3);
       return <li key={`${idea.project.slug}-${idea.number}`} className="flex items-center gap-4 rounded-panel border border-zk-border bg-zk-surface px-4 py-4 transition-colors hover:bg-zk-bg sm:px-5">

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { FeedbackPageHeader } from "@/components/feedback-page-header";
-import { feedbackPrimaryAction, feedbackSecondaryAction, feedbackTextLink } from "@/components/feedback-portal-styles";
+import { feedbackTextLink } from "@/components/feedback-portal-styles";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CharacterCounter } from "@/components/ui/character-counter";
@@ -75,6 +75,9 @@ export function PublicContributorForm({
   returnHref,
   initialSubmission,
   privateTracking = true,
+  compact = false,
+  onCancel,
+  onBusyChange,
 }: {
   project: { name: string; slug: string; goal?: string | null; visibility?: "public" | "private" };
   orgSlug: string;
@@ -83,6 +86,9 @@ export function PublicContributorForm({
   returnHref?: string;
   initialSubmission?: { title: string; trackingPath: string; status?: string };
   privateTracking?: boolean;
+  compact?: boolean;
+  onCancel?: () => void;
+  onBusyChange?: (busy: boolean) => void;
 }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -101,6 +107,7 @@ export function PublicContributorForm({
 
   const [state, setState] = useState<FormState>(EMPTY_STATE);
   const [pending, setPending] = useState(false);
+  useEffect(() => { onBusyChange?.(pending); }, [pending, onBusyChange]);
   const [searching, setSearching] = useState(false);
   const [acknowledgeSimilar, setAcknowledgeSimilar] = useState(false);
 
@@ -243,7 +250,7 @@ export function PublicContributorForm({
       if (result.ok && body.trackingPath) {
         if (token.current) rememberPublicSubmission({ orgSlug, projectSlug, token: token.current });
         const confirmation = { title: finalTitle, trackingPath: body.trackingPath };
-        setSubmittedData(confirmation);
+        if (!compact) setSubmittedData(confirmation);
         router.replace(`${body.trackingPath}?view=confirmation`);
         return;
       }
@@ -285,22 +292,15 @@ export function PublicContributorForm({
 
     return (
       <div className="mx-auto w-full max-w-[920px] space-y-3">
-        <FeedbackPageHeader compact title="Feedback received" identity={project.name} description={`${project.name} · Your feedback has been submitted.`} />
+        <FeedbackPageHeader compact title="Submission" identity={project.name} description={project.name} />
+        <p role="status" className="rounded-control bg-zk-ok-bg px-4 py-3 text-sm text-zk-ok-fg">{privateTracking ? "Feedback sent. Keep your tracking link for updates." : "Feedback sent. View your submission for updates."}</p>
         <section aria-label="Submission confirmation" className="mx-auto w-full max-w-[920px] overflow-hidden rounded-panel border border-zk-border bg-zk-surface">
-          <div role="status" className="flex items-center gap-3 px-5 pt-5 text-sm sm:px-6"><span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zk-ok-bg text-zk-ok-fg">✓</span><p>Your feedback is now an Idea in the {project.name} project.</p></div>
+
 
         <div className="space-y-4 px-5 py-4 sm:px-6">
-          <div className="space-y-2 rounded-panel bg-zk-chip/50 p-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <h3 className="text-xs font-medium uppercase tracking-wider text-zk-muted">Your feedback</h3>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-zk-tint px-2.5 py-1 text-xs font-medium text-zk-accent"><span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />{submittedData.status ?? "Awaiting review"}</span>
-            </div>
-            <p className="break-words text-sm font-medium leading-6 text-zk-text">{submittedData.title}</p>
-          </div>
-
           <div className="rounded-panel border border-zk-border bg-zk-chip/50 p-4 sm:p-5">
-            <label htmlFor="tracking-link-input" className="block text-sm font-medium text-zk-text">{privateTracking ? "Your private tracking link" : "Your submission link"}</label>
-            <p className="mt-1 text-sm leading-6 text-zk-text2">{privateTracking ? "Keep this link to check progress. Anyone with it can view your report." : "Return to your submission while signed in to check its progress."}</p>
+            <label htmlFor="tracking-link-input" className="block text-sm font-medium text-zk-text">{privateTracking ? "Tracking link" : "Submission link"}</label>
+            <p className="mt-1 text-sm leading-6 text-zk-text2">{privateTracking ? "Keep it private. Anyone with this link can view your report." : "Sign in to check progress."}</p>
             <div className="mt-4 flex flex-col gap-2 sm:flex-row">
               <Input id="tracking-link-input" readOnly value={fullTrackingUrl} className="min-w-0 flex-1 border-zk-border bg-zk-surface font-mono text-xs text-zk-text2 shadow-none! focus:border-zk-accent focus:ring-zk-accent/20" />
               <Button variant="secondary" type="button" aria-label={copiedTrackingLink ? "Tracking link copied" : "Copy tracking link"} onClick={async () => { setCopiedTrackingLink(await copyText(fullTrackingUrl)); setTimeout(() => setCopiedTrackingLink(false), 2000); }} className="shrink-0">
@@ -310,13 +310,11 @@ export function PublicContributorForm({
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Link href={submittedData.trackingPath} className={feedbackPrimaryAction}>Track your report <span aria-hidden="true">→</span></Link>
-            <Link href={projectHome} className={feedbackSecondaryAction}>Back to product</Link>
-          </div>
+
         </div>
 
-        {project.visibility === "public" ? <section className="space-y-2 border-t border-zk-divider px-5 py-4 sm:px-6"><h2 className="text-sm font-medium text-zk-text">Want to contribute to {project.name}?</h2><p className="text-sm leading-6 text-zk-text2">Request access to this project to work on it. Projects open for contributors let you join immediately.</p><Link href={`${publicFeedbackPath({ orgSlug, projectSlug })}?view=join`} className={feedbackTextLink}>Request to join this project →</Link></section> : null}
+        {project.visibility === "public" ? <section className="space-y-2 border-t border-zk-divider px-5 py-4 sm:px-6"><h2 className="text-sm font-medium text-zk-text">Want to help build {project.name}?</h2><Link href={`${publicFeedbackPath({ orgSlug, projectSlug })}?view=join`} className={feedbackTextLink}>Request to join →</Link></section> : null}
+
 
         </section>
       </div>
@@ -332,7 +330,7 @@ export function PublicContributorForm({
         <input id="contributor-report-website" name="website" tabIndex={-1} autoComplete="off" />
       </div>
 
-      <FeedbackPageHeader compact title="Share feedback" identity={project.name} description={`${project.name} · Found a problem or have an idea? Tell us about it.`} />
+      {!compact ? <FeedbackPageHeader compact title="Share feedback" identity={project.name} description={`${project.name} · Found a problem or have an idea? Tell us about it.`} /> : null}
 
       {state.error ? (
         <div role="alert" className="rounded-xl border border-zk-bad-bd bg-zk-bad-bg p-3.5 text-sm text-zk-bad-fg">
@@ -340,23 +338,23 @@ export function PublicContributorForm({
         </div>
       ) : null}
 
-      <div className="w-full space-y-5 rounded-panel border border-zk-border bg-zk-surface p-5 sm:p-6">
+      <div className={compact ? "space-y-4" : "w-full space-y-5 rounded-panel border border-zk-border bg-zk-surface p-5 sm:p-6"}>
         {/* Required Description */}
         <div className="space-y-3">
           <label htmlFor="contributor-description" className="block text-sm font-medium text-zk-text">
-            Your feedback <span className="text-zk-accent">*</span>
+            {compact ? "Describe a problem or suggest an improvement." : "Your feedback"} {!compact ? <span className="text-zk-accent">*</span> : null}
           </label>
           <Textarea
             id="contributor-description"
             name="description"
             value={description}
             onChange={(e) => handleDescriptionChange(e.target.value)}
-            rows={6}
+            rows={compact ? 4 : 6}
             required
             minLength={10}
             maxLength={2400}
             placeholder="Describe the problem you noticed or the improvement you’d like."
-            className="min-h-40 w-full border-zk-border text-sm leading-6 shadow-none! focus:border-zk-accent focus:ring-zk-accent/20"
+            className={`${compact ? "min-h-28" : "min-h-40"} w-full border-zk-border text-sm leading-6 shadow-none! focus:border-zk-accent focus:ring-zk-accent/20`}
           />
           <div className="flex items-center justify-between text-sm text-zk-muted">
             <CharacterCounter length={description.length} max={2400} />
@@ -385,9 +383,9 @@ export function PublicContributorForm({
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
               </svg>
-              Add a screenshot (optional)
+              {compact ? "Add screenshot" : "Add a screenshot (optional)"}
             </Button>
-            <span className="text-sm text-zk-muted">PNG, JPG, GIF or WebP · up to 5 MB</span>
+            {!compact ? <span className="text-sm text-zk-muted">PNG, JPG, GIF or WebP · up to 5 MB</span> : null}
           </div>
 
           {screenshotError ? (
@@ -429,7 +427,7 @@ export function PublicContributorForm({
         <div className="border-t border-zk-border pt-5">
           <button type="button" onClick={() => setShowDetails(!showDetails)} aria-expanded={showDetails} aria-controls="feedback-details" className="flex min-h-8 items-center gap-2 text-sm font-medium text-zk-text hover:text-zk-accent">
             <span aria-hidden="true">{showDetails ? "−" : "+"}</span>
-            Add more details (optional)
+            {compact ? "More details" : "Add more details (optional)"}
           </button>
           {showDetails ? (
             <div id="feedback-details" className="mt-4 grid gap-5 sm:grid-cols-2">
@@ -477,17 +475,16 @@ export function PublicContributorForm({
         ) : null}
 
         {/* Submission Button */}
-        <div className="flex flex-col gap-3 border-t border-zk-border pt-6">
+        <div className={compact ? "flex items-center justify-end gap-3 border-t border-zk-divider pt-4" : "flex flex-col gap-3 border-t border-zk-border pt-6"}>
+          {compact && onCancel ? <Button type="button" variant="secondary" onClick={onCancel} disabled={pending}>Cancel</Button> : null}
           <Button
             type="submit"
             disabled={pending}
-            className="w-full sm:ml-auto sm:w-auto"
+            className={compact ? "" : "w-full sm:ml-auto sm:w-auto"}
           >
             {pending ? "Sending…" : "Send feedback"}
           </Button>
-          <p className="text-center text-sm text-zk-muted">
-            Your feedback is submitted directly as an Idea in this project.
-          </p>
+          {!compact ? <p className="text-center text-sm text-zk-muted">Your feedback is submitted directly as an Idea in this project.</p> : null}
         </div>
       </div>
     </form>
