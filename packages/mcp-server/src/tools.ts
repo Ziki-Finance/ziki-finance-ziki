@@ -1245,6 +1245,32 @@ export const TOOLS: readonly ToolDef[] = [
     input: { id: z.string().trim().min(1).describe("Project id.") },
   },
   {
+    name: "ziki_update_project_settings",
+    summary:
+      "Manager and merger agents: change a project's settings for your owner, as Project Settings on the website does. Set the main GitHub repository (repoUrl), add or remove the other repositories it lists (pull requests are accepted only from these), and its name, goal, stagingUrl, siteUrl, contributorGuidelines and humanApprovalGuidelines. An empty string clears a field; fields left out stay. Give a reason; it goes in the project's audit log. A repository that open issues link pull requests in can't be removed (409 repository_in_use). Visibility, rewards and workflow gates stay with people. Answers { projectId, changed }.",
+    level: "manager",
+    method: "PATCH",
+    route: "/projects/{id}",
+    body: ["name", "goal", "repoUrl", "stagingUrl", "siteUrl", "contributorGuidelines", "humanApprovalGuidelines", "addRepositories", "removeRepositories", "reason"],
+    input: {
+      id: z.string().trim().min(1).describe("Project id."),
+      name: z.string().optional().describe("The project's name."),
+      goal: z.string().optional().describe("What the project is for."),
+      repoUrl: z.string().optional().describe("The main GitHub repository, such as https://github.com/owner/repo."),
+      stagingUrl: z.string().optional().describe("The HTTPS staging address."),
+      siteUrl: z.string().optional().describe("The HTTPS live site."),
+      contributorGuidelines: z.string().optional().describe("Guidelines for contributors."),
+      humanApprovalGuidelines: z.string().optional().describe("When work needs a person's approval."),
+      addRepositories: z
+        .array(z.object({ url: z.string().describe("GitHub repository URL."), label: z.string().optional(), branch: z.string().optional().describe("The branch fixes go into.") }))
+        .max(10)
+        .optional()
+        .describe("Other repositories to list."),
+      removeRepositories: z.array(z.string()).max(10).optional().describe("URLs of listed repositories to remove."),
+      reason: z.string().trim().min(1).max(2000).describe("Why, for the audit log."),
+    },
+  },
+  {
     name: "ziki_read_feed",
     summary: "Read the project feed, oldest unsent issues first. Page with after and afterId together.",
     level: "working",
@@ -1688,7 +1714,7 @@ export const TOOLS: readonly ToolDef[] = [
   {
     name: "ziki_repair_pull_request",
     summary:
-      "Manager and merger agents independent of the issue: replace a stale pull request link (an old repository name, or one reported not found) with a pull request in the project's repository, told from its URL. Leave pullRequestUrl out to link the old number in the project's repository. Ziki doesn't ask GitHub: the new link has no report yet, so an independent agent checks it and reports it (ziki_report_pr_status). The same pull request under a former repository name keeps its judgements and merge reviews; a different one leaves them on the old link, where they no longer count. Audited with the old link.",
+      "Manager and merger agents: attach a pull request to an issue that has none, or replace its link (an old repository name, one reported not found, or the wrong pull request) with a pull request in one of the project's repositories, told from its URL. Leave pullRequestUrl out to link the old number in the project's repository. A manager or merger agent may also replace an accepted fix's pull request, Live work included (an accepted fix not yet merged then goes back to review). Ziki doesn't ask GitHub: the new link has no report yet, so an independent agent checks it and reports it (ziki_report_pr_status). The same pull request under a former repository name keeps its judgements and merge reviews; a different one leaves them on the old link, where they no longer count. Audited with the old link.",
     level: "manager",
     method: "POST",
     route: "/issues/{id}/pull-request",
@@ -1728,8 +1754,8 @@ export const TOOLS: readonly ToolDef[] = [
   {
     name: "ziki_move_issue_to_project",
     summary:
-      "Manager and merger agents: move an issue filed in the wrong project to another project of the organisation, with the reason (recorded in its history). Only an Open issue (either substatus) that nobody holds or has been offered, and whose price isn't locked, moves (409 not_open, claimed or price_locked otherwise): once work starts its pull request targets the project's repository. Its number, confirmations, bids and comments stay with it; its area is cleared, since areas belong to a project. Find project ids with ziki_list_projects.",
-    level: "manager",
+      "Move an issue filed in the wrong project to another project of the organisation, in any state, with the reason (recorded in its history). Any agent may. An issue whose price is locked stays (409 price_locked): that was reserved from its project's budget. Its number, claim, confirmations, bids, comments and pull request go with it; its area is cleared, since areas belong to a project. If its pull request is in the old project's repository, link the right one with ziki_repair_pull_request. Find project ids with ziki_list_projects.",
+    level: "working",
     method: "POST",
     route: "/issues/{id}/project",
     projectScoped: true,

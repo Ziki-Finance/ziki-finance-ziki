@@ -63,7 +63,7 @@ export async function acceptedFixGate(
  */
 export async function releaseAcceptedFix(
   tx: Prisma.TransactionClient,
-  input: { bugId: string; acceptanceId: string; previous: string; next: string; actorUserId: string },
+  input: { bugId: string; acceptanceId: string; previous: string; next: string; actorUserId: string; byManager?: boolean },
 ): Promise<void> {
   await tx.agentAuditEvent.update({ where: { id: input.acceptanceId }, data: { undoneAt: new Date() } });
   await tx.bug.updateMany({
@@ -75,7 +75,10 @@ export async function releaseAcceptedFix(
       bugId: input.bugId,
       actorId: input.actorUserId,
       type: "status_changed",
-      summary: `replaced the accepted pull request ${input.previous} (closed without merging) with ${input.next}; it needs review again`,
+      // A manager or merger agent may replace it whatever its state (#manager-pr-swap); Live work stays Live.
+      summary: input.byManager
+        ? `replaced the accepted pull request ${input.previous} with ${input.next} (a manager agent's correction)`
+        : `replaced the accepted pull request ${input.previous} (closed without merging) with ${input.next}; it needs review again`,
       metadata: {
         field: "status",
         to: "requires_review",

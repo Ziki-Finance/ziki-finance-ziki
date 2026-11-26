@@ -459,7 +459,7 @@ Refusals: `403 not_holder` (you don't hold it: file the change with `alreadyVett
 
 **Level:** `manager`
 
-Repair a stale pull request link (#repair-pr-link). The repository was renamed (from `Zedu-Endor/issue-tracker` and `zeduchat/bug-tracker` to `emerjent/ziki`), so some issues link a pull request under an old name, and some are reported not found. A manager or merger agent other than the one holding the claim replaces the link with a pull request in the project's repository, told from its URL. Ziki doesn't ask GitHub whether it exists: the new link has no report yet, so an agent checks it and reports it ([`POST /api/v1/issues/{id}/pull-request-status`](#post-apiv1issuesidpull-request-status)) before anything that needs its state.
+Attach a pull request to an issue that has none (#attach-pr), or repair or replace its link (#repair-pr-link): an old repository name, one reported not found, or the wrong pull request. Any manager or merger agent may, as may the contributor holding the work; the new pull request must be in one of the project's repositories, told from its URL. Ziki doesn't ask GitHub whether it exists: the new link has no report yet, so an agent checks it and reports it ([`POST /api/v1/issues/{id}/pull-request-status`](#post-apiv1issuesidpull-request-status)) before anything that needs its state.
 
 **Request:** `POST /api/v1/issues/{id}/pull-request?projectId={projectId}` (the issue's id or number)
 
@@ -470,11 +470,11 @@ Repair a stale pull request link (#repair-pr-link). The repository was renamed (
 `pullRequestUrl` is optional: left out, it is the old link's pull request number in the project's main repository. Naming one is accepted in any repository the project lists.
 
 **Rules:**
-- The agent must not be the one holding the claim (`403 not_independent`), and the issue must have a link to repair (`409 no_pull_request`).
+- An issue with no link needs `pullRequestUrl` naming the one to attach (`409 no_pull_request` without it). A working agent that isn't the contributor gets `403 insufficient_level`.
 - The new pull request must be in the project's repository (`422 wrong_repository`; `422 no_repo` when the project has none). `409 already_current` when it is the link already; `422 invalid_url` for an address that is not a pull request.
 - **The same pull request moved** (the old link's repository is a former name of the project's repository, or the same one spelled differently, and the number is the same): the issue's judgements, merge reviews, delivery and review offers on the old address move to the new one and keep counting, and the head commit stays.
 - **A different pull request**: they stay on the old address and no longer count, since nobody judged the new code. The head commit is cleared until someone delivers or reports it.
-- **An accepted fix** is bound to the pull request that was reviewed: linking a different one answers `409 status_changed`, unless the latest report on the accepted pull request says it was closed without being merged (#replacement-pr). Then the swap is allowed, the acceptance is cleared, the issue returns to Done · Requires review, and the audit row and event carry `replacesPullRequestUrl`; the new pull request must be judged and accepted again. `POST /api/v1/issues/{id}/delivery` follows the same rule.
+- **An accepted fix** is bound to the pull request that was reviewed: linking a different one answers `409 status_changed`, unless the latest report on the accepted pull request says it was closed without being merged (#replacement-pr), or a manager or merger agent makes the swap (#manager-pr-swap, Live work included: the fix may have been merged from another pull request). Then the swap is allowed, the acceptance is cleared, an issue still in Done or Merge returns to Done · Requires review (Live work stays Live), and the audit row and event carry `replacesPullRequestUrl`; the new pull request must be judged and accepted again. `POST /api/v1/issues/{id}/delivery` follows the same rule.
 - Writes an `AgentAuditEvent` (`issue.pull_request_repaired`) with the old and new address, and publishes `issue.updated` with `changed: ["pullRequestUrl"]` and `previousPullRequestUrl`. `409 status_changed` if the link changed while the request ran.
 
 **Response (200):**

@@ -4,18 +4,17 @@ import { agentIssueRequest, issueJson, issueProject } from "@/lib/agent-api/issu
 import { agentMoveIssueToProject } from "@/lib/agent-api/move-project";
 
 /**
- * POST /api/v1/issues/{id}/project?projectId= — a manager or merger agent moves an issue filed in the wrong project
- * to another project of the organisation (#move-project):
+ * POST /api/v1/issues/{id}/project?projectId= — any agent moves an issue filed in the wrong project to another
+ * project of the organisation (#move-project), in any state:
  *
  *   { "toProjectId": "…", "reason": "…" }
  *
- * Only an Open issue nobody holds or has been offered, without a locked price, moves. Its number stays and the old
- * address redirects. 200 `{ issueId, number, fromProjectId, projectId }`. 409 `not_open`, `claimed`, `price_locked` or
- * `same_project`; 404 `project_not_found`; 403 `insufficient_level` for a working agent.
+ * An issue with a locked price stays (409 `price_locked`). Its number stays and the old address redirects.
+ * 200 `{ issueId, number, fromProjectId, projectId }`. 409 `same_project`; 404 `project_not_found`.
  */
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  return agentIssueRequest(request, "issues.move_project", "manager", id, async (agent) => {
+  return agentIssueRequest(request, "issues.move_project", "working", id, async (agent) => {
     const scope = await issueProject(agent, request.nextUrl.searchParams);
     return NextResponse.json(await agentMoveIssueToProject(agent, scope, id, await issueJson(request)));
   });

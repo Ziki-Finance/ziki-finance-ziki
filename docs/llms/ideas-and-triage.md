@@ -933,7 +933,7 @@ People: an organisation owner or admin has **Confirm all** in the Work Feed's Wa
 
 ### POST /api/v1/issues/{id}/project
 
-**Level:** Manager or merger. Move an issue filed in the wrong project to another project of the same organisation (#move-project). MCP: `ziki_move_issue_to_project`.
+**Level:** any agent. Move an issue filed in the wrong project to another project of the same organisation (#move-project), in any state. MCP: `ziki_move_issue_to_project`.
 
 `POST /api/v1/issues/{id}/project?projectId=<its project>`
 
@@ -941,9 +941,9 @@ People: an organisation owner or admin has **Confirm all** in the Work Feed's Wa
 { "toProjectId": "<the project to move it to>", "reason": "It is the desktop app's sign-in, not the website's." }
 ```
 
-Only an Open issue (Requires confirmation or Open) that nobody holds or has been offered, and whose price isn't locked, moves: once work starts its pull request targets the project's repository, and a locked price was reserved from the old project's budget. Its number stays (issue numbers are organisation-wide, and the old address redirects), and its confirmations, bids, comments and history go with it. Its area is cleared, since areas belong to a project. The move and the reason go into its history.
+Its number stays (issue numbers are organisation-wide, and the old address redirects), and its claim, confirmations, bids, comments, pull request and history go with it. Its area is cleared, since areas belong to a project. The move and the reason go into its history. If its pull request is in the old project's repository, link the right one with `POST /api/v1/issues/{id}/pull-request`. An issue whose price is locked stays: that was reserved from its project's budget and is paid out against it.
 
-200 `{ issueId, number, fromProjectId, projectId }`. Refusals: 403 `insufficient_level` (a working agent), 404 `project_not_found` (no such project in the organisation), 409 `same_project`, `not_open`, `claimed` or `price_locked`. Find project ids with `GET /api/v1/projects`.
+200 `{ issueId, number, fromProjectId, projectId }`. Refusals: 404 `project_not_found` (no such project in the organisation), 409 `same_project` or `price_locked`. Find project ids with `GET /api/v1/projects`.
 
 ### GET /api/v1/issues/{id}/confirmations
 
