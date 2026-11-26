@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { IdeaChat } from "@/components/idea-chat";
 import { NeedPicker, needsFor, PRIMARY_BUTTON, SECONDARY_BUTTON } from "@/components/get-started/need-picker";
 import { saveProductKindsAction } from "@/app/(app)/projects/actions";
 import { PRODUCT_OTHER_MAX, readProductKinds, type ProductKind } from "@/lib/product-kinds";
@@ -18,10 +17,11 @@ import { PRODUCT_OTHER_MAX, readProductKinds, type ProductKind } from "@/lib/pro
  * 1. what you're building (#product-kinds): any of a website, a mobile app, a
  * desktop app and something else (in your own words: a game, an extension…), or not built yet;
  * saved on the project, 2. what you need help with (tap tiles, worded for what
- * you build), 3. your first request, sent through the normal Ideas box. It
- * doesn't ask for links: the project header and Project Settings set those.
- * Skip or × closes it for this project on this device; sending the request
- * closes it onto the dashboard (not the new idea), and the project then has an idea.
+ * you build), 3. "You're all set": how the work gets done here, naming what
+ * they picked, and one button onto the dashboard. Nothing to type or choose:
+ * the dashboard's own request box and "Who will work on your tasks?" take it
+ * from there. It doesn't ask for links: the project header and Project
+ * Settings set those. Finishing, skipping or × closes it for this project on this device.
  */
 
 const DONE_KEY = "ziki.first-questions.v1.done";
@@ -36,7 +36,22 @@ type Props = {
   firstName: string | null;
 };
 
-type Step = "kind" | "needs" | "request";
+type Step = "kind" | "needs" | "done";
+
+/** "fix something broken and keep it safe": what they picked, as words for a sentence. */
+function pickedWords(labels: string[]): string | null {
+  const words = labels.map((label) => label.charAt(0).toLowerCase() + label.slice(1));
+  if (words.length === 0) return null;
+  if (words.length === 1) return words[0];
+  return `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
+}
+
+/** How work gets done on Ziki, in three short lines for the last screen. */
+const HOW_IT_WORKS: { icon: string; title: string; text: string }[] = [
+  { icon: "💬", title: "Say what you need", text: "A fix, a feature or a change, in plain words, in the box at the top of your dashboard." },
+  { icon: "🤖", title: "AI agents do the work", text: "Your own agent, or agents on Ziki. They pick it up, build it and show you the result." },
+  { icon: "✅", title: "You stay in charge", text: "Every change is tested and checked, and nothing goes live without your yes." },
+];
 
 /** Pick all that apply; "Not built yet" stands alone. */
 const KINDS: { id: ProductKind; icon: string; label: string; hint: string }[] = [
@@ -46,21 +61,6 @@ const KINDS: { id: ProductKind; icon: string; label: string; hint: string }[] = 
   { id: "other", icon: "🧩", label: "Something else", hint: "A game, an extension, a bot…" },
   { id: "idea", icon: "💡", label: "Not built yet", hint: "I have an idea to start" },
 ];
-
-const REQUEST_EXAMPLE: Record<ProductKind, string> = {
-  website: "For example: The contact form on my website doesn't send me an email.",
-  mobile: "For example: The sign-up screen in my app freezes after I tap Continue.",
-  desktop: "For example: My app won't open on a Mac after the latest update.",
-  other: "For example: Players fall through the floor on level 3.",
-  idea: "For example: I want an app where neighbours can lend each other tools.",
-};
-
-/** The example in the request box: the one kind's, or a general one for several. */
-function requestExample(kinds: readonly ProductKind[]): string {
-  if (kinds.length === 1) return REQUEST_EXAMPLE[kinds[0]];
-  if (kinds.length === 0) return REQUEST_EXAMPLE.website;
-  return "For example: Customers can't reset their password.";
-}
 
 function readDone(projectId: string): boolean {
   try {
@@ -101,8 +101,7 @@ export function FirstQuestions({
   const [saving, setSaving] = useState(false);
   const [picked, setPicked] = useState<string[]>([]);
   const headingRef = useRef<HTMLHeadingElement>(null);
-  const requestRef = useRef<HTMLDivElement>(null);
-  const steps: Step[] = ["kind", "needs", "request"];
+  const steps: Step[] = ["kind", "needs", "done"];
   const step = steps[index];
   const greeting = firstName ? `Welcome, ${firstName}!` : "Welcome!";
 
@@ -128,13 +127,9 @@ export function FirstQuestions({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Each screen's question takes focus, so screen readers say it; the last one starts in the box.
+  // Each screen's question takes focus, so screen readers say it.
   useEffect(() => {
     if (!open) return;
-    if (step === "request") {
-      const timer = setTimeout(() => requestRef.current?.querySelector("textarea")?.focus(), 200);
-      return () => clearTimeout(timer);
-    }
     headingRef.current?.focus();
   }, [open, step]);
 
@@ -174,21 +169,10 @@ export function FirstQuestions({
     next();
   }
 
-  function fill(text: string) {
-    const box = requestRef.current?.querySelector("textarea");
-    if (!box) return;
-    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set?.call(box, text);
-    box.dispatchEvent(new Event("input", { bubbles: true }));
-    box.focus();
-    const blank = text.indexOf("___");
-    if (blank >= 0) box.setSelectionRange(blank, blank + 3);
-  }
-
   if (!open) return null;
 
   const needs = needsFor(kinds.length > 0 ? kinds : ["website"]);
-  const pickedNeeds = needs.filter((need) => picked.includes(need.id));
-  const starters = pickedNeeds.length > 0 ? pickedNeeds : needs.slice(0, 3);
+  const pickedLine = pickedWords(needs.filter((need) => picked.includes(need.id)).map((need) => need.label));
 
   // A big question, left-aligned; a line break in the text starts its second line.
   const heading = (text: string) => (
@@ -306,39 +290,28 @@ export function FirstQuestions({
             />
           ) : null}
 
-          {step === "request" ? (
+          {step === "done" ? (
             <>
-              {heading("Tell us one thing\nyou want")}
-              {lead("Use your own words. Tap a start below, then fill in the blank.")}
-              <div className="mt-6 flex flex-wrap gap-2">
-                {starters.map((need) => (
-                  <button
-                    key={need.id}
-                    type="button"
-                    onClick={() => fill(need.text)}
-                    className="inline-flex min-h-10 items-center gap-1.5 rounded-chip border border-zk-border bg-zk-surface px-4 text-sm font-semibold text-zk-text transition hover:border-electric-blue hover:bg-zk-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue"
-                  >
-                    <span aria-hidden="true">{need.icon}</span>
-                    {need.label}
-                  </button>
+              {heading(firstName ? `You're all set,\n${firstName}! 🎉` : "You're all set! 🎉")}
+              {lead(
+                pickedLine
+                  ? `Ziki is ready to help you ${pickedLine}. Here's how it works:`
+                  : "Your project is ready. Here's how work gets done here:",
+              )}
+              <ol className="mt-7 flex w-full list-none flex-col gap-3 p-0">
+                {HOW_IT_WORKS.map((point) => (
+                  <li key={point.title} className="flex items-start gap-4 rounded-panel border border-zk-border bg-zk-surface px-5 py-4">
+                    <span aria-hidden="true" className="text-2xl leading-none">{point.icon}</span>
+                    <span className="flex flex-col gap-0.5">
+                      <span className="text-[15px] font-bold leading-tight text-zk-text">{point.title}</span>
+                      <span className="text-sm leading-snug text-zk-text2">{point.text}</span>
+                    </span>
+                  </li>
                 ))}
-              </div>
-              <div ref={requestRef} className="mt-4 w-full">
-                {/* Sent: the card closes onto the dashboard, which now lists the request, rather than opening the idea. */}
-                <IdeaChat
-                  projectId={projectId}
-                  alwaysOpen
-                  placeholder={requestExample(kinds)}
-                  onSent={() => {
-                    close();
-                    router.refresh();
-                  }}
-                />
-              </div>
-              <p className="m-0 mt-3 text-sm text-zk-muted">Press Enter or the round arrow to send it. Nothing changes without your OK.</p>
+              </ol>
               <div className="mt-auto flex w-full flex-col pt-8">
-                <button type="button" onClick={close} className={SECONDARY_BUTTON}>
-                  I&apos;ll do this later
+                <button type="button" onClick={close} className={PRIMARY_BUTTON}>
+                  Take me to my dashboard
                 </button>
               </div>
             </>
