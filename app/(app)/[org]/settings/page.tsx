@@ -8,8 +8,8 @@ import {
   renameOrganisationAction,
   setOrganisationArchivedAction,
 } from "@/app/(app)/organisations/actions";
-import { loadOrg } from "../org-context";
-import { OrgMessages, OrgPageHeader, ReadOnlyNote, oneParam, orgCard } from "../org-ui";
+import { loadOrg } from "./org-context";
+import { OrgMessages, OrgPageHeader, ReadOnlyNote, oneParam, orgCard } from "./org-ui";
 
 export const metadata: Metadata = { title: "Organisation settings" };
 

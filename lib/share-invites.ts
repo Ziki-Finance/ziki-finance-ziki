@@ -1,10 +1,12 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { z } from "zod";
+import type { AppRole } from "@/lib/roles";
 import { giveWelcomeBonus } from "@/lib/coins/welcome-bonus";
 import {
   INVITE_NOT_ALLOWED,
   canInvite,
   generateInviteToken,
+  invitingOrganisation,
   hashInviteToken,
   isInviteToken,
 } from "@/lib/invites";
@@ -134,17 +136,12 @@ export type CreateShareLinkResult =
 
 export async function createShareLink(
   db: Db,
-  inviter: { id: string },
+  inviter: { id: string; role?: AppRole | null },
   input: { organisationId: string; expiresDays: unknown; maxUses: unknown; label: unknown },
   now = new Date(),
 ): Promise<CreateShareLinkResult> {
-  const membership = input.organisationId
-    ? await db.membership.findUnique({
-        where: { organisationId_userId: { organisationId: input.organisationId, userId: inviter.id } },
-        select: { role: true, organisation: { select: { id: true, slug: true, name: true } } },
-      })
-    : null;
-  if (!membership || !canInvite(membership.role)) {
+  const organisation = await invitingOrganisation(db, inviter, input.organisationId);
+  if (!organisation) {
     return { ok: false, error: INVITE_NOT_ALLOWED };
   }
 
@@ -164,7 +161,6 @@ export async function createShareLink(
   const days = Number(expires.data);
   const maxUses = uses.data === "unlimited" ? null : Number(uses.data);
   const label = labelParsed.data.length > 0 ? labelParsed.data : null;
-  const { organisation } = membership;
 
   const existing = await db.organisationShareLink.findMany({
     where: { organisationId: organisation.id, revokedAt: null, expiresAt: { gt: now } },
@@ -286,7 +282,7 @@ export async function listShareLinks(db: Db, organisationId: string, now = new D
 export type RevokeShareLinkResult = { ok: true; organisationSlug: string } | { ok: false; error: string };
 
 /** An owner or admin turns a link off. People who already joined stay members. */
-export async function revokeShareLink(db: Db, actor: { id: string }, linkId: string, now = new Date()): Promise<RevokeShareLinkResult> {
+export async function revokeShareLink(db: Db, actor: { id: string; role?: AppRole | null }, linkId: string, now = new Date()): Promise<RevokeShareLinkResult> {
   const link = linkId
     ? await db.organisationShareLink.findUnique({
         where: { id: linkId },
@@ -299,7 +295,7 @@ export async function revokeShareLink(db: Db, actor: { id: string }, linkId: str
         select: { role: true },
       })
     : null;
-  if (!link || !canInvite(membership?.role)) return { ok: false, error: INVITE_NOT_ALLOWED };
+  if (!link || !canInvite(membership?.role, actor.role)) return { ok: false, error: INVITE_NOT_ALLOWED };
   if (link.revokedAt) return { ok: true, organisationSlug: link.organisation.slug };
 
   await db.organisationShareLink.updateMany({

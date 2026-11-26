@@ -27,7 +27,6 @@ import {
 } from "@/lib/mine-filter";
 import { TRACK_PARAM, parseTrackFilter } from "@/lib/my-work-filter";
 import { AREA_NONE, AREA_PARAM, parseProjectAreaFilter, type ProjectAreaOption } from "@/lib/project-area-filter";
-import { MILESTONE_NONE, MILESTONE_PARAM } from "@/lib/milestones";
 import {
   MIN_SUGGEST_LENGTH,
   type IssueSuggestion,
@@ -80,7 +79,6 @@ const FILTER_PARAMS = [
   "mine",
   "status",
   AREA_PARAM,
-  MILESTONE_PARAM,
   TRACK_PARAM,
 ];
 
@@ -119,15 +117,12 @@ function hrefWithChanges(
 
 export function IssueFilters({
   tagTypes = [],
-  milestones = [],
   areas = [],
   shortcutsEnabled = true,
   stageCounts,
   compact = false,
 }: {
   tagTypes?: TagType[];
-  /** #289: open milestones first; closed ones stay selectable for history. */
-  milestones?: { id: string; title: string; isClosed: boolean }[];
   areas?: ProjectAreaOption[];
   shortcutsEnabled?: boolean;
   /** Open issues in each intake stage, shown beside the Stage choices (#1054). */
@@ -418,7 +413,6 @@ export function IssueFilters({
   );
   const currentArea = parseProjectAreaFilter(params.get(AREA_PARAM), areas) ?? "";
   const currentMine = parseMineFilter(params.get("mine")) ?? "";
-  const currentMilestone = params.get(MILESTONE_PARAM) ?? "";
   const currentTrack = parseTrackFilter(params.get(TRACK_PARAM));
 
   const currentStage = stageFilterValue(params.get(STAGE_PARAM));
@@ -429,7 +423,6 @@ export function IssueFilters({
     Boolean(currentMine),
     selectedNames.length > 0,
     Boolean(currentArea),
-    Boolean(currentMilestone),
     currentTrack !== "product",
   ].filter(Boolean).length;
 
@@ -451,11 +444,6 @@ export function IssueFilters({
     router.push(issuesPath(slug, compact ? pathStatus : "all"));
   }
 
-  const milestoneValue =
-    milestones.some((m) => m.id === params.get(MILESTONE_PARAM)) ||
-    params.get(MILESTONE_PARAM) === MILESTONE_NONE
-      ? (params.get(MILESTONE_PARAM) ?? "")
-      : "";
 
   const selectClass =
     "w-full appearance-none rounded-xl border border-zk-border bg-zk-surface px-3.5 py-0 h-11 text-sm font-medium text-zk-text focus:border-electric-blue focus:outline-none focus:ring-1 focus:ring-electric-blue";
@@ -641,16 +629,6 @@ export function IssueFilters({
                       </FilterSelect>
                     </div>
                   ) : null}
-                  {milestones.length > 0 ? (
-                    <div>
-                      <label htmlFor="milestone" className={fieldLabelClass}>Milestone</label>
-                      <FilterSelect aria-label="Milestone" id="milestone" className={selectClass} value={milestoneValue} onValueChange={(value) => update(MILESTONE_PARAM, value)}>
-                        <option value="">All</option>
-                        {milestones.map((m) => (<option key={m.id} value={m.id}>{m.title}{m.isClosed ? " (closed)" : ""}</option>))}
-                        <option value={MILESTONE_NONE}>No milestone</option>
-                      </FilterSelect>
-                    </div>
-                  ) : null}
                   <div>
                     <label htmlFor="track" className={fieldLabelClass}>Track</label>
                     <FilterSelect aria-label="Track" id="track" className={selectClass} value={currentTrack} onValueChange={(value) => update(TRACK_PARAM, value)}>
@@ -724,12 +702,6 @@ export function IssueFilters({
             <span className="inline-flex items-center gap-1 rounded-full border border-zk-border bg-zk-tint py-0.5 pl-2.5 pr-1.5 text-xs font-bold text-zk-accent">
               Area: {currentArea === AREA_NONE ? "No area" : areas.find((area) => area.id === currentArea)?.name ?? currentArea}
               <button type="button" onClick={() => update(AREA_PARAM, "")} aria-label="Remove area filter" className="ml-0.5 rounded-full p-0.5 hover:bg-zk-chip">✕</button>
-            </span>
-          ) : null}
-          {currentMilestone ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-zk-border bg-zk-chip py-0.5 pl-2.5 pr-1.5 text-xs font-bold text-zk-text">
-              Milestone: {currentMilestone === MILESTONE_NONE ? "No milestone" : milestones.find((milestone) => milestone.id === currentMilestone)?.title ?? currentMilestone}
-              <button type="button" onClick={() => update(MILESTONE_PARAM, "")} aria-label="Remove milestone filter" className="ml-0.5 rounded-full p-0.5 text-zk-muted hover:bg-zk-divider">✕</button>
             </span>
           ) : null}
           {currentTrack !== "product" ? (

@@ -1,4 +1,5 @@
 import { DocsArticle, DocsBlock, DocsLink, DocsList, DocsNote, DocsP, UiLabel } from "@/components/docs-article";
+import { financeHref } from "@/lib/finance-paths";
 
 export const metadata = {
   title: "Earning money",
@@ -29,7 +30,7 @@ export default function EarningPage() {
           </li>
           <li>
             What you earn comes into your Ziks wallet, so you can withdraw it or use it to fund a project. You can also
-            buy Ziks on the <DocsLink href="/coins">Your Ziks</DocsLink> page (<UiLabel>Buy Ziks</UiLabel> in your
+            buy Ziks on the <DocsLink href={financeHref("buy")}>Finance</DocsLink> settings (<UiLabel>Buy Ziks</UiLabel> in your
             menu). <UiLabel>1,000 Ziks are $1</UiLabel> when you buy or withdraw.
           </li>
         </DocsList>

@@ -673,7 +673,7 @@ describe("Stripe webhook purchases", () => {
 
 describe("Test payments (no card step while the Stripe key is a test key)", () => {
   it("credits the pack at once, marked as a test purchase, without asking Stripe", async () => {
-    expect(await createTestPurchase("owner", "starter")).toBe("/coins?bought=1");
+    expect(await createTestPurchase("owner", "starter")).toBe("/settings?section=finance&tab=buy&bought=1");
     expect(await walletBalance(db as never, "owner")).toBe(5000);
     expect(world.purchases).toHaveLength(1);
     expect((world.purchases[0] as { currency?: string }).currency).toBe("test");
@@ -780,7 +780,7 @@ describe("Ziki plans (a discount on Ziks packs)", () => {
     await createSubscriptionCheckout("owner", undefined, "plus", "pricing");
     expect((lastCheckout() as unknown as { cancel_url: string }).cancel_url).toBe("https://ziki.test/pricing");
     await createSubscriptionCheckout("owner", undefined, "plus");
-    expect((lastCheckout() as unknown as { cancel_url: string }).cancel_url).toBe("https://ziki.test/coins?section=plan");
+    expect((lastCheckout() as unknown as { cancel_url: string }).cancel_url).toBe("https://ziki.test/settings?section=finance&tab=plan");
 
     await expect(createSubscriptionCheckout("owner", undefined, "gold")).rejects.toMatchObject({ code: "invalid_amount" });
 
@@ -807,11 +807,11 @@ describe("Ziki plans (a discount on Ziks packs)", () => {
   it("sends a buyer who came from a scan's checkout back to that scan after paying, and never anywhere else (#deeper-scan-gate)", async () => {
     await createPackCheckout("owner", undefined, "starter", "/security/checks/cm123");
     expect(lastCheckout().success_url).toMatch(/\/security\/checks\/cm123\?bought=1$/);
-    expect(lastCheckout().cancel_url).toMatch(/\/coins\?returnTo=%2Fsecurity%2Fchecks%2Fcm123$/);
+    expect(lastCheckout().cancel_url).toMatch(/\/settings\?section=finance&tab=buy&returnTo=%2Fsecurity%2Fchecks%2Fcm123$/);
 
     for (const elsewhere of ["https://evil.example/x", "//evil.example/security/checks/x", "/settings", undefined]) {
       await createPackCheckout("owner", undefined, "starter", elsewhere);
-      expect(lastCheckout().success_url).toMatch(/\/coins\?bought=1$/);
+      expect(lastCheckout().success_url).toMatch(/\/settings\?section=finance&tab=buy&bought=1$/);
     }
   });
 

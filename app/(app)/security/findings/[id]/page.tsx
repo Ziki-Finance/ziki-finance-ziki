@@ -12,7 +12,7 @@ import { issuePath } from "@/lib/issue-ref";
 import { ideaPath, refOf } from "@/lib/project-paths";
 import { substatusLabel } from "@/lib/labels";
 import { safeHref } from "@/lib/rich-text";
-import { orgCard } from "../../../[org]/[project]/org/org-ui";
+import { orgCard } from "@/app/(app)/[org]/settings/org-ui";
 
 export const metadata = { title: "Security finding" };
 

@@ -13,10 +13,8 @@ import {
   MANAGE_AGENTS_HREF,
   isNavItemActive,
   marketingTabHref,
-  MY_STAKES_HREF,
   realRoleOf,
   roleViewLabels,
-  SITE_ADMIN_HREF,
 } from "@/lib/header-nav";
 import { type AppRole } from "@/lib/roles";
 import { type OrganisationRole } from "@/lib/organisation-role";
@@ -30,6 +28,7 @@ import { PAGE_CONTAINER_CLASS } from "@/components/page-container";
 import { ZikiMark } from "@/components/ziki-mark";
 import { formatZik } from "@/lib/coins/math";
 import { WithdrawWindow } from "@/components/withdraw-window";
+import { financeHref } from "@/lib/finance-paths";
 
 const linkFocus =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-electric-blue focus-visible:ring-offset-2";
@@ -258,7 +257,7 @@ export function AppHeader({
   const activeOrganisationName = organisationOptions.find((organisation) => organisation.id === activeOrganisationId)?.name ?? null;
   const roleAccess = roleAccessFor(organisationRole, realRole);
   // There is no request form yet: the members page names the admins who can change a role.
-  const requestAccessHref = projectSlug ? orgPath(projectSlug, "members") : "/organisations";
+  const requestAccessHref = projectSlug ? orgPath(projectSlug, "team") : "/organisations";
 
   return (
     // Sticky only from lg: on phones and tablets the toolbar wraps onto rows,
@@ -352,22 +351,11 @@ export function AppHeader({
                 />
                 <AccountThemeSelector />
                 <div className="mx-2 h-px bg-zk-divider" />
-                <MenuLink href="/my-submissions" active={isNavItemActive(pathname, "/my-submissions")}>
-                  My submissions
-                </MenuLink>
-                {/* What your agents are doing and what needs you (#849). */}
-                <MenuLink href="/activity" active={isNavItemActive(pathname, "/activity")}>
-                  Activity
-                </MenuLink>
-                {/* Your agents' stakes on issues and ideas, with their clocks (#my-stakes). */}
-                <MenuLink href={MY_STAKES_HREF} active={isNavItemActive(pathname, MY_STAKES_HREF)}>
-                  My stakes
-                </MenuLink>
                 <MenuLink href={MANAGE_AGENTS_HREF} active={Boolean(pathname?.startsWith(MANAGE_AGENTS_HREF))}>
                   Manage agents
                 </MenuLink>
                 {/* Ziki Coins (#ziki-coins): buy Ziks and fund issues. */}
-                <MenuLink href="/coins" active={pathname === "/coins" || pathname === "/coins/"}>
+                <MenuLink href={financeHref("buy")} active={false}>
                   <span>
                     Buy Ziks{" "}
                     <span aria-hidden="true" className="inline-flex items-baseline gap-0.5 text-zk-muted">
@@ -375,32 +363,15 @@ export function AppHeader({
                     </span>
                   </span>
                 </MenuLink>
-                {/* The plans page (#ziki-coins): what Ziki costs, and the plans that make Ziks cheaper. */}
-                <MenuLink href="/pricing" active={pathname === "/pricing"}>
-                  Pricing
-                </MenuLink>
                 {/* What you earned and how to take it out (#ziki-coins), apart from buying Ziks. Only for people who have earned. */}
                 {showWithdraw ? (
-                  <MenuLink href="/coins/payouts" active={Boolean(pathname?.startsWith("/coins/payouts"))}>
+                  <MenuLink href={financeHref("withdraw")} active={false}>
                     Withdraw
                   </MenuLink>
                 ) : null}
                 <MenuLink href="/settings" active={isNavItemActive(pathname, "/settings")}>
                   Settings
                 </MenuLink>
-                <MenuLink href="/docs" active={isNavItemActive(pathname, "/docs")}>
-                  Documentation
-                </MenuLink>
-                {/* The skills library is public, but signed-in people look for it here (GAP 1). */}
-                <MenuLink href="/skills" active={isNavItemActive(pathname, "/skills")}>
-                  Skills library
-                </MenuLink>
-                {/* Site staff only: users, organisations, rewards and the Ziks money page (#ziki-coins). */}
-                {isRealSuperAdmin ? (
-                  <MenuLink href={SITE_ADMIN_HREF} active={isNavItemActive(pathname, SITE_ADMIN_HREF)}>
-                    Site admin
-                  </MenuLink>
-                ) : null}
                 <div className="mx-2 h-px bg-zk-divider" />
                 <SignOutButton
                   userId={userId}

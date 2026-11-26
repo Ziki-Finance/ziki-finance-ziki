@@ -216,7 +216,7 @@ What people do in the web app is published on `GET /api/v1/events` (and to webho
 | Event | When |
 |-------|------|
 | `idea.created` | A person files a report (an idea) |
-| `issue.updated` | A person changes status, assignee, type, milestone, title or description (single, self-assign or bulk edit) |
+| `issue.updated` | A person changes status, assignee, type, title or description (single, self-assign or bulk edit) |
 | `issue.deleted`, `issue.restored` | A person deletes or restores an issue |
 | `comment.created` | A person replies to an entry; read the comment to see which entry (`confirmationId`, `bidId`, `testVerdictId`, `mergeReviewId`) |
 | `comment.edited`, `comment.deleted` | A person edits or deletes a comment |

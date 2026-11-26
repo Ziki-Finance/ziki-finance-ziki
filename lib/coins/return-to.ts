@@ -1,3 +1,5 @@
+import { financeHref } from "@/lib/finance-paths";
+
 /**
  * Where to send someone after they buy Ziks (#deeper-scan-gate, 18 Nov): back to the scan they were paying for, so
  * they can press Pay there. Only a security check's own page on this site is allowed, never another address, so
@@ -11,7 +13,7 @@ export function safeReturnTo(value: unknown): string | null {
   return typeof value === "string" && SCAN_PAGE.test(value) ? value : null;
 }
 
-/** The Ziks page, remembering the scan to come back to. */
+/** Buying Ziks (Settings › Finance), remembering the scan to come back to. */
 export function buyZiksHref(checkId: string): string {
-  return `/coins?returnTo=${encodeURIComponent(`/security/checks/${checkId}/deeper`)}`;
+  return financeHref("buy", { returnTo: `/security/checks/${checkId}/deeper` });
 }

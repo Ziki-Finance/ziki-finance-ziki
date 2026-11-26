@@ -21,7 +21,7 @@ export async function savePlatformRewardsAction(
     await savePlatformRewardConfig(prisma, config, actor.id);
     revalidatePath("/superadmin/rewards");
     revalidatePath("/workers");
-    revalidatePath("/[org]/[project]/org", "layout");
+    revalidatePath("/[org]/settings", "layout");
     revalidatePath("/", "layout");
     return { message: "Saved." };
   } catch (error) {

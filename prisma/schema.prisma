@@ -78,6 +78,7 @@ enum ActivityType {
   assignee_changed
   commented
   edited
+  /// Written by nothing now that milestones are gone; kept so old history rows still read.
   milestone_changed
   boosted
   unboosted
@@ -535,9 +536,6 @@ model Bug {
   voteCount                 Int                     @default(0)
   isBoosted                 Boolean                 @default(false)
   boostedAt                 DateTime?
-  /// #289: at most one milestone. Cleared, not cascaded, when it's deleted.
-  milestoneId               String?
-  milestone                 Milestone?              @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
   isDeleted                 Boolean                 @default(false)
   deletedAt                 DateTime?
   proofLinks                String[]                @default([])
@@ -671,7 +669,6 @@ model Bug {
   @@index([duplicateOfId])
   @@index([isBoosted])
   @@index([isDeleted])
-  @@index([milestoneId])
   // #217: foreign keys behind the "Assigned to me" / "Reported by me" filters.
   @@index([assigneeId])
   @@index([reporterId])
@@ -718,28 +715,6 @@ model IssueBlocker {
 /// The same name can exist in another organisation; it is a different platform.
 /// A platform (#platforms): Desktop, Web, Mobile and any the organisation adds.
 /// Agents name it by `slug`; issues and ideas carry it as `platform`.
-
-/// A release or sprint grouping issues (#289).
-model Milestone {
-  id             String       @id @default(cuid())
-  organisationId String
-  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  title          String
-  description    String?
-  /// A calendar day; no time of day.
-  dueDate        DateTime?    @db.Date
-  /// Closing a milestone leaves its issues alone.
-  isClosed       Boolean      @default(false)
-  closedAt       DateTime?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  bugs           Bug[]
-
-  @@unique([organisationId, title])
-  @@unique([id, organisationId])
-  @@index([organisationId])
-  @@index([isClosed, dueDate])
-}
 
 model BugActivity {
   id        String       @id @default(cuid())
@@ -978,7 +953,6 @@ model Organisation {
   projects           Project[]
   issueTypes         IssueType[]
   marketingAssets    MarketingAsset[]
-  milestones         Milestone[]
   memberships        Membership[]
   agentActivations   AgentActivation[]
   agentPostingBlocks AgentPostingBlock[]

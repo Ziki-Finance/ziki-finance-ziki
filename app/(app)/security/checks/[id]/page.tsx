@@ -13,7 +13,7 @@ import { currentOrganisationAccess } from "@/lib/organisation-access";
 import { CHECK_STATUS_LABEL, FINISHED_CHECK_STATUSES, TARGET_KIND_LABEL } from "@/lib/security-checks";
 import { loadCheckReport, type CheckReport } from "@/lib/security-checks/report";
 import { codeScanPage } from "@/lib/security-checks/code-scan-page";
-import { orgCard } from "../../../[org]/[project]/org/org-ui";
+import { orgCard } from "@/app/(app)/[org]/settings/org-ui";
 
 export const metadata = { title: "Security check" };
 

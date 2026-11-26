@@ -2,7 +2,6 @@ import { PRODUCT_TRACK } from "@/lib/marketing/track";
 import type { Prisma } from "@prisma/client";
 import { statusFilterWhere } from "@/lib/issue-state";
 import { boundSearchTerm, escapeSearchQuery, toSingleQueryParam } from "@/lib/search";
-import { MILESTONE_PARAM, milestoneWhere, parseMilestoneFilter } from "@/lib/milestones";
 import {
   defaultSortFor,
   mineFilterWhere,
@@ -40,7 +39,6 @@ export function parseBugListFilters({
   canSeeDeleted,
   tagTypes = [],
   areas = [],
-  milestones = [],
 }: {
   params: RawParams;
   userId: string | undefined;
@@ -49,8 +47,6 @@ export function parseBugListFilters({
   tagTypes?: readonly TagType[];
   /** Areas belonging to the active project, so stale/foreign ids mean no filter. */
   areas?: readonly ProjectAreaOption[];
-  /** Known milestones (#289); an unknown id means no filter, like areas. */
-  milestones?: readonly { id: string }[];
 }): ParsedBugFilters {
   const q = toSingleQueryParam(params.q);
   const status = toSingleQueryParam(params.status);
@@ -82,7 +78,6 @@ export function parseBugListFilters({
 
   Object.assign(where, projectAreaFilterWhere(parseProjectAreaFilter(params.area, areas)));
 
-  Object.assign(where, milestoneWhere(parseMilestoneFilter(params[MILESTONE_PARAM], milestones)));
 
   if (q?.trim()) {
     const escaped = escapeSearchQuery(boundSearchTerm(q));

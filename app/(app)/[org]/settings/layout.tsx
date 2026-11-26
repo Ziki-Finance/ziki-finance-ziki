@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireProject } from "@/lib/project-route";
+import { requireOrg } from "@/lib/project-route";
 import { loadOrg } from "./org-context";
 import { MEMBERSHIP_ROLE_LABELS } from "@/lib/organisations";
 import { Badge } from "@/components/ui/badge";
@@ -10,22 +10,19 @@ import { prisma } from "@/lib/prisma";
 import "@/app/(app)/settings/settings-design.css";
 
 /**
- * The organisation admin area (/<org>/<project>/org, #project-urls): everything an organisation's owners and
- * admins manage, each in one place. It always shows the organisation this
+ * The organisation's settings (/<org>/settings, #org-settings): everything an organisation's owners and admins
+ * manage, each in one place. They belong to the organisation, so no project is in the address. It always shows the organisation this
  * device is working in. A project's outside contributors don't get it. Every member can open it; only owners and admins (and
  * the site super admin) see controls. Site-wide staff pages stay under /superadmin.
  */
-export default async function OrgLayout({ children, params }: { children: React.ReactNode; params: Promise<{ org: string; project: string }> }) {
-  const { org: orgParam, project } = await params;
-  // The address picks the organisation and checks access (lib/project-route.ts).
-  const projectContext = await requireProject(orgParam, project);
-  if (!projectContext.isOrgMember) {
-    notFound();
-  }
-  const current = projectContext.project;
+export default async function OrgLayout({ children, params }: { children: React.ReactNode; params: Promise<{ org: string }> }) {
+  const { org: orgParam } = await params;
+  // The address picks the organisation, checks access and makes it current (lib/project-route.ts).
+  const { organisation } = await requireOrg(orgParam);
+  if (!organisation) notFound();
   const { org } = await loadOrg();
 
-  if (!org || org.id !== projectContext.organisationId) {
+  if (!org || org.id !== organisation.id) {
     notFound();
   }
 
@@ -59,7 +56,7 @@ export default async function OrgLayout({ children, params }: { children: React.
       {/* One Settings area: your settings and the organisation's share this sidebar (components/settings-nav.tsx). */}
       <div className="settings-layout">
         <Suspense fallback={<nav aria-label="Settings sections" className="settings-navigation" />}>
-          <SettingsNav orgRef={current.ref} orgName={org.name} pendingJoinCount={pendingJoinCount} owner={org.owner} />
+          <SettingsNav orgRef={org.slug} pendingJoinCount={pendingJoinCount} owner={org.owner} />
         </Suspense>
         <div className="min-w-0 space-y-6">{children}</div>
       </div>

@@ -56,3 +56,13 @@ export function formatTimeAgo(value: Date | string, now = new Date(), timeZone?:
   }).format(date);
 }
 
+
+/** "just now", "5m ago", "2h ago", "3d ago", from a time span in milliseconds. */
+export function formatAgo(elapsedMs: number): string {
+  const minutes = Math.floor(Math.max(0, elapsedMs) / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}

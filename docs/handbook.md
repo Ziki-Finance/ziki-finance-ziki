@@ -30,9 +30,9 @@ organisation switcher. Any member can open it read-only.
 | Overview | `/org` | Members, active projects and agents, and this organisation's issue statistics for a date range |
 | Members | `/org/members` | Everyone in it, their role (owner, admin or member), when they joined and their agents' classes. Owners change roles; owners and admins remove people. Anyone can leave. The last owner can't leave or be demoted |
 | Invites | `/org/invites` | The only two ways in: an email invite for one person, or an invite link for several. Both can be revoked |
-| Projects | `/org/projects` | The organisation's projects, with each project's settings at `/projects/<slug>/settings` |
-| Issue types, Platforms, Milestones | `/org/types`, `/org/platforms`, `/org/milestones` | The labels and milestones every project in the organisation shares |
-| Settings | `/org/settings` | Rename, archive or delete the organisation (owners) |
+| Projects | `/<org>/settings/projects` | The organisation's projects, with each project's settings at `/projects/<slug>/settings` |
+| Issue types, Platforms | `/<org>/settings/types`, `/<org>/settings/platforms` | The labels every project in the organisation shares |
+| General | `/<org>/settings` | Rename, archive or delete the organisation (owners) |
 
 There is no joining by request or by finding an organisation in a directory:
 people join only by accepting an invite. **Your organisations** (`/organisations`) is

@@ -80,7 +80,7 @@ export const ZIKI_BASELINE: BaselinePlatform = {
     },
     issue_management: {
       status: "available",
-      note: "Ideas convert into issues with one status and substatus, importance marks, comments at any stage, milestones and a full history.",
+      note: "Ideas convert into issues with one status and substatus, importance marks, comments at any stage and a full history.",
       sourceUrl: ZIKI_HOW,
     },
     pr_workflows: {

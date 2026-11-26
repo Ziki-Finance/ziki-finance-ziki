@@ -2,7 +2,6 @@ import { FeedbackProjectJoin } from "@/components/feedback-project-join";
 import { listPublicFeedbackIdeas } from "@/lib/public-feedback-ideas";
 import type { FeedbackSearch } from "@/components/project-feedback-portal";
 import { PublicProductOverview } from "@/components/public-product-overview";
-import { optionalUser } from "@/lib/auth-helpers";
 import { PublicFeedbackIdeaDetail } from "@/components/public-feedback-idea-detail";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -32,13 +31,11 @@ export default async function ProjectFeedbackPortalPage({
     const ideas = await listPublicFeedbackIdeas(org, { projectSlug, query: query.q?.trim().slice(0, 200), status: query.status, take: 7 });
     return <PublicProductOverview product={project} ideas={ideas} query={query.q} status={query.status} />;
   }
-  const user = await optionalUser();
   const orgFeedbackHref = publicFeedbackPath(ref);
 
   return (
     <div className="w-full pb-6">
       <PublicContributorForm
-        signedIn={Boolean(user)}
         project={project}
         orgSlug={project.organisation.slug}
         projectSlug={project.slug}

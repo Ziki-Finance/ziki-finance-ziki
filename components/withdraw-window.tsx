@@ -7,6 +7,7 @@ import Link from "next/link";
 import { WITHDRAW_THRESHOLD } from "@/lib/earnings-threshold";
 import { withdrawDetailsAction, type WithdrawDetails } from "@/app/(app)/earnings/withdraw-actions";
 import { ZIKS_PER_DOLLAR, formatZik } from "@/lib/coins/math";
+import { financeHref } from "@/lib/finance-paths";
 
 /** Everything here is in whole Ziks (#earnings-in-ziks): the wallet's withdrawable part against the minimum. */
 const money = (ziks: number) => formatZik(Math.round(ziks));
@@ -75,7 +76,7 @@ function WithdrawBar({ earned: raw, checking: rawChecking }: { earned: number; c
  * Withdraw (#earnings, Mark's review): always a window in the middle of the page you are on, never a trip to another
  * page, the way Earn showed it. It shows what you can withdraw from your Ziks wallet against the minimum, the same in
  * every workspace and the same as the Withdraw page (#earnings-in-ziks), with a link to Your earnings. At the minimum or
- * more it says the money is ready and sends you to the Withdraw page (/coins/payouts), where the withdrawal is made.
+ * more it says the money is ready and sends you to Withdraw (Settings › Finance), where the withdrawal is made.
  */
 export function WithdrawWindow({ className, children }: { className: string; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -158,7 +159,7 @@ export function WithdrawWindow({ className, children }: { className: string; chi
           <div className="mt-6 grid grid-cols-2 gap-2 sm:flex sm:justify-end">
             <Link href="/earnings" onClick={() => setOpen(false)} className={SECONDARY}>See my earnings</Link>
             {!details ? null : ready ? (
-              <Link href="/coins/payouts" onClick={() => setOpen(false)} className={PRIMARY}>Withdraw</Link>
+              <Link href={financeHref("withdraw")} onClick={() => setOpen(false)} className={PRIMARY}>Withdraw</Link>
             ) : (
               <Link href="/discover?open=true" onClick={() => setOpen(false)} className={PRIMARY}>Find more tasks</Link>
             )}

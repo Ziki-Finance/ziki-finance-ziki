@@ -45,7 +45,7 @@ import { orgPath } from "@/lib/project-paths";
 /** The org Settings page the action came from (`/<org>/<project>/org/settings`, #project-urls). */
 async function orgSettingsPath(): Promise<string> {
   const slug = await refererProjectRef();
-  return slug ? orgPath(slug, "settings") : "/home";
+  return slug ? orgPath(slug) : "/home";
 }
 
 export type OrganisationFormResult = {
@@ -206,7 +206,7 @@ export async function createInviteAction(
     });
   }
 
-  revalidatePath("/[org]/[project]/org", "layout");
+  revalidatePath("/[org]/settings", "layout");
   return {
     ok: true,
     email: result.invite.email,
@@ -238,7 +238,7 @@ export async function createShareLinkAction(
   });
   if (!result.ok) return result;
 
-  revalidatePath("/[org]/[project]/org", "layout");
+  revalidatePath("/[org]/settings", "layout");
   return { ok: true, url: result.url };
 }
 
@@ -246,7 +246,7 @@ export async function createShareLinkAction(
 export async function revokeShareLinkAction(formData: FormData): Promise<void> {
   const user = await requireUser();
   const result = await revokeShareLink(prisma, user, String(formData.get("linkId") ?? ""));
-  if (result.ok) revalidatePath("/[org]/[project]/org", "layout");
+  if (result.ok) revalidatePath("/[org]/settings", "layout");
 }
 
 /**
@@ -270,7 +270,7 @@ export async function acceptShareLinkAction(formData: FormData): Promise<void> {
 export async function revokeInviteAction(formData: FormData): Promise<void> {
   const user = await requireUser();
   const result = await revokeInvite(prisma, user, String(formData.get("inviteId") ?? ""));
-  if (result.ok) revalidatePath("/[org]/[project]/org", "layout");
+  if (result.ok) revalidatePath("/[org]/settings", "layout");
 }
 
 export type AcceptInviteActionResult = { error?: string };

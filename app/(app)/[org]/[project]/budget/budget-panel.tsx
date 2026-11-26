@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { fundBudgetAction, setBudgetPausedAction, takeBackBudgetAction } from "@/app/actions/coins";
+import { financeHref } from "@/lib/finance-paths";
 
 type Result = { ok: true; message: string } | { ok: false; error: string };
 
@@ -103,7 +104,7 @@ export function FundForm({ projectId, wallet, suggested = 0, waiting = null }: {
       </div>
       <p className="m-0 text-xs text-zk-muted">
         You have {wallet.toLocaleString("en-US")} {wallet === 1 ? "Zik" : "Ziks"}.{" "}
-        <Link href="/coins" className="font-semibold text-zk-accent hover:underline">
+        <Link href={financeHref("buy")} className="font-semibold text-zk-accent hover:underline">
           {shortBy > 0 ? `Buy ${shortBy.toLocaleString("en-US")} more Ziks` : "Buy Ziks"}
         </Link>
       </p>

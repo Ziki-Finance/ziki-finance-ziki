@@ -81,10 +81,6 @@ import { calculatePagination } from "@/lib/pagination";
 import { issueListPaginationParams } from "@/lib/issue-list-pagination";
 import { DUPLICATES_PARAM, SHOW_DUPLICATES, duplicatesWhere, parseShowDuplicates } from "@/lib/duplicates";
 import { PaginationControls } from "@/components/pagination-controls";
-import { dueDateValue, MILESTONE_PARAM, milestoneParamValue, milestoneWhere, parseMilestoneFilter } from "@/lib/milestones";
-import { loadMilestoneSummaries } from "@/lib/milestone-stats";
-import { MilestoneProgressBar } from "@/components/milestone-progress";
-import { MilestoneDue } from "@/components/milestone-due";
 import {
   bugSortDescriptions,
   getBugOrderBy,
@@ -531,25 +527,10 @@ export async function IssuesList({
   };
 
   // Tag filter (#102): issue types picked from the search box.
-  // These lookups are filters only. Each one fails on its own: Promise.all
-  // used to throw away the ones that succeeded when Milestone was missing,
-  // and the admin path below then queried them again outside this catch.
-  const [tagTypes, milestones, areas, userPrefs] = await Promise.all([
+  // These lookups are filters only. Each one fails on its own.
+  const [tagTypes, areas, userPrefs] = await Promise.all([
     // Cached, expired by the admin actions that change them (#297).
     loadOrEmpty("issue types", () => getIssueTypes(organisationId), []),
-    // #289: few rows; closed ones too, so an old link still resolves.
-    loadOrEmpty(
-      "milestones",
-      () =>
-        organisationId
-          ? prisma.milestone.findMany({
-              where: { organisationId },
-              select: { id: true, title: true, isClosed: true },
-              orderBy: [{ isClosed: "asc" }, { dueDate: { sort: "asc", nulls: "last" } }, { title: "asc" }],
-            })
-          : Promise.resolve([]),
-      [],
-    ),
     loadOrEmpty(
       "project areas",
       () => projectId
@@ -567,8 +548,6 @@ export async function IssuesList({
       : Promise.resolve(null),
   ]);
   const shortcutsEnabled = userPrefs?.keyboardShortcuts ?? true;
-  const selectedMilestone = parseMilestoneFilter(params[MILESTONE_PARAM], milestones);
-  const milestoneParam = milestoneParamValue(selectedMilestone);
   const selectedTags = parseTagFilter(params.tags, tagTypes);
   if (selectedTags.length > 0) {
     where.typeId = { in: tagTypeIds(selectedTags, tagTypes) };
@@ -610,7 +589,6 @@ export async function IssuesList({
   }
   const selectedArea = parseProjectAreaFilter(params[AREA_PARAM], areas);
   Object.assign(where, projectAreaFilterWhere(selectedArea));
-  Object.assign(where, milestoneWhere(selectedMilestone));
   // My Work (?mywork=1): only the issues you bid on or are working on.
   const myWorkOn = parseMyWorkFilter(params[MY_WORK_PARAM]) && Boolean(userId);
   if (myWorkOn && userId) {
@@ -661,7 +639,7 @@ export async function IssuesList({
       || statusParam === REJECTED_STATUS || statusParam === POSSIBLY_DELIVERED
       || toSingleQueryParam(params.stage),
   );
-  const bugSearchExtraFilters = ["status", "substatus", "typeId", "areaId", "milestoneId", "reporterId", "assigneeId", "duplicateOfId", "isBoosted", "isDeleted"]
+  const bugSearchExtraFilters = ["status", "substatus", "typeId", "areaId", "reporterId", "assigneeId", "duplicateOfId", "isBoosted", "isDeleted"]
     .map((field) => typesenseFilter(field, (where as Record<string, unknown>)[field]))
     .filter((filter): filter is string => filter !== null);
   let typesenseBugSearch: { found: number } | null = null;
@@ -1493,18 +1471,6 @@ export async function IssuesList({
   }
 
 
-  // #289: filtering on one milestone shows its progress above the list.
-  let milestoneSummary: Awaited<ReturnType<typeof loadMilestoneSummaries>>[number] | null = null;
-  if (selectedMilestone && selectedMilestone !== "none") {
-    try {
-      [milestoneSummary] = await loadMilestoneSummaries({
-        id: selectedMilestone.id,
-        organisationId: organisationId ?? undefined,
-      });
-    } catch (error) {
-      console.error("[bugs] milestone summary failed", error);
-    }
-  }
 
   // "No issues match" and "there are no issues yet" need different pages
   // (#292): filter advice on an empty tracker sends people looking for a
@@ -1617,7 +1583,7 @@ export async function IssuesList({
   // just means that tab is empty, so the empty state names the tab.
   const onlyStatusTab =
     Boolean(statusParam && (statuses as readonly string[]).includes(statusParam)) &&
-    !qParam && !tagsParam && !selectedMilestone && !mineFilter;
+    !qParam && !tagsParam && !mineFilter;
 
   // The stage the page is on, and the status inside it, for the stage bar and the list on the left.
   const currentStatus = ideasView === "rejected" ? REJECTED_IDEAS_STATUS : isIdeasView ? IDEAS_STATUS : statusParam;
@@ -1706,7 +1672,7 @@ export async function IssuesList({
         </div>
         {/* Project Overview has no filters. */}
         {isYourWorkView ? null : <Suspense fallback={<div className="h-8 w-36 rounded-lg bg-zk-chip" />}>
-          <IssueFilters compact tagTypes={tagTypes} milestones={milestones} areas={areas} shortcutsEnabled={shortcutsEnabled}
+          <IssueFilters compact tagTypes={tagTypes} areas={areas} shortcutsEnabled={shortcutsEnabled}
             stageCounts={isDeletedView ? undefined : { confirming: confirmingCount, ready: readyCount }} />
         </Suspense>}
         <div className="issues-actions flex flex-wrap items-center gap-2 print:hidden">
@@ -1738,7 +1704,7 @@ export async function IssuesList({
           {!isIdeasView && !isYourWorkView && filterGroups.length > 0 ? <ToolbarFilterMenu groups={filterGroups} summary={filterSummary} /> : null}
           {finishedWatched > 0 ? <UnwatchFinishedButton count={finishedWatched} /> : null}
           <IssuesToolsToggle
-            active={Boolean(searchText || selectedTags.length > 0 || selectedMilestone)}
+            active={Boolean(searchText || selectedTags.length > 0)}
           />
           {/* Phones: the + beside the title, since the tools row is collapsed there.
               Desktop has it at the far left of the toolbar, except on a first run. */}
@@ -1830,19 +1796,6 @@ export async function IssuesList({
             only counted, under the list. Goals are in the project's settings. */}
 
 
-        {milestoneSummary ? (
-          <section aria-label={`Milestone ${milestoneSummary.title}`} className="rounded-panel border border-zk-border bg-zk-surface p-5">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-base font-bold text-zk-text">{milestoneSummary.title}</h2>
-              <MilestoneDue due={dueDateValue(milestoneSummary.dueDate) || null} isClosed={milestoneSummary.isClosed} />
-              <Link href="/milestones" className="ml-auto text-sm font-bold text-zk-accent hover:underline">All milestones</Link>
-            </div>
-            {milestoneSummary.description ? <p className="mt-1 text-sm text-zk-muted">{milestoneSummary.description}</p> : null}
-            <div className="mt-3 max-w-md">
-              <MilestoneProgressBar progress={milestoneSummary.progress} label={milestoneSummary.title} />
-            </div>
-          </section>
-        ) : null}
 
         {isNewIdeasView ? <div className="flex flex-wrap items-center justify-between gap-2">{overviewTabs}</div> : null}
         {isNewIdeasView ? (
@@ -1917,7 +1870,7 @@ export async function IssuesList({
         ) : bugs.length === 0 ? (
           <WhimsicalEmptyState
             title={
-              isWatchingView && !qParam && !statusParam && !tagsParam && !selectedMilestone
+              isWatchingView && !qParam && !statusParam && !tagsParam
                 ? "You're not watching any issues."
                 : onlyStatusTab
                   ? `No issues in ${statusFilterLabel(statusParam!)}.`
@@ -1932,7 +1885,7 @@ export async function IssuesList({
             }
             clearHref={issuesPath(listRef, statusParam ?? ALL_STATUS)}
             createHref={newIssueHref(ref, returnTo)}
-            showClear={Boolean((myWorkOn || !onlyStatusTab) && (qParam || statusParam || tagsParam || selectedMilestone || myWorkOn))}
+            showClear={Boolean((myWorkOn || !onlyStatusTab) && (qParam || statusParam || tagsParam || myWorkOn))}
             showCreate={canContribute}
           />
         ) : (
@@ -2173,7 +2126,6 @@ export async function IssuesList({
                 mine: mineFilter,
                 q: qParam,
                 sort: sortParam,
-                milestone: milestoneParam,
                 tags: tagsParam,
                 area: selectedArea,
                 stage: stageView,
@@ -2246,7 +2198,7 @@ export async function IssuesList({
         </div>
         <div className="flex items-center gap-2">
           {fundingButton}
-          {canContribute ? <ShareMenu orgSlug={project.orgSlug} inviteHref={isOrgAdmin ? orgPath(ref, "invites") : undefined} /> : null}
+          {canContribute ? <ShareMenu orgSlug={project.orgSlug} inviteHref={isOrgAdmin ? orgPath(ref, "team") : undefined} /> : null}
           <ProjectIconLinks
             settingsHref={isOrgAdmin ? `/projects/${encodeURIComponent(slug)}/settings` : undefined}
           />
@@ -2285,7 +2237,7 @@ export async function IssuesList({
         {/* The feedback portal, Design and settings, as icons, beside the tabs. */}
         {!isDeletedView ? fundingButton : null}
         {!isDeletedView && canContribute ? (
-          <ShareMenu orgSlug={project.orgSlug} inviteHref={isOrgAdmin ? orgPath(ref, "invites") : undefined} />
+          <ShareMenu orgSlug={project.orgSlug} inviteHref={isOrgAdmin ? orgPath(ref, "team") : undefined} />
         ) : null}
         {!isDeletedView ? (
           <ProjectIconLinks

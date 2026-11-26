@@ -15,7 +15,7 @@ export type MembershipActionResult = { error?: string; ok?: boolean };
 
 /** Members are listed in /org; a person's own organisations in /organisations. */
 function revalidateOrganisation() {
-  revalidatePath("/[org]/[project]/org", "layout");
+  revalidatePath("/[org]/settings", "layout");
   revalidatePath("/organisations");
 }
 

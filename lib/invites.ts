@@ -6,6 +6,8 @@ import { z } from "zod";
 import { notifyOrganisationInvite } from "@/lib/agent-notifications";
 import { canSendMail, sendMail } from "@/lib/mail";
 import { absoluteUrl } from "@/lib/site-url";
+import { isOrganisationAdmin } from "@/lib/organisation-role";
+import type { AppRole } from "@/lib/roles";
 
 /**
  * Invites to a organisation (#444). Joining a organisation you're not in is invite-only.
@@ -79,8 +81,28 @@ export function parseInviteLink(input: string): string | null {
   return token && isInviteToken(token) ? token : null;
 }
 
-export function canInvite(role: MembershipRole | null | undefined): boolean {
-  return role === "owner" || role === "admin";
+/**
+ * Who invites people: an owner or admin of the organisation, and the site's super admin, as every other
+ * organisation setting decides it (lib/organisation-role.ts), so whoever the settings treat as an owner can invite.
+ */
+export function canInvite(role: MembershipRole | null | undefined, appRole?: AppRole | null): boolean {
+  return isOrganisationAdmin(role, appRole);
+}
+
+/** The organisation an inviter may invite to, or null: their membership's, else any one for the site's super admin. */
+export async function invitingOrganisation(
+  db: Db,
+  inviter: { id: string; role?: AppRole | null },
+  organisationId: string,
+): Promise<{ id: string; slug: string; name: string } | null> {
+  if (!organisationId) return null;
+  const membership = await db.membership.findUnique({
+    where: { organisationId_userId: { organisationId, userId: inviter.id } },
+    select: { role: true, organisation: { select: { id: true, slug: true, name: true } } },
+  });
+  if (membership) return canInvite(membership.role, inviter.role) ? membership.organisation : null;
+  if (!canInvite(null, inviter.role)) return null;
+  return db.organisation.findUnique({ where: { id: organisationId }, select: { id: true, slug: true, name: true } });
 }
 
 export type InviteState = "pending" | "accepted" | "expired";
@@ -126,20 +148,12 @@ export type CreateInviteResult =
 
 export async function createInvite(
   db: Db,
-  inviter: { id: string },
+  inviter: { id: string; role?: AppRole | null },
   input: { organisationId: string; email: unknown },
   now = new Date(),
 ): Promise<CreateInviteResult> {
-  const inviterMembership = input.organisationId
-    ? await db.membership.findUnique({
-        where: { organisationId_userId: { organisationId: input.organisationId, userId: inviter.id } },
-        select: { role: true, organisation: { select: { id: true, slug: true, name: true } } },
-      })
-    : null;
-  if (!inviterMembership || !canInvite(inviterMembership.role)) {
-    return { ok: false, error: INVITE_NOT_ALLOWED };
-  }
-  const { organisation } = inviterMembership;
+  const organisation = await invitingOrganisation(db, inviter, input.organisationId);
+  if (!organisation) return { ok: false, error: INVITE_NOT_ALLOWED };
 
   const parsed = inviteEmailSchema.safeParse(typeof input.email === "string" ? input.email : "");
   if (!parsed.success) {
@@ -504,7 +518,7 @@ export type RevokeInviteResult =
 /** An owner or admin withdraws a link that hasn't been used. */
 export async function revokeInvite(
   db: Db,
-  actor: { id: string },
+  actor: { id: string; role?: AppRole | null },
   inviteId: string,
 ): Promise<RevokeInviteResult> {
   const invite = inviteId
@@ -520,7 +534,7 @@ export async function revokeInvite(
       })
     : null;
   // Someone else's organisation's invite looks the same as no invite.
-  if (!invite || !canInvite(membership?.role)) return { ok: false, error: INVITE_NOT_ALLOWED };
+  if (!invite || !canInvite(membership?.role, actor.role)) return { ok: false, error: INVITE_NOT_ALLOWED };
   if (invite.acceptedAt) return { ok: false, error: "That invite was already accepted." };
 
   await db.organisationInvite.deleteMany({ where: { id: invite.id, acceptedAt: null } });

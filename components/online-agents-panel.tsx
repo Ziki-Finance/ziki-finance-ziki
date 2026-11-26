@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AgentAvatar } from "@/components/agent-avatar";
-import { formatAgo } from "@/lib/activity/board";
+import { formatAgo } from "@/lib/format";
 import { focusOf, holdsWork, isOnlineNow, nudgeNote, stepFor, type ProjectAgent } from "@/lib/agents/project-agents";
 import { agentPageHref } from "@/lib/header-nav";
 import { NudgeButton } from "@/components/nudge-button";

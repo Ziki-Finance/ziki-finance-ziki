@@ -5,7 +5,7 @@ test.describe("organisation admin screens", () => {
 
   test("adds an issue type", async ({ page, uniq }) => {
     const name = uniq("Docs").slice(0, 45);
-    await page.goto(`${PROJECT}/org/types`);
+    await page.goto("/zedu/settings/types");
     await page.getByRole("button", { name: "Add new type" }).click();
     await page.getByLabel("Name").fill(name);
     await page.getByRole("button", { name: "Create type" }).click();
@@ -17,7 +17,7 @@ test.describe("organisation admin screens", () => {
     const { authFile } = await import("./users");
     const context = await browser.newContext({ storageState: authFile("user", width) });
     const page = await context.newPage();
-    await page.goto(`${PROJECT}/org/types`);
+    await page.goto("/zedu/settings/types");
     await expect(page.getByRole("button", { name: "Add new type" })).toHaveCount(0);
     await context.close();
   });

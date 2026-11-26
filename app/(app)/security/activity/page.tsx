@@ -3,7 +3,7 @@ import { LocalTime } from "@/components/local-time";
 import { requireUser } from "@/lib/auth-helpers";
 import { currentOrganisationAccess } from "@/lib/organisation-access";
 import { loadSecurityActivity } from "@/lib/security-activity";
-import { orgListCard, ReadOnlyNote } from "../../[org]/[project]/org/org-ui";
+import { orgListCard, ReadOnlyNote } from "@/app/(app)/[org]/settings/org-ui";
 
 export const metadata = { title: "Security activity" };
 

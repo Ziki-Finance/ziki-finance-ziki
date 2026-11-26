@@ -10,6 +10,6 @@ export async function borrowZiks(): Promise<{ error?: string }> {
   const user = await requireUser();
   const taken = await takeZiksLoan(prisma, user.id);
   if (!taken) return { error: `You can borrow ${ZIKS_LOAN.toLocaleString("en-US")} Ziks once, before your first purchase. Buy Ziks on your Ziks page.` };
-  revalidatePath("/coins");
+  revalidatePath("/settings");
   return {};
 }

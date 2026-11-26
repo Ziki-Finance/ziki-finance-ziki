@@ -58,10 +58,10 @@ test.describe("accessibility", () => {
     test.use({ as: "admin" });
 
     test("the organisation admin screens", async ({ page }) => {
-      await page.goto(`${PROJECT}/org/members`);
+      await page.goto("/zedu/settings/team");
       await expectNoA11yViolations(page);
 
-      await page.goto(`${PROJECT}/org/types`);
+      await page.goto("/zedu/settings/types");
       await expectNoA11yViolations(page);
     });
   });

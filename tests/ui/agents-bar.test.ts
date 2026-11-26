@@ -26,7 +26,6 @@ describe("dockVisibleOn: where the agents bar shows", () => {
     "/inbox",
     "/inbox/escalations/abc",
     "/home",
-    "/activity",
     "/feed",
   ])("shows on %s when you have agents", (path) => {
     expect(dockVisibleOn(path)).toBe(true);
@@ -52,9 +51,9 @@ describe("dockVisibleOn: where the agents bar shows", () => {
     "/settings/agents",
     "/settings/agent/robo",
     "/projects/acme/settings",
-    "/zedu/acme/org",
-    "/zedu/acme/org/members",
-    "/zedu/acme/org/invites",
+    "/zedu/settings",
+    "/zedu/settings/team",
+    "/zedu/settings/agents",
     "/superadmin",
     "/superadmin/users",
     "/superadmin/orgs/acme",
@@ -91,9 +90,8 @@ describe("dockVisibleOn: where the agents bar shows", () => {
     expect(dockVisibleOn("/zedu/acme/42x")).toBe(false);
     expect(dockVisibleOn("/zedu/acme/organisation")).toBe(false);
     expect(dockVisibleOn("/homepage")).toBe(false);
-    // Home, activity and feed are those pages only, not what sits below them.
+    // Home and feed are those pages only, not what sits below them.
     expect(dockVisibleOn("/home/extra")).toBe(false);
-    expect(dockVisibleOn("/activity/x")).toBe(false);
     expect(dockVisibleOn("/feed/x")).toBe(false);
     // A project that happens to be called "feeds" is a project: its landing page is a work page.
     expect(dockVisibleOn("/zedu/feeds")).toBe(true);
@@ -112,7 +110,6 @@ describe("dockVisibleOn: where the agents bar shows", () => {
     "/questions/abc",
     "/users/abc",
     "/team",
-    "/milestones",
     "/jobs",
     "/marketing",
     "/leaderboard",

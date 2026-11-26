@@ -12,6 +12,7 @@ import { createPackCheckout, createTestPurchase } from "@/lib/coins/purchase";
 import { createSubscriptionCheckout, setSubscriptionEnding, startTestSubscription, subscribeFrom } from "@/lib/coins/subscription";
 import { testPayments } from "@/lib/coins/test-mode";
 import { startPayoutOnboarding, syncPayoutsEnabled, withdrawEarned } from "@/lib/coins/withdraw";
+import { financeHref } from "@/lib/finance-paths";
 
 /**
  * Ziki Coins actions (#ziki-coins). Each one acts for the signed-in person
@@ -44,7 +45,7 @@ export async function buyZiksAction(formData: FormData): Promise<void> {
       : await createPackCheckout(user.id, user.email ?? undefined, packId, formData.get("returnTo"));
   } catch (error) {
     const message = failure(error);
-    redirect(`/coins?error=${encodeURIComponent(message.ok ? "" : message.error)}`);
+    redirect(financeHref("buy", { error: message.ok ? "" : message.error }));
   }
   redirect(url);
 }
@@ -58,14 +59,14 @@ export async function subscribeAction(formData: FormData): Promise<void> {
     const planId = String(formData.get("planId") ?? "");
     if (testPayments()) {
       await startTestSubscription(user.id, planId);
-      url = "/coins?subscribed=1";
+      url = financeHref("plan", { subscribed: "1" });
     } else {
       url = await createSubscriptionCheckout(user.id, user.email ?? undefined, planId, from);
     }
   } catch (error) {
     const message = failure(error);
     // The Ziks page opens on its plan section, where the person was.
-    redirect(`${from === "coins" ? "/coins?section=plan&" : `/${from}?`}error=${encodeURIComponent(message.ok ? "" : message.error)}`);
+    redirect(from === "coins" ? financeHref("plan", { error: message.ok ? "" : message.error }) : `/${from}?error=${encodeURIComponent(message.ok ? "" : message.error)}`);
   }
   redirect(url);
 }
@@ -77,10 +78,10 @@ async function setEnding(ending: boolean): Promise<void> {
     await setSubscriptionEnding(user.id, ending);
   } catch (error) {
     const message = failure(error);
-    redirect(`/coins?section=plan&error=${encodeURIComponent(message.ok ? "" : message.error)}`);
+    redirect(financeHref("plan", { error: message.ok ? "" : message.error }));
   }
-  revalidatePath("/coins");
-  redirect("/coins?section=plan");
+  revalidatePath("/settings");
+  redirect(financeHref("plan"));
 }
 
 export async function endSubscriptionAction(): Promise<void> {
@@ -167,7 +168,7 @@ export async function setUpPayoutsAction(): Promise<void> {
     url = await startPayoutOnboarding(user.id, user.email ?? undefined);
   } catch (error) {
     const message = failure(error);
-    redirect(`/coins/payouts?error=${encodeURIComponent(message.ok ? "" : message.error)}`);
+    redirect(financeHref("withdraw", { error: message.ok ? "" : message.error }));
   }
   redirect(url);
 }
@@ -177,7 +178,7 @@ export async function refreshPayoutsAction(): Promise<boolean> {
   const user = await requireUser();
   try {
     const enabled = await syncPayoutsEnabled(user.id);
-    revalidatePath("/coins/payouts");
+    revalidatePath("/settings");
     return enabled;
   } catch {
     return (await prisma.user.findUnique({ where: { id: user.id }, select: { payoutsEnabled: true } }))?.payoutsEnabled ?? false;
@@ -189,8 +190,7 @@ export async function withdrawZiksAction(): Promise<CoinActionResult> {
   const user = await requireUser();
   try {
     const outcome = await withdrawEarned(user.id);
-    revalidatePath("/coins");
-    revalidatePath("/coins/payouts");
+    revalidatePath("/settings");
     if (outcome.status === "failed") return { ok: false, error: "Stripe couldn't send the money. Your Ziks are back in your wallet." };
     const amount = `$${(outcome.amountCents / 100).toFixed(2)}`;
     if (outcome.waiting) {

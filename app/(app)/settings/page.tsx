@@ -23,9 +23,15 @@ import { DisplayNameForm } from "@/components/display-name-form";
 import { LoginHistory } from "@/components/login-history";
 import { ProfileAvatarUpload } from "@/components/profile-avatar-upload";
 import { loadAccountSecurityActivity } from "@/lib/user-sessions";
+import { FinancePanel, type FinanceQuery } from "./finance-panel";
 
 /* Distinct browser-tab title; the root layout appends the site name. */
 export const metadata = { title: "Settings" };
+
+/** One value of a query parameter. */
+function one(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
 
 function parseSection(value: string | string[] | undefined): SettingsSectionId {
   const raw = Array.isArray(value) ? value[0] : value;
@@ -60,7 +66,7 @@ function LinkRow({ href, label, external }: { href: string; label: string; exter
 
 /** The settings index: themed appearance, sign-in security, and links into the nested settings surfaces. */
 export default async function SettingsPage(props: {
-  searchParams?: Promise<{ section?: string | string[] | undefined }>;
+  searchParams?: Promise<{ section?: string | string[] | undefined } & { [K in keyof FinanceQuery]?: string | string[] }>;
 }) {
   const user = await requireUser();
   const projectSlug = await firstProjectRefFor(user.id);
@@ -118,12 +124,9 @@ export default async function SettingsPage(props: {
   }
 
   const displayName = settings?.name ?? user.name ?? "";
-  const orgName = projectSlug
-    ? (await prisma.organisation.findUnique({ where: { slug: projectSlug.split("/")[0] }, select: { name: true } }))?.name ?? null
-    : null;
 
   const securityActivity =
-    section === "account"
+    section === "security"
       ? await loadAccountSecurityActivity({
           userId: user.id,
           sessionId: (await auth().catch(() => null))?.user?.sessionId,
@@ -145,13 +148,13 @@ export default async function SettingsPage(props: {
           Back to issues
         </Link>
         <h1 className="m-0 text-[28px] font-extrabold tracking-[-0.02em] text-zk-text">Settings</h1>
-        <p className="m-0 text-sm text-zk-muted">Your account, finance, preferences and agents, and your organisation&apos;s settings.</p>
+        <p className="m-0 text-sm text-zk-muted">Your account, finance, preferences, agents and security, and your organisation&apos;s settings.</p>
       </div>
 
       <div className="settings-layout">
         {/* Yours, then your organisation's: one sidebar for all settings. */}
         <Suspense fallback={<nav aria-label="Settings sections" className="settings-navigation" />}>
-          <SettingsNav orgRef={projectSlug} orgName={orgName} owner={(await currentOrganisationAccess(user.id, user.role)).membershipRole === "owner"} />
+          <SettingsNav orgRef={projectSlug} owner={(await currentOrganisationAccess(user.id, user.role)).membershipRole === "owner"} />
         </Suspense>
 
         <div className="settings-content flex min-w-0 flex-col gap-5">
@@ -186,42 +189,23 @@ export default async function SettingsPage(props: {
                 </div>
               </section>
 
-              <section className={`${card} flex-row flex-wrap items-center justify-between gap-4`}>
-                <div className="flex items-center gap-3.5">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zk-tint text-zk-accent">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                    </svg>
-                  </span>
-                  <div className="flex flex-col gap-1">
-                    <h2 className="m-0 text-lg font-bold text-zk-text">Sign-in and security</h2>
-                    <span className="text-[13px] text-zk-muted">
-                      Manage Google, your password and two-factor sign-in.
-                    </span>
-                  </div>
-                </div>
-                <Link
-                  href="/settings/security"
-                  className={PRIMARY_ACTION}
-                >
-                  Manage
-                </Link>
-              </section>
-
-              {securityActivity ? (
-                <>
-                  <ActiveSessions initialSessions={securityActivity.sessions} />
-                  <LoginHistory
-                    items={securityActivity.history}
-                    totalCount={securityActivity.historyTotal}
-                  />
-                </>
-              ) : null}
             </div>
           ) : null}
 
           {section === "finance" ? (
             <div className="flex flex-col gap-4">
+              {/* Ziks, budgets, your plan and payouts (#finance), one tab at a time. */}
+              <FinancePanel
+                userId={user.id}
+                query={{
+                  tab: one(params.tab),
+                  bought: one(params.bought),
+                  subscribed: one(params.subscribed),
+                  payouts: one(params.payouts),
+                  error: one(params.error),
+                  returnTo: one(params.returnTo),
+                }}
+              />
               <section className={card}>
                 <WalletAddressForm initialAddress={settings?.walletAddress ?? ""} />
               </section>
@@ -303,7 +287,7 @@ export default async function SettingsPage(props: {
                   Organisation members and their active agents.
                 </p>
                 <div className="flex flex-col gap-0.5">
-                  {projectSlug ? <LinkRow href={orgPath(projectSlug, "members")} label="Organisation members" /> : null}
+                  {projectSlug ? <LinkRow href={orgPath(projectSlug, "team")} label="Organisation members" /> : null}
                   <LinkRow href="/workers" label="View ranking" />
                 </div>
               </section>
@@ -329,7 +313,43 @@ export default async function SettingsPage(props: {
             </div>
           ) : null}
 
-          {section === "data" ? <AccountDataSettings /> : null}
+          {/* Security (#settings-security): signing in, where you are signed in, what happened, and your data. */}
+          {section === "security" ? (
+            <div className="flex flex-col gap-4">
+              <section className={`${card} flex-row flex-wrap items-center justify-between gap-4`}>
+                <div className="flex items-center gap-3.5">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zk-tint text-zk-accent">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    </svg>
+                  </span>
+                  <div className="flex flex-col gap-1">
+                    <h2 className="m-0 text-lg font-bold text-zk-text">Sign-in and security</h2>
+                    <span className="text-[13px] text-zk-muted">
+                      Manage Google, your password and two-factor sign-in.
+                    </span>
+                  </div>
+                </div>
+                <Link
+                  href="/settings/security"
+                  className={PRIMARY_ACTION}
+                >
+                  Manage
+                </Link>
+              </section>
+
+              {securityActivity ? (
+                <>
+                  <ActiveSessions initialSessions={securityActivity.sessions} />
+                  <LoginHistory
+                    items={securityActivity.history}
+                    totalCount={securityActivity.historyTotal}
+                  />
+                </>
+              ) : null}
+              <AccountDataSettings />
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
