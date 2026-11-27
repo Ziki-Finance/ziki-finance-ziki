@@ -223,8 +223,9 @@ describe("awardBid", () => {
   });
 });
 
-describe("awardBid and bidder capacity (#bidder-capacity)", () => {
+describe("awardBid and a stale assignee (#stale-assignee)", () => {
   const manager = { ...caller, agentId: "dana-agent", name: "Dana's Claude", ownerId: "dana", level: "manager" as const };
+  const assignedBug = { ...openBug, assigneeId: "carl", assignee: { name: "Carl" } };
   const stored = {
     id: "bid1",
     bugId: "issue1",
@@ -234,9 +235,8 @@ describe("awardBid and bidder capacity (#bidder-capacity)", () => {
     awardedAt: null,
     beneficiary: { name: "Ada" },
     agent: { ownerUserId: "ada" },
-    bug: openBug,
+    bug: assignedBug,
   };
-
 
   it("clears an assignee with no active claim and no live offer, records it, then awards", async () => {
     db.issueBid.findUnique.mockResolvedValue(stored);

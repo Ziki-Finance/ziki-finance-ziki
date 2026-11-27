@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/auth-helpers";
 import { organisationAccessFor } from "@/lib/organisation-access";
 import { moveTo } from "@/lib/issue-substatus";
 import { moveIssueByHand } from "@/lib/issue-hand-move";
+import { OWNER_NOTE_MAX } from "@/lib/owner-moves";
 import { activityCreateData, statusChangedSummary } from "@/lib/activity-log";
 import { issueChangePayload, publishWebEvent } from "@/lib/agent-api/web-events";
 import { revalidateIssue } from "@/lib/revalidate-issue";

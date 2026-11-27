@@ -21,7 +21,7 @@ const db = vi.hoisted(() => {
     tx,
     prisma: {
       bug: { findFirst: vi.fn(), findUnique: vi.fn() },
-      issueClaim: { findFirst: vi.fn(), findMany: vi.fn(async () => []) },
+      issueClaim: { findFirst: vi.fn(), findMany: vi.fn(async (): Promise<unknown[]> => []) },
       reviewOffer: { findFirst: vi.fn() },
       agentAuditEvent: { findFirst: vi.fn() },
       pullRequestReport: { findFirst: vi.fn() },

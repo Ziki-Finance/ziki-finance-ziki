@@ -1,4 +1,5 @@
-import type { Substatus } from "@prisma/client";
+import { Substatus } from "@prisma/client";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { moveTo, STATUS_OF } from "@/lib/issue-substatus";
 import { OWNER_NOTE_MAX, ownerMove } from "@/lib/owner-moves";
@@ -7,6 +8,15 @@ import { publish } from "@/lib/agent-api/events";
 import { issueChangePayload, publishWebEvent } from "@/lib/agent-api/web-events";
 import { releasePayoutIfLive } from "@/lib/coins/issue-payout";
 import { notifyLater } from "@/lib/notify";
+
+/** The body of `POST /api/v1/issues/{id}/status` (#manager-status). */
+export const handMoveBodySchema = z
+  .object({
+    substatus: z.enum(Substatus),
+    note: z.string().max(OWNER_NOTE_MAX).optional(),
+    projectId: z.string().optional(),
+  })
+  .strict();
 
 /** Who moves the issue: a person (an owner or admin from the Status chip), or their manager agent. */
 export type HandMover = { userId: string; name: string | null; agent: { id: string; name: string } | null };

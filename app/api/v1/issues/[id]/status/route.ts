@@ -1,20 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { z } from "zod";
-import { Substatus } from "@prisma/client";
 import { createMethodNotAllowed, createOptions } from "@/lib/agent-api/http-errors";
 import { agentIssueRequest, issueJson, issueProject } from "@/lib/agent-api/issues";
 import { prisma } from "@/lib/prisma";
 import { parseIssueRef } from "@/lib/issue-ref";
-import { moveIssueByHand } from "@/lib/issue-hand-move";
+import { handMoveBodySchema, moveIssueByHand } from "@/lib/issue-hand-move";
 import { OWNER_MOVES, OWNER_NOTE_MAX } from "@/lib/owner-moves";
 
 export const runtime = "nodejs";
 
-const bodySchema = z.object({
-  substatus: z.enum(Substatus),
-  note: z.string().max(OWNER_NOTE_MAX).optional(),
-  projectId: z.string().optional(),
-});
+const bodySchema = handMoveBodySchema;
 
 /**
  * POST /api/v1/issues/{id}/status (#manager-status) — a manager or merger agent moves an issue by hand, as an

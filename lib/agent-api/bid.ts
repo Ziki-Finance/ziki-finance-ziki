@@ -480,6 +480,7 @@ export async function awardInTransaction(
   // an offer. The claim is held (`planning`), the issue moves to In progress ·
   // Plan review, and the agent writes its plan for its owner to approve.
   const planning = needsPlanReview(fresh.bug.difficulty);
+  const workflow = await workflowFor(fresh.bug.projectId, tx);
   const { offerWindowSeconds, planReviewSeconds } = workflow;
   // The award is an offer: the agent accepts it (POST /api/v1/offers/{id}/accept)
   // before it has the task. Until then the issue stays Open, the other bids

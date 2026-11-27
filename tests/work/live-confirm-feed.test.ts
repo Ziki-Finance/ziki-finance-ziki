@@ -23,7 +23,7 @@ const work = (deployments: ProjectWork["deployments"]): ProjectWork => ({
   ideas: [], toConvert: [], toReject: [], toReclaim: [], toSenseCheck: [], toReviewIdle: [], toClose: [], toDeliverStranded: [],
   toReconcile: [], toAwaitRelease: [], toRepair: [], toReportPr: [], prGates: new Map(), judgeBlocks: new Map(), toConfirm: [], ideaThreshold: 3, tests: [],
   ready: [], bids: [], toAward: [], toInvestigate: [], comments: [], toAccept: [], toMerge: [], jobs: [], facts: new Map(),
-  ideaFacts: new Map(), offerWindowSeconds: 1800, capacity: 2,
+  ideaFacts: new Map(), offerWindowSeconds: 1800,
   rewards: [], contests: [],
   governance: { thresholdOnly: false, managerVoteWeight: 3, closeThreshold: 3, awardThreshold: 3, acceptThreshold: 3 },
 });
