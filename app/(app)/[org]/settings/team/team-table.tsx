@@ -219,7 +219,7 @@ export function TeamTable({
   return (
     <div className="@container space-y-4 rounded-panel border border-zk-border bg-zk-surface p-3 sm:p-5">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
-        <div role="group" aria-label="Filter team by group" className={`flex w-fit max-w-full items-center gap-0.5 overflow-x-auto rounded-full bg-zk-bg p-1 focus-within:ring-1 focus-within:ring-zk-border ${searchOpen ? "col-span-2 @min-[44rem]:col-span-1" : ""}`}>
+        <div role="group" aria-label="Filter team by group" className={`flex w-fit min-w-0 max-w-full flex-wrap items-center gap-x-0.5 gap-y-1 rounded-panel bg-zk-bg p-1 ${searchOpen ? "col-span-2 @min-[44rem]:col-span-1" : "@min-[44rem]:rounded-full"}`}>
           {groups.map(({ value, label, count }) => (
             <button
               key={value}
