@@ -128,6 +128,8 @@ export type ActionResult = {
   href?: string;
   /** And its number, so the page can point it out (#just-added). */
   ideaNumber?: number;
+  /** The idea filed, for a follow-up step such as accepting it (#quick-todo). */
+  ideaId?: string;
 };
 
 /**
@@ -429,7 +431,7 @@ export async function createBugAction(
   if (!severity) await convertSoloIdeas({ ideaId: idea.id }).catch(() => 0);
   revalidatePath("/[org]/[project]", "layout");
   // The Marketing assistant files drafts from its chat and stays on it (#marketing-assistant).
-  if (formData.get("stay") === "true") return { ok: true, href: ideaPath(refOf(targetProject), idea.number), ideaNumber: idea.number };
+  if (formData.get("stay") === "true") return { ok: true, href: ideaPath(refOf(targetProject), idea.number), ideaNumber: idea.number, ideaId: idea.id };
   redirect(ideaPath(refOf(targetProject), idea.number));
 }
 

@@ -78,7 +78,7 @@ export type WorkFeedItem = {
   justDelivered: boolean;
   /** Whether an agent holds it now (an active claim). */
   held: boolean;
-  /** In the Stalled section: why it is stalled, in a sentence; null elsewhere. */
+  /** A stalled In Progress card: why it is stalled, in a sentence; null otherwise. */
   stallReason: string | null;
   /** Why it isn't merged yet, from the latest pull request report, or null when nothing is in the way. */
   mergeHold: string | null;
@@ -168,9 +168,12 @@ export function StatusBadge({ substatus, className = "" }: { substatus: Substatu
  * last moved, and a pill on the right with its status, or Approve on delivered work. Clicking a card unfolds
  * it downwards, in place, as an opened email; clicking its head folds it.
  */
+/** Work Feed sections shown above New ideas (#work-feed-sections): In Progress. */
+const FIRST_GROUPS = new Set(["active"]);
+
 export function WorkFeed({ items, groups, title, toolbar, empty, footer, justAdded = [], justAddedCount = 0, ideasMoreHref = null, groupActions = {} }: {
   items: WorkFeedItem[];
-  /** A control at the right of a section's title, by section key: Confirm all on Waiting for an agent (#bulk-confirm). */
+  /** A control at the right of a section's title, by section key. */
   groupActions?: Record<string, React.ReactNode>;
   /** New ideas that need your OK (#just-added), newest first, at the top of Needs your OK; the one just filed flashes. */
   justAdded?: JustAddedIdea[];
@@ -211,13 +214,41 @@ export function WorkFeed({ items, groups, title, toolbar, empty, footer, justAdd
     };
   }, []);
 
-  // A list of cards on the gray inset, as Marketing's are.
+  // One Work Feed section: its title and count, its actions, a few cards and a link to all of them.
+  const groupSection = (group: NonNullable<typeof groups>[number]) => (
+            <section key={group.key} aria-labelledby={`work-feed-${group.key}`}>
+              <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-1">
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <h2 id={`work-feed-${group.key}`} className="m-0 inline text-[15px] font-semibold text-zk-text">
+                    {group.title} <span className="ml-1 text-[13px] font-medium tabular-nums text-zk-muted">{group.count}</span>
+                  </h2>
+                  {groupActions[group.key] ?? null}
+                </div>
+                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                  {group.moreHref ? (
+                    <Link href={group.moreHref} className={`shrink-0 text-[13px] font-medium text-zk-accent hover:underline ${focus}`}>
+                      Show all {group.count} →
+                    </Link>
+                  ) : null}
+                </div>
+              </div>
+              {group.items.length > 0
+                ? cards(group.items, group.title, null)
+                : (
+                <p className="m-0 rounded-xl bg-zk-bg px-4 py-4 text-[13px] text-zk-muted">Nothing here right now.</p>
+              )}
+            </section>
+  );
+
+
+  // A list of cards straight on the page, no gray inset behind them.
   // `lead`: cards that go first (the new ideas in Needs your OK).
   const cards = (list: WorkFeedItem[], label: string, lead?: React.ReactNode) => (
-        <ul className="m-0 flex list-none flex-col gap-3 rounded-xl bg-zk-bg p-4" aria-label={label}>
+        <ul className="m-0 flex list-none flex-col gap-3 p-0" aria-label={label}>
           {lead}
           {list.map((item) => {
-            const who = item.who ?? "Nobody yet";
+            // Who is on it; nothing when nobody has claimed it.
+            const who = item.who;
             return (
               <li key={item.id}>
                 {openId === item.id ? (
@@ -247,7 +278,7 @@ export function WorkFeed({ items, groups, title, toolbar, empty, footer, justAdd
                               <RewardBadge price={item.price} held={item.priceHeld} className="text-[13px]" />
                             </>
                           ) : null}
-                          {" · "}{who} · <LastChange item={item} />
+                          {who ? <>{" · "}<PersonDot />{who}</> : null} · <LastChange item={item} />
                         </span>
                       </span>
                     </button>
@@ -274,6 +305,23 @@ export function WorkFeed({ items, groups, title, toolbar, empty, footer, justAdd
         </ul>
   );
 
+  // New tickets (#ideas-section): the new ideas waiting for your OK, at the top of the New Tickets & Features tab.
+  const ideasSection = justAdded.length > 0 ? (
+    <section aria-labelledby="work-feed-ideas">
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-1">
+        <h2 id="work-feed-ideas" className="m-0 inline text-[15px] font-semibold text-zk-text">
+          New Tickets <span className="ml-1 text-[13px] font-medium tabular-nums text-zk-muted">{justAddedCount}</span>
+        </h2>
+        {ideasMoreHref ? (
+          <Link href={ideasMoreHref} className={`shrink-0 text-[13px] font-medium text-zk-accent hover:underline ${focus}`}>
+            Show all {justAddedCount} →
+          </Link>
+        ) : null}
+      </div>
+      {cards([], "New Tickets", <IdeaOkCards ideas={justAdded} flash={flash} />)}
+    </section>
+  ) : null;
+
   return (
     <section aria-label={title}>
       {/* No title: the tabs on the left say which list this is, the Status filter is on the right. */}
@@ -281,56 +329,27 @@ export function WorkFeed({ items, groups, title, toolbar, empty, footer, justAdd
       {groups ? (
         // The Work Feed's sections, each with its few newest cards and a link to all of them.
         <div className="flex flex-col gap-6">
-          {/* New ideas (#ideas-section): their own section at the top, apart from the work on issues. */}
-          {justAdded.length > 0 ? (
-            <section aria-labelledby="work-feed-ideas">
-              <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-1">
-                <h2 id="work-feed-ideas" className="m-0 inline text-[15px] font-semibold text-zk-text">
-                  New ideas <span className="ml-1 text-[13px] font-medium tabular-nums text-zk-muted">{justAddedCount}</span>
-                </h2>
-                {ideasMoreHref ? (
-                  <Link href={ideasMoreHref} className={`shrink-0 text-[13px] font-medium text-zk-accent hover:underline ${focus}`}>
-                    Show all {justAddedCount} →
-                  </Link>
-                ) : null}
-              </div>
-              {cards([], "New ideas", <IdeaOkCards ideas={justAdded} flash={flash} />)}
-            </section>
-          ) : null}
-          {groups.map((group) => (
-            <section key={group.key} aria-labelledby={`work-feed-${group.key}`}>
-              <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-1">
-                <div className="min-w-0">
-                  <h2 id={`work-feed-${group.key}`} className="m-0 inline text-[15px] font-semibold text-zk-text">
-                    {group.title} <span className="ml-1 text-[13px] font-medium tabular-nums text-zk-muted">{group.count}</span>
-                  </h2>
-                </div>
-                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                  {groupActions[group.key] ?? null}
-                  {group.moreHref ? (
-                    <Link href={group.moreHref} className={`shrink-0 text-[13px] font-medium text-zk-accent hover:underline ${focus}`}>
-                      Show all {group.count} →
-                    </Link>
-                  ) : null}
-                </div>
-              </div>
-              {group.items.length > 0
-                ? cards(group.items, group.title, null)
-                : (
-                <p className="m-0 rounded-xl bg-zk-bg px-4 py-4 text-[13px] text-zk-muted">Nothing here right now.</p>
-              )}
-            </section>
-          ))}
+          {/* In Progress first (#work-feed-sections), shown only while something is in progress, then the rest. */}
+          {groups.filter((group) => FIRST_GROUPS.has(group.key) && group.count > 0).map(groupSection)}
+          {groups.filter((group) => !FIRST_GROUPS.has(group.key)).map(groupSection)}
         </div>
       ) : items.length === 0 && justAdded.length === 0 ? (
         <div className="rounded-2xl border border-zk-border bg-zk-surface p-5">{empty}</div>
       ) : (
-        // One section in full: the New ideas section's ideas, or a section's work.
-        cards(items, justAdded.length > 0 ? "New ideas" : "Work", justAdded.length > 0 ? <IdeaOkCards ideas={justAdded} flash={flash} /> : null)
+        // A tab's list, or one section in full; on New Tickets & Features the new tickets come first.
+        <div className="flex flex-col gap-6">
+          {ideasSection}
+          {items.length > 0 ? cards(items, "Work", null) : null}
+        </div>
       )}
       {footer ? <div className="mt-3">{footer}</div> : null}
     </section>
   );
+}
+
+/** A tiny circle before the name of the person a ticket is with. */
+function PersonDot() {
+  return <span aria-hidden="true" className="mr-1 inline-block h-[5px] w-[5px] rounded-full bg-zk-text2 align-middle" />;
 }
 
 /** The kind of issue a title's tag names ("[UI/UX] …"), each with a colour and an icon that stands for it. */
@@ -448,7 +467,7 @@ function fileColour(kind: string): string {
 function FeedCard({ item, id, onClose }: { item: WorkFeedItem; id: string; onClose: () => void }) {
   const kind = KIND[item.kind];
   const tone = PILL_TONES[kind.tone];
-  const who = item.who ?? "Nobody yet";
+  const who = item.who;
   return (
     <article id={id} aria-labelledby={`${id}-title`} className="my-1 rounded-2xl border border-zk-border bg-zk-surface px-5 pb-5 pt-4 shadow-none">
       <div className="flex flex-wrap items-center gap-3 border-b border-zk-divider pb-4">
@@ -460,7 +479,7 @@ function FeedCard({ item, id, onClose }: { item: WorkFeedItem; id: string; onClo
             <span className="mt-0.5 block truncate text-[13px] text-zk-muted">
               <ProjectTag name={item.projectName} />
               <span style={{ color: tone.color }}>{kind.label}</span> · <span className="tabular-nums">{formatIssueNumber(item.number)}</span>
-              {" · "}{who} · <LastChange item={item} />
+              {who ? <>{" · "}<PersonDot />{who}</> : null} · <LastChange item={item} />
             </span>
           </span>
         </button>
@@ -1001,7 +1020,8 @@ function DeliveredActions({ item, className = "" }: { item: WorkFeedItem; classN
 }
 
 /** A new idea that needs your OK (#just-added): open, and you haven't given it a verdict yet. */
-export type JustAddedIdea = { id: string; number: number; title: string; at: Date; by: string | null; href: string; projectName: string | null };
+/** A new idea for the New Tickets & Features tab; `files` holds its first image, shown as the card's picture (#idea-screenshot). */
+export type JustAddedIdea = { id: string; number: number; title: string; at: Date; by: string | null; href: string; projectName: string | null; files: WorkFeedItem["files"]; approved: boolean };
 
 /** Which project a row belongs to (Desktop, Web, …), as a small tag, on the organisation-wide feed. */
 function ProjectTag({ name }: { name: string | null }) {
@@ -1026,7 +1046,7 @@ function IdeaOkCards({ ideas, flash }: { ideas: JustAddedIdea[]; flash: number |
 }
 
 function IdeaOkCard({ idea, flashing }: { idea: JustAddedIdea; flashing: boolean }) {
-  const [approved, setApproved] = useState(false);
+  const [approved, setApproved] = useState(idea.approved);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const approve = () => {
@@ -1053,7 +1073,7 @@ function IdeaOkCard({ idea, flashing }: { idea: JustAddedIdea; flashing: boolean
         style={flashing ? { animation: "zk-flash 1.6s ease-in-out 3" } : undefined}
       >
         <Link href={idea.href} className={`flex min-w-0 flex-1 items-center gap-4 text-left ${focus}`}>
-          <IssueThumb item={{ title: idea.title, files: [] }} />
+          <IssueThumb item={{ title: idea.title, files: idea.files }} />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[15px] font-semibold text-zk-text">{cleanTitle(idea.title)}</span>
             <span className="mt-0.5 block truncate text-[13px] text-zk-muted">
