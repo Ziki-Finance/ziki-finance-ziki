@@ -1,6 +1,7 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { advanceScreenedCandidate } from "@/lib/finance/advance";
 import { getCompanyProfile } from "@/lib/finance/finnhub";
 import {
   proposalsRequiredFromRule,
@@ -396,6 +397,11 @@ export async function recordFinanceCandidateSignal(
 
       return { candidateId: candidate.id, stage: screenStage, ...counts };
     });
+
+    // A confirmed match goes straight on to Enrich (PRD §3, FIN-D-035).
+    if (result.stage === "issue") {
+      await advanceScreenedCandidate(prisma, result.candidateId);
+    }
 
     const view = await prisma.financeCandidate.findUnique({
       where: { id: result.candidateId },

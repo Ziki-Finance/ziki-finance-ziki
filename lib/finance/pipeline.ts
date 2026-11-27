@@ -67,6 +67,23 @@ export function isEnrichmentComplete(items: readonly { section: FinanceEvidenceS
   return REQUIRED_SECTIONS.every((section) => items.some((item) => item.section === section && item.tier <= 2));
 }
 
+/**
+ * Enrichment ends when the dossier is complete, or once the stage time limit
+ * has passed since enrichment opened (PRD §4.3). A stock with no dossier items
+ * at all never moves on by time: evaluators must cite at least one.
+ */
+export function enrichmentReadyToAdvance(input: {
+  items: readonly { section: FinanceEvidenceSectionName; tier: number }[];
+  enrichOpenedAt: Date | null;
+  timeLimitMinutes: number;
+  now: Date;
+}): boolean {
+  if (isEnrichmentComplete(input.items)) return true;
+  if (input.items.length === 0 || !input.enrichOpenedAt) return false;
+  const limitMs = Math.max(1, input.timeLimitMinutes) * 60_000;
+  return input.now.getTime() - input.enrichOpenedAt.getTime() >= limitMs;
+}
+
 export type SectionStatus = {
   section: FinanceEvidenceSectionName;
   items: number;
