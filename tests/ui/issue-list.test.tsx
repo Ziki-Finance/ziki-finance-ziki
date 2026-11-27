@@ -334,14 +334,15 @@ describe("issue list layout", () => {
     expect(Object.keys(counted(stages(html)))).toEqual(["Overview", "New", "In Progress", "Delivered"]);
   });
 
-  it("shows a new project's waiting idea on Overview instead of No tasks yet, and No tasks yet only when there is nothing at all", async () => {
+  it("shows a new project's waiting idea under New Tickets & Features instead of No tasks yet, and No tasks yet only when there is nothing at all", async () => {
     count.mockResolvedValue(0);
     findMany.mockResolvedValue([]);
     ideaCount.mockResolvedValue(1);
-    ideaFindMany.mockResolvedValue([{ ...IDEA, project: { slug: "acme", organisation: { slug: "zedu" } } }]);
-    const waiting = clean(await renderList({ status: "your_work" }));
-    expect(waiting).toContain("Export activity as CSV");
-    expect(waiting).not.toContain("No tasks yet");
+    ideaFindMany.mockResolvedValue([{ ...IDEA, attachments: [], project: { slug: "acme", organisation: { slug: "zedu" } } }]);
+    expect(clean(await renderList({ status: "your_work" }))).not.toContain("No tasks yet");
+    const tab = clean(await renderList({ status: "your_work", view: "features" }));
+    expect(tab).toContain("Export activity as CSV");
+    expect(tab).not.toContain("No tasks yet");
 
     ideaCount.mockResolvedValue(0);
     ideaFindMany.mockResolvedValue([]);
