@@ -51,18 +51,23 @@ export function TradeButton({
   decisionId,
   label = "+ Log a trade",
   variant = "primary",
+  className,
 }: {
   symbol?: string;
   decisionId?: string;
   label?: string;
   variant?: "primary" | "secondary";
+  className?: string;
 }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <button
         type="button"
-        className={variant === "secondary" ? secondary : financePrimaryButton}
+        className={
+          className ??
+          (variant === "secondary" ? secondary : financePrimaryButton)
+        }
         onClick={() => setOpen(true)}
       >
         {label}

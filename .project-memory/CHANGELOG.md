@@ -128,9 +128,19 @@ FNC-CR-001 ACTUAL AFTER: decision/portfolio/audit/monitor vertical implemented o
 - `components/finance/finance-research-board.tsx`
 - `components/finance/finance-ticker-pipeline.tsx`
 - `components/finance/portfolio-card.tsx` (reused actions)
-- `tests/finance/*` (updated/added UI tests)
+- `tests/finance/finance-ui-split-panel.test.tsx` (new)
 
-**Statuses.** Approval: APPROVED | Implementation: NOT STARTED | Verification: NOT RUN.
+**ACTUAL AFTER (2026-11-27).**
+- Removed the 4 top KPI boxes from `FinanceResearchBoard` and removed `<PortfolioCard />` from `app/(app)/finance/page.tsx`.
+- Refactored `FinanceResearchBoard` into a Linear/spreadsheet-style grouped table (`Owned` at top, `Recommendations` below) with bordered metric boxes (`Price`, `Status`, `Value / Range`, `Return / Score`, `Action` with inline `Details` / `Buy` / `+ Trade`).
+- Added a unified right split-screen side panel (`lg:col-span-5` beside `lg:col-span-7` list) showing either `Company Detail` (`Your Position` / `Recommendation` summary, `FreshCheckButton`, `TradeButton`, `FinanceTickerPipeline` in `compact` mode, and `Full page ↗` link to `/finance/[ticker]`) or `Research Criteria` (`FinanceCriteriaManager`).
+- Enriched `app/(app)/finance/page.tsx` with `position` metrics from `portfolioForOwner` and `detailsBySymbol` for immediate side-panel inspection of real candidates and decisions.
+
+**VERIFIED RESULT (2026-11-27).**
+- `pnpm vitest run tests/finance`: 13/13 files passed (110/110 tests), including `tests/finance/finance-ui-split-panel.test.tsx` (3/3 passed).
+- `pnpm exec eslint "app/(app)/finance/page.tsx" "components/finance/finance-research-board.tsx" "components/finance/finance-ticker-pipeline.tsx" "components/finance/portfolio-card.tsx" "tests/finance/finance-ui-split-panel.test.tsx"`: passed (0 errors, 0 warnings).
+
+**Statuses.** Approval: APPROVED | Implementation: COMPLETED | Verification: VERIFIED.
 
 ## FIN-AGT-CR-001 — Stream B: Agent discovery (`/llms.txt`, `docs/ziki-for-agents.md`, `/api/v1/triage`)
 - **Date:** 2026-11-26
@@ -152,10 +162,19 @@ FNC-CR-001 ACTUAL AFTER: decision/portfolio/audit/monitor vertical implemented o
 **Files affected.**
 - `docs/ziki-for-agents.md`
 - `llms.txt`
+- `lib/finance/triage.ts` (new)
 - `app/api/v1/triage/route.ts`
-- `tests/finance/*`
+- `tests/finance/finance-triage-docs.test.ts` (new)
 
-**Statuses.** Approval: APPROVED | Implementation: NOT STARTED | Verification: NOT RUN.
+**ACTUAL AFTER (2026-11-27).**
+- Added `## Finance v3 Research Pipeline` and `GET /api/v1/triage` `finance` block documentation to `docs/ziki-for-agents.md` and `llms.txt`, matching exact route and Zod schemas (`lib/validations/finance.ts`, `lib/finance/pipeline.ts`, `lib/finance/decision-rules.ts`, `lib/finance/monitor.ts`).
+- Added `financeTriageSummary` in `lib/finance/triage.ts` and wired `app/api/v1/triage/route.ts` to include `finance: { cleared: true, jobsUrl: "/api/v1/finance/jobs", totalPending, counts }` when `User.financeClearedAt` is set (and omit `finance` otherwise).
+
+**VERIFIED RESULT (2026-11-27).**
+- `pnpm vitest run tests/finance`: 11/12 files passed (103/105 tests), including `tests/finance/finance-triage-docs.test.ts` (6/6 passed) and all 10 baseline Finance test files (96/96 passed). (The 2 failures were in concurrent Stream A's `tests/finance/finance-ui-split-panel.test.tsx`.)
+- `pnpm eslint lib/finance/triage.ts app/api/v1/triage/route.ts tests/finance/finance-triage-docs.test.ts`: passed (0 errors, 0 warnings).
+
+**Statuses.** Approval: APPROVED | Implementation: COMPLETED | Verification: VERIFIED.
 
 ## FIN-DATA-CR-001 — Stream C: Live price/range/position data wiring & ticker-detail endpoint
 - **Date:** 2026-11-26
@@ -179,7 +198,18 @@ FNC-CR-001 ACTUAL AFTER: decision/portfolio/audit/monitor vertical implemented o
 **Files affected.**
 - `app/(app)/finance/page.tsx`
 - `lib/finance/demo-stocks.ts`
+- `lib/finance/ticker-detail.ts` (new)
 - `app/api/finance/ticker/[symbol]/route.ts` (new)
-- `tests/finance/*`
+- `tests/finance/finance-data-wiring.test.ts` (new)
 
-**Statuses.** Approval: APPROVED | Implementation: NOT STARTED | Verification: NOT RUN.
+**Statuses.** Approval: APPROVED | Implementation: COMPLETED (2026-11-27) | Verification: PARTIAL (unit/route tests + ESLint pass; 2 unrelated Stream A/B `tsc --noEmit` errors remain).
+
+**ACTUAL AFTER (2026-11-27):**
+- `app/(app)/finance/page.tsx` queries latest `FinanceSnapshot.close` for all researched/held symbols, derives `buyRange` from `FinanceDecision` or `FinanceEvaluation`, fixes `ResearchStockPosition` numeric/string serialization (`shares`, `averageCost`, `nextCheck`), and populates `latestPrice`, `buyRange`, and `position` on all `ResearchStockItem` entries.
+- `lib/finance/demo-stocks.ts` sets `latestPrice`, `buyRange`, and `position: null` on all 6 demo items.
+- `lib/finance/ticker-detail.ts` + `app/api/finance/ticker/[symbol]/route.ts` implement session-authenticated `GET /api/finance/ticker/[symbol]` (`requireFinanceOwner`), `?demo=1` support, and 404 for invalid/unknown tickers.
+
+**VERIFIED RESULT (2026-11-27):**
+- `pnpm vitest run tests/finance`: 13/13 files, 110/110 tests passed (including 5 new tests in `tests/finance/finance-data-wiring.test.ts`).
+- `pnpm eslint` on all 5 Stream C files: 0 errors, 0 warnings.
+- `pnpm typecheck`: 0 errors in Stream C files; 2 pre-existing errors in `lib/finance/triage.ts:41` (Stream B) and `tests/finance/finance-ui-split-panel.test.tsx:122` (Stream A).

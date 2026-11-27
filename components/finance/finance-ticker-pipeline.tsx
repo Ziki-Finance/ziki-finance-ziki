@@ -92,6 +92,7 @@ export function FinanceTickerPipeline({
   overallVerdictKey,
   decision,
   isDemo = false,
+  compact = false,
 }: {
   symbol: string;
   currentStage: string;
@@ -113,6 +114,7 @@ export function FinanceTickerPipeline({
   overallVerdictKey: "buy" | "hold" | "dont_buy";
   decision: SerializedDecision | null;
   isDemo?: boolean;
+  compact?: boolean;
 }) {
   const stageNum = STAGE_ORDER[currentStage] ?? 1;
   const defaultTab: PipelineStageKey = decision
@@ -169,13 +171,23 @@ export function FinanceTickerPipeline({
   return (
     <section
       aria-label="Research pipeline"
-      className="rounded-2xl border border-zk-border bg-zk-surface p-5 sm:p-6 space-y-5"
+      className={
+        compact
+          ? "rounded-xl border border-zk-border bg-zk-bg p-4 space-y-4"
+          : "rounded-2xl border border-zk-border bg-zk-surface p-5 sm:p-6 space-y-5"
+      }
     >
       <div>
         <h2 className="text-xs font-semibold uppercase tracking-wider text-zk-muted">
           Research pipeline (click a stage to inspect)
         </h2>
-        <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div
+          className={
+            compact
+              ? "mt-2.5 grid grid-cols-2 gap-2"
+              : "mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4"
+          }
+        >
           {stages.map((st) => {
             const isSelected = activeTab === st.key;
             const isDone = stageNum > st.num || (st.key === "decide" && decision);
@@ -185,7 +197,7 @@ export function FinanceTickerPipeline({
                 key={st.key}
                 type="button"
                 onClick={() => setActiveTab(st.key)}
-                className={`rounded-xl border p-3.5 text-left transition ${
+                className={`rounded-xl border ${compact ? "p-2.5" : "p-3.5"} text-left transition ${
                   isSelected
                     ? "border-zk-accent bg-zk-tint/60 ring-1 ring-zk-accent"
                     : "border-zk-border bg-zk-bg hover:border-zk-accent/50"
