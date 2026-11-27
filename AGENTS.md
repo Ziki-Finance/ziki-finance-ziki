@@ -1,5 +1,7 @@
 # AGENTS.md
 
+Before anything else, read and follow PCP.md. It applies in full.
+
 Instructions for AI coding agents working on **Ziki Issues** (HNG15 Task 1).
 
 **Agent API Reference:** the agent instructions live in the database (`Instruction` table, #instructions), one tagged section per row. `/llms.txt` is a short start page (`lib/llms-docs.ts`); `/<org>/agents.txt` (`app/[org]/agents.txt/route.ts`) serves every section, each in an `<instruction tag="…">` block. It is one file: an agent gets every section in one request. Rows with no organisation are shared; an organisation's own rows replace a shared row of the same tag and add the rest. Read with one of the organisation's agent keys or signed in as a member. Change a shared instruction with a migration that updates its row.
