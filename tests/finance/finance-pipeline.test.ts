@@ -35,16 +35,17 @@ describe("dossier items: caps and completeness (Stream B, job 5)", () => {
     expect(sectionIsCapped("news", 99, {})).toBe(false);
   });
 
-  it("is complete only when every required section has a tier 1–2 item", () => {
+  it("is complete only when every required section (including social) has a qualifying item", () => {
     const almost = [
       { section: "business" as const, tier: 1 },
       { section: "numbers" as const, tier: 2 },
       { section: "filings" as const, tier: 1 },
       { section: "news" as const, tier: 2 },
+      { section: "social" as const, tier: 4 },
     ];
     expect(isEnrichmentComplete(almost)).toBe(false);
     expect(isEnrichmentComplete([...almost, { section: "market_context" as const, tier: 1 }])).toBe(true);
-    // Social is not required, and a tier 3–4 item in a required section doesn't count.
+    // A tier 3–4 item in a non-social required section doesn't count.
     expect(isEnrichmentComplete([...almost, { section: "market_context" as const, tier: 3 }])).toBe(false);
   });
 
@@ -52,10 +53,11 @@ describe("dossier items: caps and completeness (Stream B, job 5)", () => {
     const statuses = sectionStatuses([
       { section: "business", tier: 1 },
       { section: "news", tier: 3 },
+      { section: "social", tier: 4 },
     ]);
     expect(statuses.find((s) => s.section === "business")).toMatchObject({ items: 1, tierOneOrTwo: 1, done: true });
     expect(statuses.find((s) => s.section === "news")).toMatchObject({ items: 1, tierOneOrTwo: 0, done: false });
-    expect(statuses.find((s) => s.section === "social")).toMatchObject({ done: true });
+    expect(statuses.find((s) => s.section === "social")).toMatchObject({ items: 1, done: true });
   });
 
   it("refuses a dossier item with a bad tier or a non-http link", () => {

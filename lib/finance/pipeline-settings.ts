@@ -18,12 +18,13 @@ export const FINANCE_EVIDENCE_SECTIONS = [
 
 export type FinanceEvidenceSectionName = (typeof FINANCE_EVIDENCE_SECTIONS)[number];
 
-/** The sections that must each have a tier 1–2 item before enrichment ends (PRD §4.3). */
+/** The sections that must each have a valid item before enrichment ends (PRD §4.3). */
 export const REQUIRED_SECTIONS: readonly FinanceEvidenceSectionName[] = [
   "business",
   "numbers",
   "filings",
   "news",
+  "social",
   "market_context",
 ];
 

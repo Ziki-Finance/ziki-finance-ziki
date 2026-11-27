@@ -85,7 +85,7 @@ export async function advanceEnrichedCandidate(
     const ready = enrichmentReadyToAdvance({
       items: candidate.evidence,
       enrichOpenedAt: candidate.jobs[0]?.createdAt ?? null,
-      timeLimitMinutes: values.stageTimeLimitMinutes,
+      timeLimitMinutes: null,
       now,
     });
     if (!ready) return false;
@@ -111,8 +111,28 @@ export async function advanceEnrichedCandidate(
   });
 }
 
-/** The sweep's pass over Screen and Enrich: retry any hand-off that was missed. */
+/** The sweep's pass over Screen and Enrich: retry any hand-off that was missed, and mark exhausted lapsed jobs failed. */
 export async function sweepEarlyStages(db: Db, now = new Date()) {
+  if (typeof db.financePipelineJob?.findMany === "function") {
+    const lapsed = await db.financePipelineJob.findMany({
+      where: { status: "running", leaseUntil: { lt: now } },
+      select: { id: true, attempts: true, maxAttempts: true },
+      take: 200,
+    });
+    const exhaustedIds = lapsed
+      .filter((job) => job.attempts >= job.maxAttempts)
+      .map((job) => job.id);
+    if (exhaustedIds.length > 0) {
+      await db.financePipelineJob.updateMany({
+        where: { id: { in: exhaustedIds } },
+        data: {
+          status: "failed",
+          leaseUntil: null,
+          lastError: "Gave up after the attempt limit.",
+        },
+      });
+    }
+  }
   const settings = await readPipelineSettings(db);
   const [screened, enriching] = await Promise.all([
     db.financeCandidate.findMany({ where: { stage: "screen", screenStage: "issue" }, select: { id: true }, take: 100 }),

@@ -63,25 +63,35 @@ export function sectionIsCapped(section: FinanceEvidenceSectionName, count: numb
   return typeof cap === "number" && count >= cap;
 }
 
-/** Enrichment is done when every required section has a tier 1–2 item. */
+function sectionItemSatisfiesRequirement(
+  section: FinanceEvidenceSectionName,
+  item: { section: FinanceEvidenceSectionName; tier: number },
+): boolean {
+  if (item.section !== section) return false;
+  // Social sources are classified as Tier 4 by design.
+  return section === "social" ? item.tier <= 4 : item.tier <= 2;
+}
+
+/** Enrichment is done when every required section has a qualifying source (tier 1–2, or tier 1–4 for social). */
 export function isEnrichmentComplete(items: readonly { section: FinanceEvidenceSectionName; tier: number }[]): boolean {
-  return REQUIRED_SECTIONS.every((section) => items.some((item) => item.section === section && item.tier <= 2));
+  return REQUIRED_SECTIONS.every((section) => items.some((item) => sectionItemSatisfiesRequirement(section, item)));
 }
 
 /**
- * Enrichment ends when the dossier is complete, or once the stage time limit
- * has passed since enrichment opened (PRD §4.3). A stock with no dossier items
- * at all never moves on by time: evaluators must cite at least one.
+ * Enrichment ends when the dossier is complete, or (only when an explicit time
+ * limit is configured) once that time limit has passed since enrichment opened.
+ * By default (`timeLimitMinutes: null`), enrichment never times out early.
  */
 export function enrichmentReadyToAdvance(input: {
   items: readonly { section: FinanceEvidenceSectionName; tier: number }[];
   enrichOpenedAt: Date | null;
-  timeLimitMinutes: number;
+  timeLimitMinutes: number | null;
   now: Date;
 }): boolean {
   if (isEnrichmentComplete(input.items)) return true;
+  if (input.timeLimitMinutes === null || input.timeLimitMinutes <= 0) return false;
   if (input.items.length === 0 || !input.enrichOpenedAt) return false;
-  const limitMs = Math.max(1, input.timeLimitMinutes) * 60_000;
+  const limitMs = input.timeLimitMinutes * 60_000;
   return input.now.getTime() - input.enrichOpenedAt.getTime() >= limitMs;
 }
 
@@ -97,11 +107,12 @@ export function sectionStatuses(items: readonly { section: FinanceEvidenceSectio
   return sections.map((section) => {
     const inSection = items.filter((item) => item.section === section);
     const tierOneOrTwo = inSection.filter((item) => item.tier <= 2).length;
+    const satisfied = inSection.some((item) => sectionItemSatisfiesRequirement(section, item));
     return {
       section,
       items: inSection.length,
       tierOneOrTwo,
-      done: !REQUIRED_SECTIONS.includes(section) || tierOneOrTwo > 0,
+      done: !REQUIRED_SECTIONS.includes(section) || satisfied,
     };
   });
 }

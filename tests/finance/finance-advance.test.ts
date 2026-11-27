@@ -10,18 +10,23 @@ const complete = [
   { section: "numbers" as const, tier: 2 },
   { section: "filings" as const, tier: 1 },
   { section: "news" as const, tier: 2 },
+  { section: "social" as const, tier: 4 },
   { section: "market_context" as const, tier: 2 },
 ];
 
-describe("enrichment ends on a complete dossier or the time limit (PRD §4.3)", () => {
-  it("moves on as soon as every required section has a tier 1–2 item", () => {
-    expect(enrichmentReadyToAdvance({ items: complete, enrichOpenedAt: now, timeLimitMinutes: 20, now })).toBe(true);
+describe("enrichment ends on a complete dossier or an explicit time limit", () => {
+  it("moves on as soon as every required section has a qualifying item", () => {
+    expect(enrichmentReadyToAdvance({ items: complete, enrichOpenedAt: now, timeLimitMinutes: null, now })).toBe(true);
   });
-  it("waits while the dossier is incomplete and the limit hasn't passed", () => {
+  it("waits indefinitely when no time limit is set", () => {
+    const opened = new Date(now.getTime() - 999 * 60_000);
+    expect(enrichmentReadyToAdvance({ items: complete.slice(0, 2), enrichOpenedAt: opened, timeLimitMinutes: null, now })).toBe(false);
+  });
+  it("waits while the dossier is incomplete and an explicit limit hasn't passed", () => {
     const opened = new Date(now.getTime() - 10 * 60_000);
     expect(enrichmentReadyToAdvance({ items: complete.slice(0, 2), enrichOpenedAt: opened, timeLimitMinutes: 20, now })).toBe(false);
   });
-  it("moves on at the time limit with at least one item", () => {
+  it("moves on at an explicit time limit with at least one item", () => {
     const opened = new Date(now.getTime() - 20 * 60_000);
     expect(enrichmentReadyToAdvance({ items: complete.slice(0, 1), enrichOpenedAt: opened, timeLimitMinutes: 20, now })).toBe(true);
   });
