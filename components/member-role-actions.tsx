@@ -304,9 +304,9 @@ function MemberActionsMenu({
         className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-control text-zk-muted hover:bg-zk-chip hover:text-zk-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-electric-blue disabled:opacity-50"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <circle cx="5" cy="12" r="2" />
+          <circle cx="12" cy="5" r="2" />
           <circle cx="12" cy="12" r="2" />
-          <circle cx="19" cy="12" r="2" />
+          <circle cx="12" cy="19" r="2" />
         </svg>
       </button>
       {open ? (
