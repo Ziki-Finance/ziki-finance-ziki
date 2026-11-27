@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     "read",
     null,
     async (agent) => {
-      requireFinanceAgent(agent);
+      await requireFinanceAgent(agent);
       return NextResponse.json({ items: await listFinanceRuns(agent.ownerId) });
     },
   );

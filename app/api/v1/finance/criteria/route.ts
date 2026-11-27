@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     "read",
     null,
     async (agent) => {
-      requireFinanceAgent(agent);
+      await requireFinanceAgent(agent);
       return NextResponse.json({ items: await listFinanceCriteria(agent.ownerId) });
     },
   );
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     "working",
     null,
     async (agent) => {
-      requireFinanceAgent(agent);
+      await requireFinanceAgent(agent);
       const parsed = financeCriteriaInputSchema.safeParse(await issueJson(request));
       if (!parsed.success) {
         return NextResponse.json(

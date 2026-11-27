@@ -73,11 +73,19 @@ export type TickerPanelDetail = {
 type FilterKey = "all" | "needs_you" | "go" | "in_progress" | "not_now";
 
 const CALL_LABELS: Record<string, string> = {
-  go: "Go",
-  no_go: "No-go",
-  keep: "Keep",
-  trim: "Trim",
+  go: "Buy",
+  no_go: "Pass",
+  keep: "Hold",
+  trim: "Reduce",
   sell: "Sell",
+};
+
+const CALL_DESCRIPTIONS: Record<string, string> = {
+  go: "Agents recommend buying this stock.",
+  no_go: "Agents recommend passing on this stock.",
+  keep: "Investment thesis still holds — keep holding.",
+  trim: "Thesis is weakening — consider reducing position size.",
+  sell: "Thesis is broken — consider exiting the position.",
 };
 
 const STAGE_LABELS: Record<string, string> = {
@@ -147,6 +155,45 @@ function formatCompactMoney(value: number | null | undefined): string {
 function formatPct(value: number | null | undefined): string {
   if (value === null || value === undefined) return "—";
   return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
+}
+
+function TickerLogo({
+  symbol,
+  name,
+  size = "sm",
+}: {
+  symbol: string;
+  name: string;
+  size?: "sm" | "md";
+}) {
+  const [failed, setFailed] = useState(false);
+  const boxClass = size === "md" ? "h-10 w-10" : "h-8 w-8";
+
+  if (failed) {
+    return (
+      <span
+        title={`${name} (${symbol})`}
+        className={`flex ${boxClass} shrink-0 items-center justify-center rounded-lg border border-zk-border bg-zk-bg text-xs font-bold text-zk-accent`}
+      >
+        {symbol.slice(0, 2)}
+      </span>
+    );
+  }
+
+  return (
+    <span
+      title={`${name} (${symbol})`}
+      className={`flex ${boxClass} shrink-0 items-center justify-center overflow-hidden rounded-lg border border-zk-border bg-zk-bg`}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={`/api/finance/ticker/${encodeURIComponent(symbol)}/logo`}
+        alt={symbol}
+        onError={() => setFailed(true)}
+        className="h-full w-full object-contain p-1"
+      />
+    </span>
+  );
 }
 
 function resolveItemDetail(
@@ -307,8 +354,8 @@ export function FinanceResearchBoard({
       ? formatPct(item.position?.gainPct)
       : item.reviewGo !== null && item.reviewTotal !== null
         ? item.origin === "monitor"
-          ? "Reason check"
-          : `${item.reviewGo}/${item.reviewTotal} Go`
+          ? "Thesis check"
+          : `${item.reviewGo}/${item.reviewTotal} agree`
         : "In pipeline";
 
     const returnColorClass = item.isHeld
@@ -340,7 +387,7 @@ export function FinanceResearchBoard({
             openCompanyPanel(item.symbol);
           }
         }}
-        className={`cursor-pointer grid grid-cols-1 gap-3 px-5 py-3.5 transition ${ROW_GRID_CLASS} ${
+        className={`cursor-pointer grid grid-cols-1 gap-3 px-6 py-3.5 transition ${ROW_GRID_CLASS} ${
           isSelected
             ? "bg-zk-tint/50 ring-1 ring-inset ring-zk-accent/40"
             : "hover:bg-zk-tint/30"
@@ -349,9 +396,7 @@ export function FinanceResearchBoard({
         {/* Company */}
         <div className="min-w-0 pr-2">
           <div className="flex items-center gap-3">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-zk-border bg-zk-bg text-xs font-bold text-zk-accent">
-              {item.symbol.slice(0, 2)}
-            </span>
+            <TickerLogo symbol={item.symbol} name={item.name} size="sm" />
             <span className="truncate text-xs font-semibold text-zk-text">
               {item.name}
             </span>
@@ -364,7 +409,7 @@ export function FinanceResearchBoard({
               </span>
             ) : null}
           </div>
-          <p className="mt-0.5 max-w-[46ch] truncate pl-10 text-xs text-zk-muted">
+          <p className="mt-0.5 max-w-[46ch] truncate pl-11 text-xs text-zk-muted">
             {item.summary}
           </p>
         </div>
@@ -379,6 +424,11 @@ export function FinanceResearchBoard({
         {/* Status / Verdict / Thesis Health */}
         <div>
           <span
+            title={
+              item.call
+                ? (CALL_DESCRIPTIONS[item.call] ?? statusText)
+                : statusText
+            }
             className={`inline-flex items-center whitespace-nowrap rounded-md border px-2.5 py-1 text-xs font-medium ${statusBadgeClass(statusKey)}`}
           >
             {statusText}
@@ -477,7 +527,7 @@ export function FinanceResearchBoard({
                 [
                   ["all", `All (${counts.all})`],
                   ["needs_you", `Needs you (${counts.needs_you})`],
-                  ["go", `Go / Keep (${counts.go})`],
+                  ["go", `Buy / Hold (${counts.go})`],
                   ["in_progress", `In progress (${counts.in_progress})`],
                   ["not_now", `Not now (${counts.not_now})`],
                 ] as const
@@ -500,7 +550,13 @@ export function FinanceResearchBoard({
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => setShowDemo((prev) => !prev)}
+                onClick={() => {
+                  const next = !showDemo;
+                  setShowDemo(next);
+                  if (!next && selectedItem?.isDemo) {
+                    setSelectedSymbol(null);
+                  }
+                }}
                 className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
                   showDemo
                     ? "border-zk-accent/60 bg-zk-tint text-zk-accent"
@@ -537,7 +593,7 @@ export function FinanceResearchBoard({
               <div className="min-w-[760px]">
                 {/* Column Headers */}
                 <div
-                  className={`hidden border-b border-zk-divider bg-zk-bg px-5 py-2.5 text-xs font-semibold text-zk-muted ${ROW_GRID_CLASS}`}
+                  className={`hidden border-b border-zk-divider bg-zk-bg px-6 py-2.5 text-xs font-semibold text-zk-muted ${ROW_GRID_CLASS}`}
                 >
                   <span>Company</span>
                   <span>Price</span>
@@ -548,11 +604,11 @@ export function FinanceResearchBoard({
                 </div>
 
                 {/* Owned Group */}
-                <div className="border-b border-zk-divider bg-zk-chip/60 px-5 py-2 text-xs font-bold uppercase tracking-wider text-zk-text">
+                <div className="border-b border-zk-divider bg-zk-chip/60 px-6 py-2 text-xs font-bold uppercase tracking-wider text-zk-text">
                   Owned ({ownedItems.length})
                 </div>
                 {ownedItems.length === 0 ? (
-                  <p className="border-b border-zk-divider px-5 py-3.5 text-xs text-zk-muted">
+                  <p className="border-b border-zk-divider px-6 py-3.5 text-xs text-zk-muted">
                     No owned positions yet — log a trade on any recommendation to
                     track it here.
                   </p>
@@ -563,11 +619,11 @@ export function FinanceResearchBoard({
                 )}
 
                 {/* Recommendations Group */}
-                <div className="border-y border-zk-divider bg-zk-chip/60 px-5 py-2 text-xs font-bold uppercase tracking-wider text-zk-muted">
+                <div className="border-y border-zk-divider bg-zk-chip/60 px-6 py-2 text-xs font-bold uppercase tracking-wider text-zk-muted">
                   Recommendations ({recommendationItems.length})
                 </div>
                 {recommendationItems.length === 0 ? (
-                  <p className="px-5 py-3.5 text-xs text-zk-muted">
+                  <p className="px-6 py-3.5 text-xs text-zk-muted">
                     No recommendations match this filter.
                   </p>
                 ) : (
@@ -590,9 +646,11 @@ export function FinanceResearchBoard({
               {/* Side Panel Header */}
               <div className="flex items-start justify-between gap-3 border-b border-zk-divider pb-3.5">
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zk-border bg-zk-bg text-xs font-bold text-zk-accent">
-                    {selectedItem.symbol.slice(0, 2)}
-                  </div>
+                  <TickerLogo
+                    symbol={selectedItem.symbol}
+                    name={selectedItem.name}
+                    size="md"
+                  />
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <h2 className="truncate text-sm font-bold text-zk-text">

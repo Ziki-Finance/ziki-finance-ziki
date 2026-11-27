@@ -30,19 +30,46 @@ function field(formData: FormData, name: string): string {
 
 export async function grantFinanceClearanceAction(formData: FormData): Promise<void> {
   await requireSuperAdmin();
-  try {
-    await grantFinanceClearance(prisma, field(formData, "email"));
-  } catch (error) {
-    if (error instanceof FinanceClearanceError) redirect(`${CLEARANCE_PAGE}?error=${error.code}`);
-    throw error;
+  const rawEmails = [
+    ...formData.getAll("emails").map((v) => String(v).trim()),
+    ...field(formData, "email").split(/[\s,;]+/),
+  ]
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  const emails = Array.from(new Set(rawEmails));
+  if (emails.length === 0) {
+    redirect(`${CLEARANCE_PAGE}?error=invalid_email#clearance`);
   }
+
+  let granted = 0;
+  let lastError: FinanceClearanceError | null = null;
+  for (const email of emails) {
+    try {
+      await grantFinanceClearance(prisma, email);
+      granted += 1;
+    } catch (error) {
+      if (error instanceof FinanceClearanceError) {
+        lastError = error;
+        continue;
+      }
+      throw error;
+    }
+  }
+
   revalidatePath(CLEARANCE_PAGE);
+  if (granted === 0 && lastError) {
+    redirect(`${CLEARANCE_PAGE}?error=${lastError.code}#clearance`);
+  }
+  const skipped = emails.length - granted;
+  const skippedParam = skipped > 0 ? `&skipped=${skipped}` : "";
+  redirect(`${CLEARANCE_PAGE}?saved=clearance&count=${granted}${skippedParam}#clearance`);
 }
 
 export async function removeFinanceClearanceAction(formData: FormData): Promise<void> {
   await requireSuperAdmin();
   await removeFinanceClearance(prisma, field(formData, "userId"));
   revalidatePath(CLEARANCE_PAGE);
+  redirect(`${CLEARANCE_PAGE}?saved=revoked#clearance`);
 }
 
 /** Staff set the agreement numbers (idea 19, FIN-D-022). A change applies from the next settle. */

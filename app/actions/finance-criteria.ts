@@ -9,7 +9,7 @@ import {
   deleteFinanceCriteria,
   updateFinanceCriteria,
 } from "@/lib/finance/criteria";
-import { isFinanceOwner } from "@/lib/finance/owner";
+import { hasFinanceAccess } from "@/lib/finance/owner";
 import {
   DEFAULT_FINANCE_STOCK_COUNT,
   financeCriteriaInputSchema,
@@ -49,7 +49,7 @@ export async function saveFinanceCriteriaAction(
   formData: FormData,
 ): Promise<FinanceCriteriaActionResult> {
   const user = await requireUser();
-  if (!isFinanceOwner(user)) return { error: OWNER_ONLY };
+  if (!(await hasFinanceAccess(user))) return { error: OWNER_ONLY };
 
   const parsed = parseCriteriaForm(formData);
   if (!parsed.success) {
@@ -79,7 +79,7 @@ export async function deleteFinanceCriteriaAction(
   formData: FormData,
 ): Promise<FinanceCriteriaActionResult> {
   const user = await requireUser();
-  if (!isFinanceOwner(user)) return { error: OWNER_ONLY };
+  if (!(await hasFinanceAccess(user))) return { error: OWNER_ONLY };
 
   const criteriaId = formData.get("id")?.toString().trim() ?? "";
   if (!criteriaId) return { error: "Choose the criteria to delete." };

@@ -125,8 +125,16 @@ export function finnhubMarketData(key: string): MarketData {
       if (!exact) return null;
       const match = matchOf(exact);
       if (!match) return null;
-      const profile = await get<{ finnhubIndustry?: string }>("/stock/profile2", { symbol }, key);
-      return profile?.finnhubIndustry ? { ...match, industry: profile.finnhubIndustry } : match;
+      const profile = await get<{ finnhubIndustry?: string; logo?: string }>("/stock/profile2", { symbol }, key);
+      const logoUrl =
+        typeof profile?.logo === "string" && /^https?:\/\//.test(profile.logo.trim())
+          ? profile.logo.trim()
+          : null;
+      return {
+        ...match,
+        ...(profile?.finnhubIndustry ? { industry: profile.finnhubIndustry } : {}),
+        ...(logoUrl ? { logoUrl } : {}),
+      };
     },
 
     /** The latest quote. Finnhub's daily candles are a paid feature, so this is the bar. */

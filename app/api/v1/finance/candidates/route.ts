@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     "working",
     null,
     async (agent) => {
-      requireFinanceAgent(agent);
+      await requireFinanceAgent(agent);
       const parsed = financeCandidateSignalSchema.safeParse(await issueJson(request));
       if (!parsed.success) {
         return NextResponse.json(

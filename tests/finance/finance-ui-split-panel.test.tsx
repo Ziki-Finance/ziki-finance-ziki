@@ -171,7 +171,7 @@ describe("FIN-UI-CR-001: /finance Linear/spreadsheet list and split-screen side 
     expect(text).toContain("$4,570 · 20sh");
     expect(text).toContain("+14.2%");
     expect(text).toContain("$395.00 – $435.00");
-    expect(text).toContain("4/5 Go");
+    expect(text).toContain("4/5 agree");
   });
 
   it("opens Company Detail in the right side panel on row click and switches to Criteria on button click", () => {

@@ -20,7 +20,7 @@ export async function GET(
     "read",
     id,
     async (agent) => {
-      requireFinanceAgent(agent);
+      await requireFinanceAgent(agent);
       const versions = await listFinanceCriteriaVersions(agent.ownerId, id);
       if (!versions) throw new IssueApiError(404, "Criteria not found.");
       return NextResponse.json({ items: versions });

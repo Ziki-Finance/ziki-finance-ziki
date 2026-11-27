@@ -29,7 +29,7 @@ export async function GET(
     "read",
     id,
     async (agent) => {
-      requireFinanceAgent(agent);
+      await requireFinanceAgent(agent);
       const criteria = await getFinanceCriteria(agent.ownerId, id);
       if (!criteria) throw new IssueApiError(404, "Criteria not found.");
       return NextResponse.json({ criteria });
@@ -48,7 +48,7 @@ export async function PATCH(
     "working",
     id,
     async (agent) => {
-      requireFinanceAgent(agent);
+      await requireFinanceAgent(agent);
       const parsed = financeCriteriaInputSchema.safeParse(await issueJson(request));
       if (!parsed.success) {
         return NextResponse.json(
@@ -74,7 +74,7 @@ export async function DELETE(
     "working",
     id,
     async (agent) => {
-      requireFinanceAgent(agent);
+      await requireFinanceAgent(agent);
       const deleted = await deleteFinanceCriteria(agent.ownerId, id);
       if (!deleted) throw new IssueApiError(404, "Criteria not found.");
       return new NextResponse(null, { status: 204 });

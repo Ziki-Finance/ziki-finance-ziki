@@ -21,7 +21,7 @@ export async function GET(
     "read",
     id,
     async (agent) => {
-      requireFinanceAgent(agent);
+      await requireFinanceAgent(agent);
       const run = await getFinanceRun(agent.ownerId, id);
       if (!run) throw new IssueApiError(404, "Run not found.");
       return NextResponse.json({ run });

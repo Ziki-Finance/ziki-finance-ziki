@@ -2,11 +2,11 @@ import { notFound } from "next/navigation";
 import { IssueApiError } from "@/lib/agent-api/errors";
 import type { AgentContext } from "@/lib/agents/require-agent";
 import { requireUser, type SessionAppUser } from "@/lib/auth-helpers";
+import { prisma } from "@/lib/prisma";
 
 /**
- * Finance is the product owner's private tool (FIN-D-040). It is gated to the
- * real super admin account, not to an organisation role: Finance belongs to no
- * organisation.
+ * Finance is gated to the real super admin account or members explicitly
+ * granted Finance clearance on `/finance/admin` (`User.financeClearedAt`).
  */
 export function isFinanceOwner(
   user: Pick<SessionAppUser, "role" | "isRealSuperAdmin">,
@@ -14,18 +14,34 @@ export function isFinanceOwner(
   return user.isRealSuperAdmin === true || user.role === "super_admin";
 }
 
+export async function hasFinanceAccess(
+  user: Pick<SessionAppUser, "id" | "role" | "isRealSuperAdmin">,
+): Promise<boolean> {
+  if (isFinanceOwner(user)) return true;
+  const row = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { financeClearedAt: true },
+  });
+  return Boolean(row?.financeClearedAt);
+}
+
 export async function requireFinanceOwner() {
   const user = await requireUser();
-  if (!isFinanceOwner(user)) notFound();
+  if (!(await hasFinanceAccess(user))) notFound();
   return user;
 }
 
-/** An agent may do Finance work only when its owner is the Finance owner. */
-export function requireFinanceAgent(agent: AgentContext): void {
-  if (agent.ownerRole !== "super_admin") {
+/** An agent may do Finance work when its owner is super_admin or finance-cleared. */
+export async function requireFinanceAgent(agent: AgentContext): Promise<void> {
+  if (agent.ownerRole === "super_admin") return;
+  const row = await prisma.user.findUnique({
+    where: { id: agent.ownerId },
+    select: { financeClearedAt: true },
+  });
+  if (!row?.financeClearedAt) {
     throw new IssueApiError(
       403,
-      "Finance is available to the owner's own agents only.",
+      "Finance is available to cleared members' agents only.",
     );
   }
 }
