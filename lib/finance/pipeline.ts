@@ -372,7 +372,16 @@ export async function listPipelineJobsForAgent(
         { status: "queued", nextRunAt: { lte: now } },
         { status: "running", leaseUntil: { lt: now } },
       ],
+      candidate:
+        kind === "evaluate"
+          ? {
+              stage: "evaluate",
+              evaluations: { none: { agentId: agent.agentId } },
+              evidence: { none: { agentId: agent.agentId } },
+            }
+          : { stage: kind },
     },
+    distinct: ["candidateId"],
     orderBy: { createdAt: "asc" },
     take: limit,
     select: {
@@ -389,14 +398,7 @@ export async function listPipelineJobsForAgent(
       },
     },
   });
-  if (kind !== "evaluate") return jobs.filter((job) => job.attempts < job.maxAttempts);
-  // An agent that evaluated (or enriched) a candidate doesn't see its evaluate job again.
-  const done = await db.financeEvaluation.findMany({
-    where: { agentId: agent.agentId, candidateId: { in: jobs.map((j) => j.candidate.id) } },
-    select: { candidateId: true },
-  });
-  const skip = new Set(done.map((d) => d.candidateId));
-  return jobs.filter((job) => !skip.has(job.candidate.id) && job.attempts < job.maxAttempts);
+  return jobs.filter((job) => job.attempts < job.maxAttempts);
 }
 
 /** Atomically claim a job for this agent. A lapsed lease lets another agent retry. */

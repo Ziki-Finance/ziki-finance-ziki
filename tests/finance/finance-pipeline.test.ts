@@ -1,9 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   backoffMinutes,
   evaluationBodySchema,
   evidenceBodySchema,
   isEnrichmentComplete,
+  listPipelineJobsForAgent,
   nextRetryAt,
   overallVerdict,
   scoreBreakdown,
@@ -157,5 +158,43 @@ describe("pipeline settings staff set (PRD §3)", () => {
   it("has sensible defaults", () => {
     expect(DEFAULT_PIPELINE_SETTINGS.researchersEvaluate).toBe(5);
     expect(DEFAULT_PIPELINE_SETTINGS.candidateRule).toBe("proposed_by_2");
+  });
+});
+
+describe("listPipelineJobsForAgent", () => {
+  const agent = { agentId: "agent-1", ownerId: "owner-1", level: "working" as const };
+  const now = new Date("2026-11-27T17:00:00.000Z");
+
+  it("filters out evaluated/enriched candidates in the DB query, deduplicates by candidateId, and drops exhausted jobs", async () => {
+    const findMany = vi.fn().mockResolvedValue([
+      { id: "job-ok", attempts: 0, maxAttempts: 3, candidate: { id: "cand-1", stage: "evaluate" } },
+      { id: "job-dead", attempts: 3, maxAttempts: 3, candidate: { id: "cand-2", stage: "evaluate" } },
+    ]);
+    const db = { financePipelineJob: { findMany } } as unknown as Parameters<typeof listPipelineJobsForAgent>[0];
+
+    const result = await listPipelineJobsForAgent(db, agent, "evaluate", now, 5);
+
+    expect(findMany).toHaveBeenCalledTimes(1);
+    const query = findMany.mock.calls[0]?.[0];
+    expect(query.distinct).toEqual(["candidateId"]);
+    expect(query.orderBy).toEqual({ createdAt: "asc" });
+    expect(query.take).toBe(5);
+    expect(query.where.candidate).toEqual({
+      stage: "evaluate",
+      evaluations: { none: { agentId: "agent-1" } },
+      evidence: { none: { agentId: "agent-1" } },
+    });
+    expect(result.map((j) => j.id)).toEqual(["job-ok"]);
+  });
+
+  it("filters enrich jobs to candidate stage = enrich and deduplicates by candidateId", async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const db = { financePipelineJob: { findMany } } as unknown as Parameters<typeof listPipelineJobsForAgent>[0];
+
+    await listPipelineJobsForAgent(db, agent, "enrich", now, 5);
+
+    const query = findMany.mock.calls[0]?.[0];
+    expect(query.distinct).toEqual(["candidateId"]);
+    expect(query.where.candidate).toEqual({ stage: "enrich" });
   });
 });
