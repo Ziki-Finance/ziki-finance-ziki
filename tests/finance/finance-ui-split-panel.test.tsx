@@ -119,7 +119,7 @@ function renderBoard(items: ResearchStockItem[] = SAMPLE_ITEMS) {
         initialCriteria={[
           {
             id: "crit-1",
-            preset: null,
+            preset: "quality_at_a_fair_price",
             words: "Quality at a fair price\nROIC > 20%",
             companySize: "large",
             industries: ["Technology"],

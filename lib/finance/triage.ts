@@ -38,7 +38,7 @@ export async function financeTriageSummary(
   }
 
   const [legacyJobs, screen, enrich, evaluate, review, decide, check] = await Promise.all([
-    listJobsForAgent(prisma, agent),
+    listJobsForAgent(prisma, { ...agent, level: agent.level ?? "working" }),
     screenJobsForOwner(agent.ownerId),
     listPipelineJobsForAgent(prisma, agent, "enrich", new Date(), 50),
     listPipelineJobsForAgent(prisma, agent, "evaluate", new Date(), 50),
