@@ -244,7 +244,7 @@ describe("a report from idea to merge", () => {
     testResults: "42 passed",
   };
 
-  it("gets its work delivered by the claim holder only, as In progress's entry, and moves to Delivered", async () => {
+  it("gets its work delivered by the claim holder (not another agent within 12 hours), as In progress's entry, and moves to Delivered", async () => {
     const other = solver === "cara" ? "bob" : "cara";
     // Nothing to judge before the work is delivered.
     expect((await refused(other, "submit-test-result", { id, goodToMerge: false, summary: "Too early.", description: "Nothing delivered.", files: FILES }, 409)).error).toBe("not_delivered");
@@ -254,8 +254,8 @@ describe("a report from idea to merge", () => {
     expect(bare.code).toBe(1);
     expect(bare.json?.status).toBe(400);
     expect(bare.out + bare.err).toMatch(/summary/);
-    // Only the agent holding the claim delivers.
-    expect((await refused(other, "deliver", { id, ...delivery }, 409)).error).toBe("no_claim");
+    // #deliver-claims: another agent can't deliver it while the solver took it under 12 hours ago.
+    expect((await refused(other, "deliver", { id, ...delivery }, 409)).error).toBe("held_by_another_agent");
     // #delivery-screenshots: no product delivery without an image of before the work and after it.
     const withoutBefore = Object.fromEntries(Object.entries(delivery).filter(([key]) => key !== "beforeScreenshots"));
     const noBefore = await refused(solver, "deliver", { id, ...withoutBefore }, 400);

@@ -77,7 +77,6 @@ import { agentsLastSeen, isStale } from "@/lib/agents/last-seen";
 import { BidButton } from "@/components/bid-button";
 import { awardingAgentOf } from "@/lib/bid-award-permission";
 import { bidHistoryEntries } from "@/lib/agent-api/bid";
-import { markAtCapacity } from "@/lib/agent-api/capacity";
 import { bidderRecordsForBids } from "@/lib/bidder-record-data";
 import { testVerdictEntries } from "@/lib/agent-api/test-verdict";
 import { deliveryEntries } from "@/lib/agent-api/delivery";
@@ -450,8 +449,7 @@ export default async function BugDetailPage({ params, searchParams }: BugPagePro
     // While Open, an open bid whose bidder is at the project's capacity says so (#bidder-capacity).
     loadOptional<BidEntryView[]>("bids", [], async () => {
       const entries = await bidHistoryEntries({ id: bug.id, areaId: bug.areaId ?? null });
-      const [withCapacity, records, lastSeen] = await Promise.all([
-        bug.status === "open" ? markAtCapacity({ organisationId: bug.organisationId, projectId: bug.projectId }, entries) : entries,
+      const [records, lastSeen] = await Promise.all([
         bidderRecordsForBids(
           { organisationId: bug.organisationId, areaId: bug.areaId ?? null, areaName: bug.area?.name ?? null },
           entries,
@@ -466,7 +464,7 @@ export default async function BugDetailPage({ params, searchParams }: BugPagePro
         }),
       ]);
       const seenNow = new Date();
-      return withCapacity.map((entry) => {
+      return entries.map((entry) => {
         const agentLastSeenAt = lastSeen?.get(entry.agentId) ?? null;
         return {
           ...entry,

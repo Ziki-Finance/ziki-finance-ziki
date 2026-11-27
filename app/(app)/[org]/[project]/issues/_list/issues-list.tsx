@@ -844,8 +844,8 @@ export async function IssuesList({
         };
 
         // A section's cards. Delivered - Needs your Approval puts the latest delivery activity first (#just-delivered): a
-        // new or replaced delivery, a pull request report, a deployment report or a status move, whichever came last, so
-        // whatever was just delivered or pushed tops the list. The others are newest first.
+        // new or replaced delivery, a pull request report, a deployment report or any history entry (the card's "updated"
+        // line), whichever came last, so whatever was just delivered or pushed tops the list. The others are newest first.
         const sectionRows = async (key: FeedSection, sectionWhere: Prisma.BugWhereInput, skip: number, take: number) => {
           if (key !== "needs") return prisma.bug.findMany({ where: sectionWhere, orderBy, skip, take, select });
           const candidates = await prisma.bug.findMany({ where: sectionWhere, select: { id: true } });
@@ -858,7 +858,7 @@ export async function IssuesList({
               COALESCE((SELECT max(d."updatedAt") FROM "Delivery" d WHERE d."bugId" = b."id"), b."createdAt"),
               COALESCE((SELECT max(r."createdAt") FROM "PullRequestReport" r WHERE r."bugId" = b."id"), b."createdAt"),
               COALESCE((SELECT max(x."updatedAt") FROM "DeploymentReport" x WHERE x."bugId" = b."id"), b."createdAt"),
-              COALESCE((SELECT max(a."createdAt") FROM "BugActivity" a WHERE a."bugId" = b."id" AND a."type" = 'status_changed'), b."createdAt")
+              COALESCE((SELECT max(a."createdAt") FROM "BugActivity" a WHERE a."bugId" = b."id"), b."createdAt")
             ) DESC, b."id" DESC
             OFFSET ${skip} LIMIT ${take}`;
           const ids = ranked.map((row) => row.id);

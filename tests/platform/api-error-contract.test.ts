@@ -1,3 +1,4 @@
+import { handMoveBodySchema } from "@/lib/issue-hand-move";
 import { describe, expect, it } from "vitest";
 import { CLI_TOOLS } from "@/cli/catalog";
 import { apiNotFound, createMethodNotAllowed, createOptions } from "@/lib/agent-api/http-errors";
@@ -117,6 +118,7 @@ const ROUTE_SCHEMAS: Record<string, z.ZodType> = {
   ziki_give_idea_verdict: ideaVerdictFields,
   ziki_submit_test_result: testVerdictBodySchema,
   ziki_force_merge: forceMergeBodySchema,
+  ziki_move_issue_status: handMoveBodySchema,
   ziki_merge_fix: mergeReviewBodySchema,
   ziki_ask_owner: agentQuestionSchema,
   ziki_escalate: agentEscalationSchema,

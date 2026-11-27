@@ -12,6 +12,7 @@ import { refreshJudgedStatus } from "@/lib/agent-api/tested-status";
 import { entryDescription, entryReplySelect, entrySummary, toEntryReplies, type EntryReply } from "@/lib/agent-api/entry-fields";
 import { IssueApiError } from "@/lib/agent-api/errors";
 import { parseIssueRef } from "@/lib/issue-ref";
+import { claimableByDelivery, claimForWork, heldByAnotherMessage, takeoverFor } from "@/lib/agent-api/claim-by-work";
 import { parsePullRequestUrl, sameRepo } from "@/lib/github/pull-request-url";
 import { PROJECT_REPOSITORIES_SELECT, repoForPullRequest } from "@/lib/github/project-repositories";
 import { acceptedFixGate, releaseAcceptedFix } from "@/lib/accepted-fix";
@@ -89,6 +90,7 @@ const MARKETING_ONLY_DELIVERY_FIELDS = ["deliverableText", "deliverableUrls", "a
 
 /** Where work can be delivered: being worked on, or delivered again before it merges. */
 const DELIVERABLE = new Set(["in_progress", "done", "merge"]);
+
 
 export type DeliveryEntry = {
   id: string;
@@ -192,7 +194,9 @@ export type DeliverResult =
   | { status: 400 | 403 | 404 | 409 | 422; error: string; message: string; field?: string };
 
 /**
- * POST /issues/{id}/delivery: the agent holding the claim delivers its work.
+ * POST /issues/{id}/delivery: the agent holding the claim delivers its work. Any other agent may deliver too
+ * (#deliver-claims): an Open issue, or an In progress one nobody holds, is claimed by the delivery; one another agent
+ * has held for more than 12 hours is taken over; under 12 hours the delivery is refused.
  * With no claim, an independent manager agent may file a stranded delivery on
  * the holder's behalf (lib/agent-api/stranded-delivery.ts): the delivery is
  * credited to that person, and the judgements already given are evaluated at once.
@@ -261,14 +265,6 @@ export async function deliverWork(
     }
   }
 
-  if (!DELIVERABLE.has(bug.status)) {
-    return {
-      status: 409,
-      error: "not_in_progress",
-      message: "Work is delivered while the issue is In progress (or again before it merges). Win a bid or accept an offer first.",
-    };
-  }
-
   const claim = await prisma.issueClaim.findFirst({
     where: { bugId: bug.id, agentId: agent.agentId, status: "active", releasedAt: null },
     select: { id: true, beneficiaryUserId: true },
@@ -276,7 +272,28 @@ export async function deliverWork(
   let beneficiaryUserId = claim?.beneficiaryUserId ?? null;
   /** Set when a manager agent files the delivery on the holder's behalf (#stranded-delivery). */
   let onBehalfOf = false;
-  if (!claim) {
+  /**
+   * #deliver-claims: the delivery claims the issue for this agent, releasing these live claims first: an Open issue's
+   * pending offers, or the claim of an agent that has held the In progress issue longer than TAKEOVER_AFTER_MS.
+   */
+  let takeOver: { release: { id: string; agentId: string }[] } | null = null;
+  if (!claim && claimableByDelivery(bug.status)) {
+    const taking = await takeoverFor(bug.id, agent.agentId);
+    if (!taking.ok) return { status: 409, error: "held_by_another_agent", message: heldByAnotherMessage(taking.hoursLeft, "deliver") };
+    // #stranded-delivery comes first: a manager agent delivering a qualifying linked pull request credits its holder.
+    const strandedForHolder = bug.status === "in_progress" && !taking.heldByOther && !marketing && hasLevel(agent.level, "manager") && Boolean(await strandedDelivery(bug.id));
+    if (!strandedForHolder) {
+      takeOver = { release: taking.release };
+      beneficiaryUserId = agent.ownerId;
+    }
+  } else if (!DELIVERABLE.has(bug.status)) {
+    return {
+      status: 409,
+      error: "not_deliverable",
+      message: "This issue is Live or Closed: there is nothing to deliver.",
+    };
+  }
+  if (!claim && !takeOver) {
     // #539: a reviewer who accepted this issue's review offer may deliver when
     // nothing is delivered yet, so a missing solver doesn't strand the work.
     const reviewOffer = await prisma.reviewOffer.findFirst({
@@ -373,6 +390,7 @@ export async function deliverWork(
   const from = bug.substatus;
 
   const { delivery, replaced } = await prisma.$transaction(async (tx) => {
+    if (takeOver) await claimForWork(tx, agent, { id: bug.id, projectId: bug.projectId }, takeOver.release, "delivery");
     const existing = await tx.delivery.findUnique({ where: { bugId_agentId: { bugId: bug.id, agentId: agent.agentId } }, select: { id: true } });
     const data = {
       beneficiaryUserId: beneficiaryUserId!,
@@ -439,6 +457,7 @@ export async function deliverWork(
             : { pullRequestUrl: pullRequestUrl! }),
           replaced: Boolean(existing),
           ...(onBehalfOf ? { onBehalfOf: true, creditedUserId: beneficiaryUserId! } : {}),
+          ...(takeOver ? { claimedByDelivery: true } : {}),
         },
       },
     });

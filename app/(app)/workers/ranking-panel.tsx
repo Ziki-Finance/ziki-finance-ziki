@@ -21,8 +21,6 @@ import {
   secondaryActionClass,
 } from "@/components/status-page";
 import { databaseErrorReason } from "@/lib/db-error";
-import { workflowFor } from "@/lib/workflow";
-import { DEFAULT_PROJECT_WORKFLOW } from "@/lib/workflow-config";
 import { projectContextFor } from "@/lib/project-context";
 import { teamAgentsForMembers, teamAssignedWorkForMembers, type TeamAgent, type TeamAgentWork } from "@/lib/team-directory";
 import { MemberAssignedWork } from "@/components/member-assigned-work";
@@ -40,7 +38,6 @@ export type RankingSearchParams = {
   sort?: string;
   q?: string;
   online?: string;
-  capacity?: string;
 };
 
 const PODIUM_MEDALS = [
@@ -56,7 +53,6 @@ export function rankingHref(opts: {
   sort?: SortKey;
   q?: string;
   online?: boolean;
-  capacity?: boolean;
 }): string {
   const params = new URLSearchParams();
   params.set("page", String(opts.page));
@@ -64,7 +60,6 @@ export function rankingHref(opts: {
   if (opts.sort && opts.sort !== "earnings") params.set("sort", opts.sort);
   if (opts.q?.trim()) params.set("q", opts.q.trim());
   if (opts.online) params.set("online", "1");
-  if (opts.capacity) params.set("capacity", "1");
   return `/workers?${params.toString()}`;
 }
 
@@ -145,7 +140,6 @@ export default async function RankingPanel({
   const sort = parseSort(params.sort);
   const q = (params.q ?? "").trim();
   const showOnlineOnly = params.online === "1";
-  const showCapacityOnly = params.capacity === "1";
 
   const user = await requireUser();
   const organisationId = await currentOrganisationIdFor(user.id);
@@ -169,7 +163,6 @@ export default async function RankingPanel({
   let ziksThisWeek: { userId: string; ziks: number }[];
   let activeClaims;
   let myInMotion = 0;
-  let maxActiveClaims: number;
   let activeProjectId: string | null;
   try {
     const context = await projectContextFor(prisma, organisationId);
@@ -214,9 +207,6 @@ export default async function RankingPanel({
     myInMotion = myClaims.reduce((sum, claim) => sum + (claim.bug.lockedPriceZik ?? 0), 0);
     // #447: assigned issues no agent has claimed, shown once per member.
     assignedMap = await teamAssignedWorkForMembers(prisma, organisationId, agentsMap);
-    maxActiveClaims = activeProjectId
-      ? (await workflowFor(activeProjectId)).maxActiveClaims
-      : DEFAULT_PROJECT_WORKFLOW.maxActiveClaims;
   } catch (error) {
     console.error("[ranking] load failed", error);
     const reason = databaseErrorReason(error) ?? "The ranking could not be read.";
@@ -269,7 +259,6 @@ export default async function RankingPanel({
     if (q && !member.name.toLowerCase().includes(q.toLowerCase())) return [];
     const onlineAgents = member.agents.filter((agent) => agent.online);
     if (showOnlineOnly && onlineAgents.length === 0) return [];
-    if (showCapacityOnly && (member.agents.length === 0 || member.claims >= maxActiveClaims)) return [];
     return [{ ...member, agents: showOnlineOnly ? onlineAgents : member.agents }];
   });
   const sorted = sortMembers(matching, sort);
@@ -279,15 +268,15 @@ export default async function RankingPanel({
   // A page past the end (an old link, a hand-edited URL) would otherwise show
   // an empty list. Send it to the last page.
   if (total > 0 && page > totalPages) {
-    redirect(rankingHref({ page: totalPages, limit, sort, q, online: showOnlineOnly, capacity: showCapacityOnly }));
+    redirect(rankingHref({ page: totalPages, limit, sort, q, online: showOnlineOnly }));
   }
   const offset = (page - 1) * limit;
   const rows = sorted.slice(offset, offset + limit);
   const startIdx = total === 0 ? 0 : offset + 1;
   const endIdx = Math.min(page * limit, total);
-  const filtered = Boolean(q) || showOnlineOnly || showCapacityOnly;
+  const filtered = Boolean(q) || showOnlineOnly;
   const linkFor = (overrides: Partial<Parameters<typeof rankingHref>[0]>) =>
-    rankingHref({ page: 1, limit, sort, q, online: showOnlineOnly, capacity: showCapacityOnly, ...overrides });
+    rankingHref({ page: 1, limit, sort, q, online: showOnlineOnly, ...overrides });
 
   const podium = ranked.slice(0, 3);
   const secondPlaceZiks = ranked[1]?.ziks ?? null;
@@ -438,7 +427,6 @@ export default async function RankingPanel({
               <input type="hidden" name="limit" value={limit} />
               {sort !== "earnings" ? <input type="hidden" name="sort" value={sort} /> : null}
               {showOnlineOnly ? <input type="hidden" name="online" value="1" /> : null}
-              {showCapacityOnly ? <input type="hidden" name="capacity" value="1" /> : null}
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0 text-zk-muted">
                 <circle cx="11" cy="11" r="7" />
                 <path d="m21 21-4.3-4.3" />
@@ -460,7 +448,6 @@ export default async function RankingPanel({
               {(
                 [
                   ["online", "Online now", showOnlineOnly],
-                  ["capacity", "Has capacity", showCapacityOnly],
                 ] as const
               ).map(([key, label, on]) => (
                 <Link
@@ -547,7 +534,6 @@ export default async function RankingPanel({
                       ziks={row.ziks}
                       ziksThisWeek={row.ziksThisWeek}
                       claims={row.claims}
-                      claimLimit={maxActiveClaims}
                       agentCount={row.agents.length}
                       onlineCount={row.agents.filter((agent) => agent.online).length}
                       last={i === rows.length - 1}

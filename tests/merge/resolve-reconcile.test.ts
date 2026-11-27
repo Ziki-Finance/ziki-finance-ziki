@@ -184,8 +184,8 @@ describe("forceMerge (#force-merge)", () => {
   });
 
   it.each([
-    ["an agent that doesn't hold the issue, its owner's other agents included", held({ claims: [{ id: "c1", agentId: "a2", beneficiaryUserId: "owner" }] }), 403, "not_holder"],
-    ["an issue still Open", held({ status: "open", substatus: "open" }), 409, "not_force_mergeable"],
+    // #deliver-claims: delivered work (Done, Merge) is force-merged only by its holder.
+    ["delivered work held by another agent, its owner's other agents included", held({ status: "done", substatus: "requires_review", claims: [{ id: "c1", agentId: "a2", beneficiaryUserId: "owner" }] }), 403, "not_holder"],
     ["an issue already Live", held({ status: "resolved", substatus: "on_dev" }), 409, "not_force_mergeable"],
   ])("refuses %s and changes nothing", async (_name, found, status, error) => {
     db.bug.findFirst.mockResolvedValue(found);

@@ -148,7 +148,6 @@ function work(overrides: Partial<ProjectWork> = {}): ProjectWork {
     facts: new Map(),
     ideaFacts: new Map(),
     offerWindowSeconds: 1800,
-    capacity: 2,
     governance: { thresholdOnly: false, managerVoteWeight: 3, closeThreshold: 3, awardThreshold: 3, acceptThreshold: 3 },
     ...overrides,
   };
@@ -173,7 +172,6 @@ const openBid = (overrides: Partial<ProjectWork["bids"][number]> = {}): ProjectW
   summary: "I will fix the redirect.",
   weightedVotes: 0,
   voters: [],
-  load: 0,
   createdAt: new Date("2026-10-29T10:00:00Z"),
   ...overrides,
 });
@@ -285,17 +283,15 @@ describe("itemsFor", () => {
     }
   });
 
-  it("shows each bidder's load and offers no award for a bid at capacity (#bidder-capacity)", () => {
+  it("offers an award for every open bid, most voted first, however much work its bidder holds", () => {
     const issue = { id: "b1", number: 1, title: "x" };
     const bids = [
-      openBid({ id: "bid-pixel", agentName: "Pixel", ownerIds: ["owner-pix"], by: "Pix", weightedVotes: 5, load: 2 }),
-      openBid({ id: "bid-cara", agentName: "Cara's Claude", ownerIds: ["owner-cara"], by: "Cara", weightedVotes: 3, load: 1 }),
+      openBid({ id: "bid-pixel", agentName: "Pixel", ownerIds: ["owner-pix"], by: "Pix", weightedVotes: 5 }),
+      openBid({ id: "bid-cara", agentName: "Cara's Claude", ownerIds: ["owner-cara"], by: "Cara", weightedVotes: 3 }),
     ];
     const item = itemsFor(agent("working", "owner-eli"), work({ toAward: [{ ...issue, bids }] }), nothingMine).find((i) => i.kind === "award_bid");
     expect(item).toMatchObject({ canAct: true, title: "Award #1: 2 bids waiting, nobody holds it" });
-    expect(item!.detail).toContain("Pixel: 2 of 2 — at capacity");
-    expect(item!.detail).toContain("Cara's Claude: 1 of 2");
-    expect(item!.actions.map((a) => a.cli)).toEqual(["award-bid --id bid-cara"]);
+    expect(item!.actions.map((a) => a.cli)).toEqual(["award-bid --id bid-pixel", "award-bid --id bid-cara"]);
   });
 
   it("lets a manager accept its own owner's fix (#owner-agents)", () => {

@@ -24,7 +24,6 @@ import { workflowFor } from "@/lib/workflow";
 import { ideaVotes, isBadIdea } from "@/lib/idea-rejection";
 import { staleHold, type StaleHold } from "@/lib/agent-api/stale-hold";
 import { liveHoldWhere } from "@/lib/issue-holders";
-import { capacityLine, EVERY_BIDDER_AT_CAPACITY, holdLoads, isAtCapacity } from "@/lib/agent-api/capacity";
 import { OPEN_BID_WHERE } from "@/lib/open-bids";
 import { abandonTally } from "@/lib/agent-api/abandon";
 import { findIdleInProgress } from "@/lib/agent-api/idle";
@@ -204,8 +203,6 @@ type OpenBid = {
   weightedVotes: number;
   /** Who already voted for it. */
   voters: string[];
-  /** Live offers plus active claims on work In progress its person holds in the project (#bidder-capacity, #760, lib/agent-api/capacity.ts). */
-  load: number;
   createdAt: Date;
 };
 
@@ -317,8 +314,6 @@ export type ProjectWork = {
   offerWindowSeconds: number;
   /** #plan-review: how long a complex issue's award has for its plan to be written and approved. */
   planReviewSeconds?: number;
-  /** The project's maxActiveClaims: the live offers plus active claims on work In progress one person may hold (#bidder-capacity, #760). */
-  capacity: number;
   /** How the voted steps are decided (#vote-governance, lib/governance.ts), and their thresholds. */
   governance: { thresholdOnly: boolean; managerVoteWeight: number; closeThreshold: number; awardThreshold: number; acceptThreshold: number };
   /** Issues still being decided or worked on, with who marked each important (#importance). */
@@ -429,7 +424,7 @@ async function buildProjectWork(organisationId: string, project: FeedProject, tr
     strandedDeliveries.then((stranded) => idleWork(organisationId, project.id, new Set(stranded.map((issue) => issue.id)), Date.now(), track)),
     closableIssues(organisationId, project.id, workflow.closeThreshold, thresholdOnly, track),
     strandedDeliveries,
-    openBids(organisationId, project.id, workflow.managerVoteWeight, workflow.offerWindowSeconds, track),
+    openBids(organisationId, project.id, workflow.managerVoteWeight, track),
   ]);
   // #project-budget: an issue the project's budget can't pay for isn't awardable, so it is not listed as an award to make.
   const awardable = await awardableIssues(bids, workflow.offerWindowSeconds);
@@ -504,7 +499,6 @@ async function buildProjectWork(organisationId: string, project: FeedProject, tr
     ideaFacts: await loadIdeaFacts([...new Set([...ideas, ...toConvert, ...toReject].map((idea) => idea.id))]),
     offerWindowSeconds: workflow.offerWindowSeconds,
     planReviewSeconds: workflow.planReviewSeconds,
-    capacity: workflow.maxActiveClaims,
     importance: await importanceWork(organisationId, project.id, track),
     deployments: isMarketing ? [] : await deploymentWork(organisationId, project.id),
     contests: filteredContests,
@@ -783,7 +777,7 @@ async function closableIssues(organisationId: string, projectId: string, thresho
 }
 
 /** Open bids (not awarded, not withdrawn, from agents not revoked) on Open issues, oldest first (#bid-votes). */
-async function openBids(organisationId: string, projectId: string, managerVoteWeight: number, offerWindowSeconds: number, track: WorkTrack = "product"): Promise<OpenBid[]> {
+async function openBids(organisationId: string, projectId: string, managerVoteWeight: number, track: WorkTrack = "product"): Promise<OpenBid[]> {
   const rows = await prisma.issueBid.findMany({
     where: { ...OPEN_BID_WHERE, bug: { organisationId, projectId, ...trackFilter(track), isDeleted: false, substatus: { in: [...BIDDING_SUBSTATUSES] } } },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
@@ -798,13 +792,10 @@ async function openBids(organisationId: string, projectId: string, managerVoteWe
       votes: { select: { onBehalfOfUserId: true, agent: { select: { activations: activeLevels } } } },
     },
   });
-  // Each bidder's load, for the award items (#bidder-capacity).
-  const loads = await holdLoads(prisma, { organisationId, projectId }, rows.map((row) => row.beneficiaryUserId), offerWindowSeconds);
   return rows.map((row) => ({
     id: row.id,
     issue: row.bug,
     agentName: row.agent.name,
-    load: loads.get(row.beneficiaryUserId) ?? 0,
     ownerIds: [row.beneficiaryUserId, row.agent.ownerUserId],
     by: row.beneficiary.name ?? "A member",
     summary: row.summary,
@@ -1757,11 +1748,6 @@ export function itemsFor(agent: AgentContext, work: ProjectWork, mine: AgentWork
       ],
     });
   }
-  // Bidder capacity (#bidder-capacity): each bid's load, and no award action for a bid at capacity.
-  const underCapacity = (bid: OpenBid) => !isAtCapacity(bid.load, work.capacity);
-  const loadNote = (bids: OpenBid[]) =>
-    ` Load (live offers and active claims, of ${work.capacity}): ${bids.map((bid) => capacityLine(bid.agentName, bid.load, work.capacity)).join("; ")}.`;
-  const capacityBlock = { canAct: false, blockedReason: EVERY_BIDDER_AT_CAPACITY };
   for (const issue of work.toAward) {
     // Any agent may award any open bid (#open-award), its own owner's too:
     // votes are guidance, the most voted listed first. Every issue with a bid
@@ -1769,8 +1755,7 @@ export function itemsFor(agent: AgentContext, work: ProjectWork, mine: AgentWork
     const reached = [...issue.bids]
       .sort((a, b) => b.weightedVotes - a.weightedVotes || a.createdAt.getTime() - b.createdAt.getTime());
     if (!reached.length) continue;
-    const awardable = reached.filter(underCapacity);
-    const top = awardable[0] ?? reached[0];
+    const top = reached[0];
     const listed = reached
       .map((bid) => `${bid.agentName} for ${bid.by} (${bid.weightedVotes} ${bid.weightedVotes === 1 ? "vote" : "votes"}): ${bid.summary}`)
       .join(" | ");
@@ -1778,11 +1763,11 @@ export function itemsFor(agent: AgentContext, work: ProjectWork, mine: AgentWork
       kind: "award_bid",
       key: `award_bid:${issue.id}`,
       title: `Award #${issue.number}: ${reached.length} ${reached.length === 1 ? "bid" : "bids"} waiting, nobody holds it`,
-      detail: `Nobody holds this issue and it has ${reached.length === 1 ? "a bid" : "bids"}. Please award one now: read the bids, pick the one most likely to ship a good fix, and award it (your own owner's bid included). Votes are guidance, not a gate: ${top.agentName}'s leads with ${top.weightedVotes}. The award is an offer its agent accepts. A bid whose bidder is at capacity can't be awarded until it has capacity again. Bids: ${listed}${loadNote(reached)}`,
+      detail: `Nobody holds this issue and it has ${reached.length === 1 ? "a bid" : "bids"}. Please award one now: read the bids, pick the one most likely to ship a good fix, and award it (your own owner's bid included). Votes are guidance, not a gate: ${top.agentName}'s leads with ${top.weightedVotes}. The award is an offer its agent accepts. Bids: ${listed}`,
       minimumRole: "working",
-      ...(awardable.length ? { canAct: true } : capacityBlock),
+      canAct: true,
       issue: issueRef(issue),
-      actions: awardable.slice(0, 5).map((bid) => ({
+      actions: reached.slice(0, 5).map((bid) => ({
         name: "award_bid",
         minimumRole: "working" as const,
         method: "POST" as const,

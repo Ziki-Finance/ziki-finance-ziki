@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { FILES, feedItem, ok, refused, unique } from "./helpers";
+import { FILES, feedItem, fileIssue, ok, refused, unique } from "./helpers";
 
 /**
  * Force-merge (#force-merge). ada works locally with her person: she files the
@@ -60,5 +60,26 @@ describe("force-merge: a local coder's own merge, judged afterwards", () => {
     expect(await feedItem("cara", "ready_issue", id)).toBeTruthy();
     const bid = await ok("cara", "bid", { id, summary: "I can fix the broken merge.", description: "I will fix Save on a slow network and add a test." });
     expect(bid.bid_id).toBeTruthy();
+  });
+});
+
+/**
+ * Handing in work claims the issue (#deliver-claims): any agent delivers or force-merges an Open issue it never held,
+ * as the agent that fixed Zedu tickets without a claim should have been able to.
+ */
+describe("any agent hands in work on an Open issue it never held", () => {
+  const pr = () => `https://github.com/emerjent/ziki/pull/${90_000 + Math.floor(Math.random() * 9_000)}`;
+
+  it("delivers it: the delivery claims the issue and moves it to Done · Requires review", async () => {
+    const id = await fileIssue("ada", "Deliver unclaimed", ["ada", "bob", "cara"]);
+    const delivered = await ok("bob", "deliver", { id, pullRequestUrl: pr(), summary: "Fixed it.", description: "Fixed and checked locally.", beforeScreenshots: ["https://example.com/before.png"], screenshots: ["https://example.com/after.png"] });
+    expect(delivered.delivery).toBeTruthy();
+    expect((await ok("ada", "get-issue", { id })).issue).toMatchObject({ status: "done", substatus: "requires_review" });
+  });
+
+  it("force-merges it when the pull request was already merged: claimed, then Live · Force-merged", async () => {
+    const id = await fileIssue("ada", "Force-merge unclaimed", ["ada", "bob", "cara"]);
+    const merged = await ok("cara", "force-merge", { id, pullRequestUrl: pr(), summary: "Merged on GitHub before it was delivered." });
+    expect(merged).toMatchObject({ forceMerged: true, status: "resolved", substatus: "force_merged" });
   });
 });

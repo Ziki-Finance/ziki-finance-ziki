@@ -5,13 +5,11 @@ import type { Substatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth-helpers";
 import { organisationAccessFor } from "@/lib/organisation-access";
-import { moveTo, STATUS_OF } from "@/lib/issue-substatus";
-import { OWNER_NOTE_MAX, ownerMove } from "@/lib/owner-moves";
+import { moveTo } from "@/lib/issue-substatus";
+import { moveIssueByHand } from "@/lib/issue-hand-move";
+import { OWNER_NOTE_MAX } from "@/lib/owner-moves";
 import { activityCreateData, statusChangedSummary } from "@/lib/activity-log";
-import { publish } from "@/lib/agent-api/events";
 import { issueChangePayload, publishWebEvent } from "@/lib/agent-api/web-events";
-import { releasePayoutIfLive } from "@/lib/coins/issue-payout";
-import { notifyLater } from "@/lib/notify";
 import { revalidateIssue } from "@/lib/revalidate-issue";
 import { IssueApiError } from "@/lib/agent-api/errors";
 import { ownerArchiveIdea, ownerConvertIdea, ownerRejectIdea } from "@/lib/agent-api/idea-verdicts";
@@ -22,108 +20,17 @@ export type OwnerMoveResult = { ok: true } | { error: string };
 const NOT_OWNER = "Only an owner or admin of this organisation can move an issue by hand.";
 
 /**
- * The organisation owner moves an issue from its Status chip (#owner-control):
- * one of the moves `OWNER_MOVES` offers for where it is now. Moving it out of
- * the work (back to Open, or Closed) stops the agent holding it; into Live,
- * it pays out once reported deployed, like any resolve. The history says it was the
- * owner, with their note.
+ * The organisation owner moves an issue from its Status chip (#owner-control): one of the moves `OWNER_MOVES` offers
+ * for where it is now (lib/issue-hand-move.ts, which a manager agent's `POST /api/v1/issues/{id}/status` shares).
  */
 export async function ownerMoveIssueAction(bugId: string, to: Substatus, note: string): Promise<OwnerMoveResult> {
   const user = await requireUser();
-  const existing = await prisma.bug.findUnique({
-    where: { id: bugId },
-    select: { id: true, title: true, status: true, substatus: true, isDeleted: true, organisationId: true, assigneeId: true, reporterId: true },
-  });
+  const existing = await prisma.bug.findUnique({ where: { id: bugId }, select: { organisationId: true, isDeleted: true } });
   if (!existing || existing.isDeleted) return { error: "Issue not found" };
-
   const access = await organisationAccessFor(user.id, existing.organisationId, user.role);
   if (!access.admin) return { error: NOT_OWNER };
-
-  const move = ownerMove(existing.substatus, to);
-  if (!move) return { error: "That move isn't available from this step any more. Refresh the page to see where the issue is now." };
-
-  const trimmed = note.trim();
-  if (move.needsReason && !trimmed) return { error: "Say why you're closing it. Agents and reporters will see this." };
-  if (trimmed.length > OWNER_NOTE_MAX) return { error: `Keep the note under ${OWNER_NOTE_MAX} characters.` };
-
-  const target = STATUS_OF[to];
-  const leavesWork = target === "open" || target === "closed";
-  const data = {
-    ...moveTo(to),
-    ...(leavesWork ? { assigneeId: null } : {}),
-    ...(target === "closed" ? { closeReason: "not_planned", closeEvidence: trimmed, closedAt: new Date() } : {}),
-    ...(existing.status === "closed" && target !== "closed" ? { closeReason: null, closeEvidence: null, closedAt: null } : {}),
-    ...(target === "closed" || target === "resolved" ? { isBoosted: false, boostedAt: null } : {}),
-  };
-
-  const moved = await prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT id FROM "Bug" WHERE id = ${bugId} FOR UPDATE`;
-    // Someone else may have moved it since the page loaded.
-    const fresh = await tx.bug.findUniqueOrThrow({ where: { id: bugId }, select: { substatus: true } });
-    if (fresh.substatus !== existing.substatus) return false;
-
-    await tx.bug.update({ where: { id: bugId }, data });
-
-    if (leavesWork) {
-      const claims = await tx.issueClaim.findMany({
-        where: { bugId, releasedAt: null, status: { in: ["offered", "planning", "active"] } },
-        select: { id: true, agentId: true, beneficiaryUserId: true },
-      });
-      if (claims.length > 0) {
-        await tx.issueClaim.updateMany({
-          where: { id: { in: claims.map((claim) => claim.id) } },
-          data: { status: "released", releasedAt: new Date(), releaseReason: "owner" },
-        });
-        for (const claim of claims) {
-          await publish(tx, {
-            organisationId: existing.organisationId,
-            type: "claim.released",
-            actorAgentId: claim.agentId,
-            bugId,
-            payload: { claimId: claim.id, issueId: bugId, beneficiaryUserId: claim.beneficiaryUserId, reason: "owner" },
-          });
-        }
-      }
-    }
-
-    // Into Live (#one-payment): the issue's funded Ziks pay out once it's reported deployed, as with any resolve.
-    if (target === "resolved") await releasePayoutIfLive(tx, bugId);
-
-    await tx.bugActivity.createMany({
-      data: activityCreateData([
-        {
-          bugId,
-          actorId: user.id,
-          type: "status_changed",
-          summary: `${statusChangedSummary(existing.substatus, to)} as the owner`,
-          metadata: { field: "status", from: existing.substatus, to, ...(trimmed ? { note: trimmed } : {}) },
-        },
-      ]),
-    });
-    await publishWebEvent(tx, {
-      bugId,
-      type: "issue.updated",
-      actorUserId: user.id,
-      payload: issueChangePayload(data as Record<string, unknown>),
-    });
-    return true;
-  });
-  if (!moved) return { error: "Someone moved this issue while you were looking. Refresh the page to see where it is now." };
-
-  if (target !== existing.status) {
-    notifyLater({
-      actorId: user.id,
-      actorName: user.name ?? "Someone",
-      bugId,
-      bugTitle: existing.title,
-      kind: "status_changed",
-      reporterId: existing.reporterId,
-      from: existing.status,
-      to: target,
-      note: trimmed || undefined,
-    });
-  }
-
+  const result = await moveIssueByHand({ userId: user.id, name: user.name ?? null, agent: null }, bugId, to, note);
+  if (!result.ok) return { error: result.error };
   revalidatePath("/[org]/[project]", "layout");
   revalidateIssue();
   return { ok: true };

@@ -20,7 +20,6 @@ const NUMERIC_FIELDS = [
   "offerWindowSeconds",
   "heartbeatMinutes",
   "deliveryMinutes",
-  "maxActiveClaims",
   "volunteerWindowSeconds",
   "abandonCheckMinutes",
   "abandonThreshold",

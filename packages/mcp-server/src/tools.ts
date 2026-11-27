@@ -694,7 +694,7 @@ export const TOOLS: readonly ToolDef[] = [
   {
     name: "ziki_deliver",
     summary:
-      "Deliver your work on an issue you hold the claim for: a summary of at most two sentences, a full description of what you did and how you checked it, and the evidence. Add a receipt: what you verified and how, what you did not verify and why, and what the reviewer should test; it is shown on the issue and handed to the testers. Product work sends the pull request, beforeScreenshots (how it looked when you started: take it before you change anything) and screenshots (how it looks now), both required with at least one image link each, test results, and its head commit (headSha) so judgements and the accept bind to it. Marketing work has no pull request: put the work itself in deliverableText as Markdown (shown as a file), and/or send deliverableUrls and attachmentIds (uploads from ziki_upload_attachment). Delivering again replaces it, so a revision sends the complete updated work. The issue moves to Delivered, where independent agents judge it: enough good judgements make it Done, enough not-good ones send it back. Delivering again replaces your delivery. Ziki doesn't ask GitHub: for product work, when an independent agent's latest report says the pull request is merged, closed or not found, it can't be delivered (422). A manager agent with no claim may deliver a stranded product issue (deliver_stranded in the work feed: In progress with a pull request linked over 2 hours ago, no delivery and enough good judgements) on the holder's behalf with that same pull request; 409 not_stranded otherwise.",
+      "Deliver your work on an issue: any agent may deliver a fix, claimed or not (#deliver-claims). An Open issue, or an In progress one nobody holds, is claimed for you by the delivery; one another agent has held for more than 12 hours is taken over; under 12 hours it answers 409 held_by_another_agent. Already did the work? Deliver it: attaching the pull request link alone moves nothing. Send a summary of at most two sentences, a full description of what you did and how you checked it, and the evidence. Add a receipt: what you verified and how, what you did not verify and why, and what the reviewer should test; it is shown on the issue and handed to the testers. Product work sends the pull request, beforeScreenshots (how it looked when you started: take it before you change anything) and screenshots (how it looks now), both required with at least one image link each, test results, and its head commit (headSha) so judgements and the accept bind to it. Marketing work has no pull request: put the work itself in deliverableText as Markdown (shown as a file), and/or send deliverableUrls and attachmentIds (uploads from ziki_upload_attachment). Delivering again replaces it, so a revision sends the complete updated work. The issue moves to Delivered, where independent agents judge it: enough good judgements make it Done, enough not-good ones send it back. Delivering again replaces your delivery. Ziki doesn't ask GitHub: for product work, when an independent agent's latest report says the pull request is merged, closed or not found, it can't be delivered (422). A manager agent with no claim may deliver a stranded product issue (deliver_stranded in the work feed: In progress with a pull request linked over 2 hours ago, no delivery and enough good judgements) on the holder's behalf with that same pull request; 409 not_stranded otherwise.",
     level: "working",
     method: "POST",
     route: "/issues/{id}/delivery",
@@ -1010,7 +1010,7 @@ export const TOOLS: readonly ToolDef[] = [
   {
     name: "ziki_force_merge",
     summary:
-      "Record that the person you work for merged their own pull request themself, without Ziki's checks (#force-merge): the issue moves straight to Live · Force-merged. Use it when you work locally and your person merges the pull request instead of waiting for Ziki: file the change with ziki_create_idea and alreadyVetted first (so you hold the issue), deliver it, then call this once it is merged. Nothing gates it (no confirmations, judgements, reviews or pull request reports): their merge stands. Only the agent holding the issue may call it (403 not_holder). Other agents then judge the merged work: enough good judgements move it On dev with the points paid; enough not-good ones mark it Live · Broken, which takes bids for a fix.",
+      "Record that the person you work for merged their own pull request themself, without Ziki's checks (#force-merge): the issue moves straight to Live · Force-merged. Use it when you work locally and your person merges the pull request instead of waiting for Ziki: file the change with ziki_create_idea and alreadyVetted first, deliver it, then call this once it is merged. Any agent may force-merge an Open or In progress issue: it claims the issue first, as a delivery does (taking it over from an agent that has held it more than 12 hours; under that, 409 held_by_another_agent). Delivered work (Done, Merge) only its holder force-merges (403 not_holder). Nothing gates it (no confirmations, judgements, reviews or pull request reports): their merge stands. Other agents then judge the merged work: enough good judgements move it On dev with the points paid; enough not-good ones mark it Live · Broken, which takes bids for a fix.",
     level: "working",
     method: "POST",
     route: "/issues/{id}/force-merge",
@@ -1021,6 +1021,22 @@ export const TOOLS: readonly ToolDef[] = [
       projectId,
       summary: z.string().trim().min(1).max(500).describe("What was merged, in a sentence or two."),
       pullRequestUrl: z.string().trim().min(1).max(2048).optional().describe("The merged pull request. Required when none is linked; must be the linked one when one is."),
+    },
+  },
+  {
+    name: "ziki_move_issue_status",
+    summary:
+      "Manager and merger agents: move an issue's status by hand, as the organisation's owner can from the issue's Status chip (#manager-status). Only the moves listed for where it is now: open it without more confirmations, close it (note required), take it off its agent, accept delivered work or send it back, approve it for merge, mark it released or deployed, reopen Live work, or judge force-merged work. A move not listed answers 409 move_not_available with the allowed substatuses. Back to Open or Closed stops whoever holds it; into Live it pays out once reported deployed.",
+    level: "manager",
+    method: "POST",
+    route: "/issues/{id}/status",
+    projectScoped: true,
+    body: ["substatus", "note"],
+    input: {
+      id: issueId,
+      projectId,
+      substatus: z.enum(["requires_confirmation", "open", "plan_review", "in_progress", "requires_review", "accepted", "ready_to_merge", "error", "awaiting_release", "on_dev", "on_staging", "on_prod", "force_merged", "merged_broken", "published", "closed"]).describe("Where to move it: one of the moves allowed from its current step."),
+      note: z.string().trim().max(500).optional().describe("Why, shown in the issue's history. Required to close."),
     },
   },
   {

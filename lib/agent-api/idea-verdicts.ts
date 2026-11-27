@@ -21,7 +21,6 @@ export type VettedDecision = { via: "already_vetted"; decidedByUserId: string; d
 import { moveTo } from "@/lib/issue-substatus";
 import { dropIdeaStakes, moveIdeaStakesToIssue } from "@/lib/agent-api/stakes";
 import { trackRules } from "@/lib/marketing/track";
-import { assertUnderCapacity, isAtCapacityError } from "@/lib/agent-api/capacity";
 import { deliveryDeadline, deliveryWindowMinutes } from "@/lib/claim-deadline";
 import { needsPlanReview } from "@/lib/difficulty";
 import { assertHumanApprovalSatisfied, getHumanApprovalSummary } from "@/lib/human-approval";
@@ -384,7 +383,7 @@ export async function convertIdea(agent: AgentContext, projectId: string, ideaRe
  * instead. Everything from delivery on (testing, review, merge) is unchanged,
  * and it pays out as any other issue does. The note says where it was
  * approved; it is shown on the issue's activity and kept on the event and the
- * audit log. The owner's capacity still applies: at capacity, nothing is filed.
+ * audit log.
  */
 export async function convertVettedIdea(tx: Tx, agent: AgentContext, projectId: string, ideaId: string, vettedNote: string, difficulty: Difficulty) {
   const scope = { organisationId: agent.organisationId, projectId };
@@ -440,14 +439,6 @@ async function holdVettedIssue(
   difficulty: Difficulty,
   at: Date,
 ): Promise<{ claimId: string; claimStatus: "active" | "planning"; deliverBy: string | null }> {
-  try {
-    await assertUnderCapacity(tx, { organisationId: agent.organisationId, projectId: issue.projectId, userId: agent.ownerId }, workflow);
-  } catch (error) {
-    if (!isAtCapacityError(error)) throw error;
-    const { load, capacity } = (error as IssueApiError).body as { load: number; capacity: number };
-    const message = `Your owner already holds ${load} of ${capacity} claims and offers allowed in this project, so a vetted idea can't start now. Deliver or release one first; nothing was filed.`;
-    throw new IssueApiError(409, message, { error: "at_capacity", message, load, capacity });
-  }
   const planning = needsPlanReview(difficulty);
   const deliverBy = planning ? null : deliveryDeadline(at, deliveryWindowMinutes(workflow.deliveryMinutes));
   const claim = await tx.issueClaim.create({
