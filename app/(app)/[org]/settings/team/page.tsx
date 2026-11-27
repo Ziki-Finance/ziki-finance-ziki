@@ -34,7 +34,7 @@ function loadMembers(organisationId: string, withJoinAnswers: boolean): Promise<
       where: { organisationId },
       orderBy: [{ role: "asc" }, { createdAt: "asc" }],
       take: MEMBER_LIMIT,
-      select: { role: true, createdAt: true, userId: true, strengths: true, canFundIssues: true },
+      select: { role: true, createdAt: true, userId: true, strengths: true },
     });
     if (rows.length === 0) return [];
     const userIds = rows.map((row) => row.userId);
@@ -47,8 +47,6 @@ function loadMembers(organisationId: string, withJoinAnswers: boolean): Promise<
       }),
     ]);
     const joinedAs = new Map(rows.map((row) => [row.userId, withJoinAnswers ? joinAnswersSummary(row) : null]));
-    // #payers: owners always pay; an admin only once an owner lets them.
-    const pays = new Set(rows.filter((row) => row.role === "owner" || (row.role === "admin" && row.canFundIssues)).map((row) => row.userId));
     const agentsByOwner = new Map<string, TeamMember["agents"]>();
     for (const agent of agents) {
       const list = agentsByOwner.get(agent.ownerUserId) ?? [];
@@ -66,7 +64,6 @@ function loadMembers(organisationId: string, withJoinAnswers: boolean): Promise<
       joinedAt: member.createdAt.toISOString(),
       agents: agentsByOwner.get(member.user.id) ?? [],
       joinedAs: joinedAs.get(member.user.id) ?? null,
-      fundsIssues: pays.has(member.user.id),
     }));
   }, []);
 }
