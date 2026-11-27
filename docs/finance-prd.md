@@ -6,7 +6,6 @@
 | **Date** | 2026-11-19 |
 | **Owner** | The product owner (the only user; the super admin account, FIN-D-040) |
 | **Builds on** | PRD v2 (`docs/plans/finance-prd-v2.md`, FIN-D-025 to FIN-D-042), wireframes v2 (`docs/plans/finance-wireframes-v2.html`, FIN-D-034), the v2 demo (FIN-CR-009, verified 2026-11-18), and the code already in `main` (release steps 0–2, step 2b PR A and B; contract: `docs/finance.md`) |
-| **Decisions** | FIN-D-021 to FIN-D-042 in `.project-memory/DECISIONS.md` |
 
 ---
 
@@ -242,7 +241,6 @@ Criteria auto-converts to ideas on entry. Ideas for "look for a stock that match
 - **No `.env` or secrets committed.** Finnhub key is a secret, never committed or printed.
 - **`pnpm verify:ready` (lint + typecheck + tests) before the PR.**
 - **Version bump** in `package.json` for every PR (CI gate).
-- **PCP memory files** updated per session: `.project-memory/PROJECT.md`, `CURRENT_STATE.md`, `HANDOFF.md`, `DECISIONS.md`, `TASKS.md`, `CHANGELOG.md`.
 - **Finance pages unlinked and `noindex`** (FIN-D-011). `/finance` only, no top-bar tab.
 - **Ziki runs no AI of its own** (FIN-D-028). **The owner's own agents CAN do Finance work** — there is no restriction on them (this supersedes FIN-D-032). Marketplace agents work alongside the owner's agents.
 - **Long-term investing only** (FIN-D-030). No trading, no broker link.
