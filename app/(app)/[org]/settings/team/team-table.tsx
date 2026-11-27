@@ -28,8 +28,6 @@ export type TeamMember = {
   agents: { id: string; name: string; level: AgentLevel }[];
   /** What they said when they joined (#join-questions): owners and admins only, null when unanswered or hidden. */
   joinedAs: string | null;
-  /** Whether they pay for the organisation's issues (#payers): every owner, and admins an owner lets. */
-  fundsIssues: boolean;
 };
 
 /** An email invite nobody has accepted yet. */
@@ -90,7 +88,6 @@ function PersonCard({
   note,
   label,
   tone,
-  extraLabel,
   actions,
 }: {
   name: string;
@@ -101,7 +98,6 @@ function PersonCard({
   note?: string | null;
   label: string;
   tone: PillTone;
-  extraLabel?: ReactNode;
   actions?: ReactNode;
 }) {
   return (
@@ -115,10 +111,7 @@ function PersonCard({
         <p className="m-0 mt-0.5 truncate text-[13px] text-zk-muted" title={note ?? undefined}>{meta}</p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <span className="flex items-center gap-1.5">
-          {extraLabel}
-          <span className="rounded-md px-2 py-0.5 text-[11.5px] font-semibold" style={PILL_TONES[tone]}>{label}</span>
-        </span>
+        <span className="rounded-md px-2 py-0.5 text-[11.5px] font-semibold" style={PILL_TONES[tone]}>{label}</span>
         {actions}
       </div>
     </li>
@@ -283,7 +276,6 @@ export function TeamTable({
                 meta={<Meta parts={[member.email, agents ? <span title={member.agents.map((a) => a.name).join(", ")}>{agents}</span> : null, <>Joined <LocalTime date={member.joinedAt} /></>]} />}
                 label={member.roleLabel}
                 tone={roleTone[member.role]}
-                extraLabel={member.fundsIssues ? <span className="hidden rounded-md px-2 py-0.5 text-[11.5px] font-semibold sm:inline" style={PILL_TONES.green}>Funds issues</span> : null}
                 actions={
                   <MemberRoleActions
                     layout="menu"
@@ -292,7 +284,6 @@ export function TeamTable({
                     userId={member.id}
                     userName={name}
                     membershipRole={member.role}
-                    fundsIssues={member.fundsIssues}
                     siteSuperAdmin={member.siteSuperAdmin}
                     canChangeRoles={canChangeRoles}
                     canRemove={canManage}
