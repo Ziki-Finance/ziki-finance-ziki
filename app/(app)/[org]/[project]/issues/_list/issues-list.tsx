@@ -191,16 +191,23 @@ function currentTime(): number {
   return Date.now();
 }
 
-/** Delivered but not Live yet: judged, reviewed and merged by agents, shown under Done. */
-const DELIVERED_SUBSTATUSES: Substatus[] = ["requires_review", "accepted", "ready_to_merge", "error", "awaiting_release"];
+/** Delivered work that was approved (good to merge) and isn't Live yet: on the Delivered tab, not Done. */
+const APPROVED_SUBSTATUSES: Substatus[] = ["accepted", "ready_to_merge", "error", "awaiting_release"];
+/**
+ * The Delivered tab (#live-confirmed): delivered work that was approved, from good to merge through merging, and Live
+ * work someone confirmed looks fine. Once approved it leaves Done for here.
+ */
+const DELIVERED_TAB_WHERE: Prisma.BugWhereInput = {
+  OR: [{ substatus: { in: APPROVED_SUBSTATUSES } }, { status: "resolved", liveConfirmedAt: { not: null } }],
+};
 
 /** Which issues one Work Feed section holds (#work-feed-sections), as of now. */
 function feedSectionWhere(section: FeedSection): Prisma.BugWhereInput {
   if (section === "needs") {
-    // Done (#delivered-section): everything delivered, from a new pull request being judged through merging, and Live
-    // work you haven't said looks fine yet.
+    // Done (#delivered-section): what waits for your approval: delivered work being judged, and Live work you haven't
+    // said looks fine yet. Once approved it moves to the Delivered tab (DELIVERED_TAB_WHERE).
     return { OR: [
-      { substatus: { in: DELIVERED_SUBSTATUSES } },
+      { substatus: "requires_review" },
       { status: "resolved", substatus: { not: "merged_broken" }, liveConfirmedAt: null },
     ] };
   }
@@ -317,7 +324,7 @@ const OVERVIEW_EMPTY: Record<OverviewTab, { title: string; description: string }
   all: { title: "No work yet", description: "Tell the agents what you want done in the box above: it shows up here as they take it on." },
   features: { title: "No new tickets", description: "New tickets and feature ideas show up here while they're still ideas, until they're approved and become issues." },
   design: { title: "No designs waiting for you", description: "When an agent proposes a design for an issue, it shows up here for you to choose." },
-  delivered: { title: "Nothing confirmed yet", description: "Live work moves here once someone confirms it looks fine on the Work Feed." },
+  delivered: { title: "Nothing approved yet", description: "Delivered work moves here from Done once it's approved, and Live work once someone confirms it looks fine." },
 };
 /** Work Feed: everything not closed, live included. */
 const ALL_WORK_STATUSES = ["open", "in_progress", "done", "merge", "resolved"] as const;
@@ -625,7 +632,7 @@ export async function IssuesList({
             ? { redesigns: { some: { status: "proposed" } } }
             : overviewTab === "delivered"
               // Delivered: live work someone confirmed looks fine (#live-confirmed).
-              ? { status: "resolved", liveConfirmedAt: { not: null } }
+              ? DELIVERED_TAB_WHERE
               : { status: { in: [...ALL_WORK_STATUSES] } },
     ];
   }
@@ -933,7 +940,7 @@ export async function IssuesList({
   // How much has been delivered (#live-confirmed), shown on the Delivered tab: live work someone confirmed.
   const deliveredCount = withOverviewLook
     ? await loadOrEmpty("delivered count", () => prisma.bug.count({
-        where: { ...(allProjects ? { organisationId } : { projectId: project.id }), isDeleted: false, status: "resolved", liveConfirmedAt: { not: null } },
+        where: { AND: [{ ...(allProjects ? { organisationId } : { projectId: project.id }), isDeleted: false }, DELIVERED_TAB_WHERE] },
       }), 0)
     : 0;
   // New tickets waiting for your OK, shown on the New Tickets & Features tab (#ideas-section).
