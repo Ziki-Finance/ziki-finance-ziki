@@ -102,13 +102,6 @@ export function InviteModal({ organisationId, organisationName, inviteTtlDays, l
             role="tablist"
             aria-label="Invitation method"
             className="grid grid-cols-2 gap-1 rounded-panel bg-zk-bg p-1"
-            onKeyDown={(event) => {
-              if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-              event.preventDefault();
-              const next = event.key === "Home" ? "email" : event.key === "End" ? "link" : method === "email" ? "link" : "email";
-              setMethod(next);
-              event.currentTarget.querySelector<HTMLButtonElement>(`#invite-tab-${next}`)?.focus();
-            }}
           >
             {methods.map(({ id, label }) => (
               <button
@@ -120,6 +113,13 @@ export function InviteModal({ organisationId, organisationName, inviteTtlDays, l
                 aria-controls={`invite-panel-${id}`}
                 tabIndex={method === id ? 0 : -1}
                 onClick={() => setMethod(id)}
+                onKeyDown={(event) => {
+                  if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+                  event.preventDefault();
+                  const next = event.key === "Home" ? "email" : event.key === "End" ? "link" : id === "email" ? "link" : "email";
+                  setMethod(next);
+                  dialog.current?.querySelector<HTMLButtonElement>(`#invite-tab-${next}`)?.focus();
+                }}
                 className={`min-h-10 rounded-control px-3 py-2 text-sm font-semibold transition ${focus} ${method === id ? "bg-zk-surface text-zk-text shadow-sm" : "text-zk-muted hover:text-zk-text"}`}
               >
                 {label}
