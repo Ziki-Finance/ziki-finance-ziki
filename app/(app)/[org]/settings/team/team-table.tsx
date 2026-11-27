@@ -1,14 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { AgentLevel } from "@prisma/client";
 import { Avatar } from "@/components/avatar";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { LocalTime } from "@/components/local-time";
 import { MemberRoleActions } from "@/components/member-role-actions";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
 import type { OrganisationRole } from "@/lib/organisation-role";
 import { PILL_TONES, type PillTone } from "@/lib/pill-tones";
 import { issuesPath, projectRef } from "@/lib/project-paths";
@@ -169,10 +168,25 @@ export function TeamTable({
   canManage: boolean;
 }) {
   const searchId = useId();
-  const groupId = useId();
+  const searchInput = useRef<HTMLInputElement>(null);
+  const searchToggle = useRef<HTMLButtonElement>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [group, setGroup] = useState<Group>("all");
   const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    if (searchOpen) searchInput.current?.focus();
+  }, [searchOpen]);
+
+  function closeSearch() {
+    setSearchOpen(false);
+    if (query) {
+      setQuery("");
+      setPage(1);
+    }
+    searchToggle.current?.focus();
+  }
 
   const memberName = (m: TeamMember) => m.name ?? m.email ?? "Member";
   const collaboratorName = (c: TeamCollaborator) => c.userName || c.userEmail || "Collaborator";
@@ -203,40 +217,66 @@ export function TeamTable({
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <label htmlFor={searchId} className="sr-only">Search the team</label>
-        <div className="relative w-full sm:w-80">
-          <svg className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zk-muted" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-            <circle cx="11" cy="11" r="7" />
-            <path d="m20 20-3.5-3.5" />
-          </svg>
-          <input
-            id={searchId}
-            type="search"
-            value={query}
-            onChange={(event) => {
-              setQuery(event.target.value);
-              setPage(1);
-            }}
-            placeholder="Search by name, email, agent or project"
-            className="h-9 w-full rounded-control border border-zk-border bg-zk-surface pl-9 pr-3 text-sm text-zk-text"
-          />
+    <div className="@container space-y-4 rounded-panel border border-zk-border bg-zk-surface p-3 sm:p-5">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+        <div role="group" aria-label="Filter team by group" className={`flex w-fit max-w-full items-center gap-0.5 overflow-x-auto rounded-full bg-zk-bg p-1 focus-within:ring-1 focus-within:ring-zk-border ${searchOpen ? "col-span-2 @min-[44rem]:col-span-1" : ""}`}>
+          {groups.map(({ value, label, count }) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={group === value}
+              onClick={() => {
+                setGroup(value);
+                setPage(1);
+              }}
+              className={`inline-flex min-h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[13px] transition focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-electric-blue ${
+                group === value ? "bg-zk-surface font-semibold text-zk-accent" : "font-medium text-zk-muted hover:text-zk-text"
+              }`}
+            >
+              {label}
+              <span className="rounded-full bg-zk-chip px-1.5 py-px text-[11px] font-semibold tabular-nums text-zk-text2">{count}</span>
+            </button>
+          ))}
         </div>
-        <label htmlFor={groupId} className="sr-only">Show</label>
-        <div className="w-full sm:w-56">
-          <Select id={groupId} value={group} onChange={(event) => {
-            setGroup(event.target.value as Group);
-            setPage(1);
-          }}>
-            {groups.map((option) => (
-              <option key={option.value} value={option.value}>{option.label} ({option.count})</option>
-            ))}
-          </Select>
+        <div className={`flex h-10 min-w-0 items-center justify-end rounded-control border border-zk-border bg-zk-surface ${searchOpen ? "col-span-2 w-full focus-within:border-electric-blue @min-[44rem]:col-span-1 @min-[44rem]:w-48" : "w-10"}`}>
+          {searchOpen ? (
+            <input
+              ref={searchInput}
+              id={searchId}
+              aria-label="Search the team"
+              type="search"
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setPage(1);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  closeSearch();
+                }
+              }}
+              placeholder="Search team"
+              className="h-full min-w-0 flex-1 rounded-control bg-transparent pl-3 text-sm text-zk-text outline-none"
+            />
+          ) : null}
+          <button
+            ref={searchToggle}
+            type="button"
+            aria-label={searchOpen ? "Close team search" : "Search the team"}
+            aria-expanded={searchOpen}
+            aria-controls={searchOpen ? searchId : undefined}
+            onClick={() => searchOpen ? closeSearch() : setSearchOpen(true)}
+            className="inline-flex h-full w-9 shrink-0 items-center justify-center rounded-control text-zk-muted hover:text-zk-text focus-visible:outline-2 focus-visible:outline-electric-blue"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              {searchOpen ? <path d="m6 6 12 12M18 6 6 18" /> : <><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>}
+            </svg>
+          </button>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zk-divider pb-3">
         <p className="m-0 text-xs tabular-nums text-zk-muted" aria-live="polite">
           {shown ? `${start + 1}–${Math.min(start + PEOPLE_PER_PAGE, shown)} of ${shown} ${shown === 1 ? "person" : "people"}` : "0 matches"}
         </p>
@@ -253,7 +293,7 @@ export function TeamTable({
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-6 rounded-panel border border-zk-border bg-zk-surface p-3 sm:p-5">
+      <div className="flex flex-col gap-6">
       {shown === 0 ? (
         <p className="m-0 rounded-panel bg-zk-bg px-4 py-6 text-center text-[13px] text-zk-muted">
           {total === 0 ? `No one has joined ${organisationName} yet.` : query.trim() ? `No one matches “${query.trim()}”.` : "No one here yet."}
