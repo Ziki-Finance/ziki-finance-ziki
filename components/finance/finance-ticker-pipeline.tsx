@@ -243,7 +243,9 @@ export function FinanceTickerPipeline({
       subtitle:
         stageNum < 2
           ? "Not started"
-          : `${evidence.length} ${evidence.length === 1 ? "item" : "items"} · ${requiredCovered}/${requiredTotal} required sections`,
+          : evidence.length === 0
+            ? `Gathering research (0/${requiredTotal} areas)`
+            : `${requiredCovered}/${requiredTotal} areas · ${evidence.length} ${evidence.length === 1 ? "source" : "sources"}`,
     },
     {
       key: "evaluate",
@@ -403,7 +405,10 @@ export function FinanceTickerPipeline({
               <ul className="space-y-2">
                 {signals.map((signal) => (
                   <li key={signal.id}>
-                    <details className="group rounded-lg border border-zk-border bg-zk-surface">
+                    <details
+                      open
+                      className="group rounded-lg border border-zk-border bg-zk-surface"
+                    >
                       <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-xs">
                         <span>
                           <span className="font-semibold text-zk-text">
@@ -423,7 +428,10 @@ export function FinanceTickerPipeline({
                       </summary>
                       <div className="space-y-2 border-t border-zk-divider px-3 py-2.5 text-xs">
                         {signal.whyItFits.length === 0 ? (
-                          <p className="text-zk-muted">No reason given.</p>
+                          <p className="text-zk-muted">
+                            No written justification was submitted with this
+                            proposal.
+                          </p>
                         ) : (
                           <ul className="space-y-1.5">
                             {signal.whyItFits.map((fit, i) => (
@@ -475,8 +483,8 @@ export function FinanceTickerPipeline({
               Stage 2: Enrichment Dossier
             </h3>
             <span className="text-xs text-zk-muted">
-              {requiredCovered}/{requiredTotal} required sections ·{" "}
-              {evidence.length} {evidence.length === 1 ? "item" : "items"}
+              {requiredCovered}/{requiredTotal} required areas ·{" "}
+              {evidence.length} {evidence.length === 1 ? "source" : "sources"}
             </span>
           </div>
           {stageNum < 2 ? (
@@ -542,7 +550,11 @@ export function FinanceTickerPipeline({
 
           {evidence.length === 0 ? (
             <p className="rounded-xl border border-dashed border-zk-border bg-zk-bg p-4 text-xs text-zk-muted">
-              No dossier items gathered yet.
+              {stageNum < 2
+                ? "Research will be gathered once screening confirms this stock."
+                : stageNum === 2
+                  ? "Agents are gathering company research across the 5 required areas — check back soon."
+                  : "No sources gathered."}
             </p>
           ) : (
             <div className="space-y-4">

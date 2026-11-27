@@ -302,6 +302,7 @@ export default async function FinancePage() {
 
   const items: ResearchStockItem[] = [
     ...decisions.needsYou.map((d) => {
+      const cand = d.candidateId ? candidateById.get(d.candidateId) : undefined;
       return {
         id: `dec-${d.id}`,
         symbol: d.ticker.symbol,
@@ -313,9 +314,8 @@ export default async function FinancePage() {
         reviewGo: d.origin === "monitor" ? null : d.reviewGo,
         reviewTotal: d.origin === "monitor" ? null : d.reviewTotal,
         origin: d.origin,
-        criteriaId: d.candidateId
-          ? (candidateById.get(d.candidateId)?.run.criteriaId ?? null)
-          : null,
+        criteriaId: cand?.run.criteriaId ?? null,
+        criteriaLabel: cand?.run.criteriaLabel ?? null,
         isHeld: heldSymbols.has(d.ticker.symbol),
         latestPrice: priceBySymbol.get(d.ticker.symbol) ?? null,
         buyRange: formatBuyRange(d.buyRangeLow, d.buyRangeHigh),
@@ -325,7 +325,18 @@ export default async function FinancePage() {
     ...researching.map((c) => {
       const symbol = c.ticker?.symbol ?? c.tickerSymbol ?? "—";
       const name = c.ticker?.name ?? c.companyName ?? symbol;
-      const levels = evaluationLevels(c.evaluations);
+      const evalTotal = c.jobs.filter((j) => j.kind === "evaluate").length || 5;
+      const firstSignalWhy = (() => {
+        const raw = c.signals[0]?.whyItFits;
+        if (!Array.isArray(raw)) return null;
+        for (const entry of raw) {
+          if (entry && typeof entry === "object" && "why" in entry) {
+            const why = (entry as { why?: unknown }).why;
+            if (typeof why === "string" && why.trim()) return why;
+          }
+        }
+        return null;
+      })();
       return {
         id: `cand-${c.id}`,
         symbol,
@@ -335,18 +346,25 @@ export default async function FinancePage() {
         stage: c.stage,
         summary:
           c.evaluations[0]?.reasons[0] ??
-          `${c.evidence.length} research sources gathered`,
+          firstSignalWhy ??
+          (c.evidence.length > 0
+            ? `${c.evidence.length} research sources gathered`
+            : "Proposed in screening — agents are reviewing"),
         reviewGo: null,
         reviewTotal: null,
         origin: null,
         criteriaId: c.criteriaId,
+        criteriaLabel: c.criteriaLabel,
+        evaluationCount: c.evaluations.length,
+        evaluationTotal: evalTotal,
         isHeld: heldSymbols.has(symbol),
         latestPrice: priceBySymbol.get(symbol) ?? null,
-        buyRange: levels.buyRange,
+        buyRange: null,
         position: positionBySymbol.get(symbol) ?? null,
       };
     }),
     ...decisions.notNow.map((d) => {
+      const cand = d.candidateId ? candidateById.get(d.candidateId) : undefined;
       return {
         id: `dec-${d.id}`,
         symbol: d.ticker.symbol,
@@ -358,9 +376,8 @@ export default async function FinancePage() {
         reviewGo: d.origin === "monitor" ? null : d.reviewGo,
         reviewTotal: d.origin === "monitor" ? null : d.reviewTotal,
         origin: d.origin,
-        criteriaId: d.candidateId
-          ? (candidateById.get(d.candidateId)?.run.criteriaId ?? null)
-          : null,
+        criteriaId: cand?.run.criteriaId ?? null,
+        criteriaLabel: cand?.run.criteriaLabel ?? null,
         isHeld: heldSymbols.has(d.ticker.symbol),
         latestPrice: priceBySymbol.get(d.ticker.symbol) ?? null,
         buyRange: formatBuyRange(d.buyRangeLow, d.buyRangeHigh),
@@ -393,7 +410,7 @@ export default async function FinancePage() {
     }
   }
 
-  const detailsBySymbol: Record<string, TickerPanelDetail> = {};
+  const detailsById: Record<string, TickerPanelDetail> = {};
 
   for (const d of allDecisions) {
     const cand = d.candidateId ? candidateById.get(d.candidateId) : undefined;
@@ -404,7 +421,7 @@ export default async function FinancePage() {
     const low = moneyStr(d.buyRangeLow);
     const high = moneyStr(d.buyRangeHigh);
 
-    detailsBySymbol[d.ticker.symbol] = {
+    detailsById[`dec-${d.id}`] = {
       symbol: d.ticker.symbol,
       criteriaLabel: cand.run.criteriaLabel,
       criteriaVersion: cand.run.criteriaVersion,
@@ -470,13 +487,13 @@ export default async function FinancePage() {
 
   for (const cand of researching) {
     const symbol = cand.ticker?.symbol ?? cand.tickerSymbol;
-    if (!symbol || detailsBySymbol[symbol]) continue;
+    if (!symbol) continue;
     const breakdown = scoreBreakdown(cand.evaluations);
     const verdict = overallVerdict(breakdown);
     const evidenceById = new Map(cand.evidence.map((e) => [e.id, e] as const));
     const levels = evaluationLevels(cand.evaluations);
 
-    detailsBySymbol[symbol] = {
+    detailsById[`cand-${cand.id}`] = {
       symbol,
       criteriaLabel: cand.criteriaLabel,
       criteriaVersion: cand.criteriaVersion,
@@ -528,7 +545,7 @@ export default async function FinancePage() {
       <FinanceResearchBoard
         initialCriteria={criteria}
         items={items}
-        detailsBySymbol={detailsBySymbol}
+        detailsById={detailsById}
         canManageTrades={canManageTrades}
       />
     </div>

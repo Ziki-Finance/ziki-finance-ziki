@@ -222,4 +222,176 @@ describe("FIN-UI-CR-001: /finance Linear/spreadsheet list and split-screen side 
     const editBtn = el.querySelector('button[aria-label="Edit criteria"]');
     expect(editBtn).not.toBeNull();
   });
+
+  it("hides Log a trade in the side panel when an unheld stock has no decision yet", () => {
+    const inProgressItem: ResearchStockItem = {
+      id: "cand-nvda",
+      symbol: "NVDA",
+      name: "NVIDIA",
+      bucket: "in_progress",
+      call: null,
+      stage: "screen",
+      summary: "Strong AI GPU demand",
+      reviewGo: null,
+      reviewTotal: null,
+      origin: null,
+      criteriaId: "crit-1",
+      isHeld: false,
+      latestPrice: 135.0,
+      position: null,
+    };
+
+    const el = renderBoard([inProgressItem]);
+    const row = el.querySelector('[role="button"]');
+    expect(row).not.toBeNull();
+    act(() => {
+      row?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const aside = el.querySelector('aside[aria-label="Company Detail"]');
+    expect(aside).not.toBeNull();
+    expect(aside?.className).toContain("lg:sticky");
+    expect(aside?.textContent).not.toContain("Log a trade");
+    expect(aside?.textContent).not.toContain("Buy & log trade");
+  });
+
+  it("groups duplicate symbols across criteria into one row with tabs and shows early evaluation count", () => {
+    const nvdaEval: ResearchStockItem = {
+      id: "cand-nvda-1",
+      symbol: "NVDA",
+      name: "NVIDIA",
+      bucket: "in_progress",
+      call: null,
+      stage: "evaluate",
+      summary: "Strong AI moat",
+      reviewGo: null,
+      reviewTotal: null,
+      origin: null,
+      criteriaId: "crit-1",
+      criteriaLabel: "Quality at a fair price",
+      evaluationCount: 1,
+      evaluationTotal: 5,
+      isHeld: false,
+      latestPrice: 135.0,
+      buyRange: null,
+      position: null,
+    };
+    const nvdaEnrich: ResearchStockItem = {
+      id: "cand-nvda-2",
+      symbol: "NVDA",
+      name: "NVIDIA",
+      bucket: "in_progress",
+      call: null,
+      stage: "enrich",
+      summary: "Proposed in screening",
+      reviewGo: null,
+      reviewTotal: null,
+      origin: null,
+      criteriaId: "crit-2",
+      criteriaLabel: "High growth",
+      evaluationCount: 0,
+      evaluationTotal: 5,
+      isHeld: false,
+      latestPrice: 135.0,
+      buyRange: null,
+      position: null,
+    };
+
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    act(() => {
+      root?.render(
+        <FinanceResearchBoard
+          initialCriteria={[]}
+          items={[nvdaEnrich, nvdaEval]}
+          detailsById={{
+            "cand-nvda-1": {
+              symbol: "NVDA",
+              criteriaLabel: "Quality at a fair price",
+              criteriaVersion: 1,
+              currentStage: "evaluate",
+              proposedCount: 2,
+              buyRange: "$120.00 – $140.00",
+              reviewIfBelow: null,
+              holdFor: "3 years",
+              evidence: [],
+              evaluations: [
+                {
+                  id: "ev-1",
+                  call: "buy",
+                  callLabel: "Buy",
+                  against: false,
+                  confidence: 80,
+                  createdAt: "2026-11-27",
+                  reasons: ["Strong AI moat"],
+                  risks: [],
+                  changeMind: "Margin compression",
+                  buyRangeLow: "$120.00",
+                  buyRangeHigh: "$140.00",
+                  reviewIfBelow: null,
+                  holdDuration: "3 years",
+                  citedCount: 0,
+                },
+              ],
+              breakdown: {
+                total: 1,
+                buy: 1,
+                hold: 0,
+                dontBuy: 0,
+                against: 0,
+                averageConfidence: 80,
+              },
+              overallVerdictLabel: "Buy",
+              overallVerdictKey: "buy",
+              decision: null,
+            },
+            "cand-nvda-2": {
+              symbol: "NVDA",
+              criteriaLabel: "High growth",
+              criteriaVersion: 1,
+              currentStage: "enrich",
+              proposedCount: 1,
+              buyRange: null,
+              reviewIfBelow: null,
+              holdFor: null,
+              evidence: [],
+              evaluations: [],
+              breakdown: {
+                total: 0,
+                buy: 0,
+                hold: 0,
+                dontBuy: 0,
+                against: 0,
+                averageConfidence: null,
+              },
+              overallVerdictLabel: "Hold",
+              overallVerdictKey: "hold",
+              decision: null,
+            },
+          }}
+        />,
+      );
+    });
+
+    const rows = container.querySelectorAll('[role="button"]');
+    expect(rows.length).toBe(1);
+    expect(container.textContent).toContain("2 criteria");
+    expect(container.textContent).toContain("1 of 5 evaluated");
+    expect(container.textContent).not.toContain("$120.00 – $140.00");
+
+    act(() => {
+      rows[0].dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const aside = container.querySelector('aside[aria-label="Company Detail"]');
+    expect(aside?.textContent).toContain("Quality at a fair price (v1)");
+    const tabs = aside?.querySelectorAll('[role="tab"]') ?? [];
+    expect(tabs.length).toBe(2);
+
+    act(() => {
+      tabs[0].dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(aside?.textContent).toContain("High growth (v1)");
+  });
 });

@@ -390,13 +390,15 @@ export default async function FinanceTickerPage({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <TradeButton
-            symbol={symbol}
-            decisionId={decision?.id}
-            label={`+ Log a trade (${symbol})`}
-          />
-        </div>
+        {holding || decision ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <TradeButton
+              symbol={symbol}
+              decisionId={decision?.id}
+              label={`+ Log a trade (${symbol})`}
+            />
+          </div>
+        ) : null}
       </header>
 
       {/* 2. Priority Card: Your Position (if held) OR Recommendation (if not held) */}
