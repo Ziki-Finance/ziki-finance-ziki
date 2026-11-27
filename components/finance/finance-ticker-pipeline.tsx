@@ -200,10 +200,11 @@ export function FinanceTickerPipeline({
   const screenPassed =
     !screenDropped && (stageNum > 1 || screening?.screenStage === "issue");
 
-  // Social is optional, so it never counts toward the required sections.
   const sectionRows = SECTION_ORDER.map((section) => {
     const items = evidence.filter((item) => item.section === section);
-    const strong = items.filter((item) => item.tier <= 2).length;
+    const strong = items.filter((item) =>
+      section === "social" ? item.tier <= 4 : item.tier <= 2,
+    ).length;
     return {
       section,
       items: items.length,
@@ -495,7 +496,7 @@ export function FinanceTickerPipeline({
             <Outcome tone="ok">
               {missingSections.length === 0
                 ? "Dossier complete. Moved on to Evaluate."
-                : `Time limit reached. Moved on to Evaluate without a strong source for ${missingSections.join(", ")}.`}
+                : `Your configured time limit was reached, so this moved on to Evaluate without a strong source for ${missingSections.join(", ")}.`}
             </Outcome>
           ) : (
             <Outcome tone="wait">
@@ -553,7 +554,7 @@ export function FinanceTickerPipeline({
               {stageNum < 2
                 ? "Research will be gathered once screening confirms this stock."
                 : stageNum === 2
-                  ? "Agents are gathering company research across the 5 required areas — check back soon."
+                  ? `Agents are gathering company research across the ${requiredTotal} required areas — check back soon.`
                   : "No sources gathered."}
             </p>
           ) : (

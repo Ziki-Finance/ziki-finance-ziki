@@ -563,19 +563,34 @@ export function FinanceResearchBoard({
 
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5">
-            <select
-              aria-label="Filter by criteria"
-              value={activeCriteria?.id ?? ""}
-              onChange={(event) => setSelectedCriteriaId(event.target.value)}
-              className="rounded-lg border border-zk-border bg-zk-surface px-3 py-1.5 text-xs font-medium text-zk-text focus:outline-none focus:ring-2 focus:ring-zk-accent"
+            <label
+              htmlFor="finance-criteria-filter"
+              className="text-xs font-medium text-zk-muted"
             >
-              <option value="">All criteria</option>
-              {initialCriteria.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {financeCriteriaTitle(c)} (v{c.latestVersion})
-                </option>
-              ))}
-            </select>
+              Criteria
+            </label>
+            <div className="relative inline-flex items-center">
+              <select
+                id="finance-criteria-filter"
+                aria-label="Filter by criteria"
+                value={activeCriteria?.id ?? ""}
+                onChange={(event) => setSelectedCriteriaId(event.target.value)}
+                className="cursor-pointer appearance-none rounded-lg border border-zk-border bg-zk-surface py-1.5 pl-3 pr-8 text-xs font-medium text-zk-text transition hover:border-zk-accent focus:outline-none focus:ring-2 focus:ring-zk-accent"
+              >
+                <option value="">All criteria</option>
+                {initialCriteria.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {financeCriteriaTitle(c)} (v{c.latestVersion})
+                  </option>
+                ))}
+              </select>
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute right-2.5 text-[11px] text-zk-muted"
+              >
+                ▾
+              </span>
+            </div>
             {activeCriteria ? (
               <button
                 type="button"
