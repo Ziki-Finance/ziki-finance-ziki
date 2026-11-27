@@ -1,10 +1,11 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState } from "react";
 import { unstable_rethrow } from "next/navigation";
 import { logoutAction } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast";
 import { clearUserDrafts } from "@/lib/form-drafts";
 import { isRedirectError } from "@/lib/toast-store";
 
@@ -14,18 +15,19 @@ type SignOutButtonProps = {
 };
 
 /**
- * Signs the person out, but only after they confirm (#419).
+ * Signs the person out after they confirm (#419).
  *
- * The previous `<form action={logoutAction}>` signed out immediately on
- * click, with no chance to cancel. This asks first, then clears the person's
- * drafts and calls the logout action, which redirects to /login.
+ * Runs `logoutAction()` directly (not inside `startTransition` on this
+ * component) because confirming in the modal can dismiss the parent account
+ * dropdown and unmount `SignOutButton` before the server action finishes.
  */
 export function SignOutButton({
   userId,
   className = "",
 }: SignOutButtonProps) {
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
   const confirm = useConfirm();
+  const toast = useToast();
 
   const handleSignOut = async () => {
     const confirmed = await confirm({
@@ -37,17 +39,18 @@ export function SignOutButton({
     });
     if (!confirmed) return;
 
-    startTransition(async () => {
-      try {
-        clearUserDrafts(userId);
-        await logoutAction();
-      } catch (err) {
-        // signOut() throws a NEXT_REDIRECT to /login; let Next.js navigate.
-        if (isRedirectError(err)) {
-          unstable_rethrow(err);
-        }
+    setPending(true);
+    try {
+      clearUserDrafts(userId);
+      await logoutAction();
+    } catch (err) {
+      // signOut() throws a NEXT_REDIRECT to /login; let Next.js navigate.
+      if (isRedirectError(err)) {
+        unstable_rethrow(err);
       }
-    });
+      setPending(false);
+      toast("Could not sign out. Please try again.", "error");
+    }
   };
 
   return (
@@ -55,7 +58,7 @@ export function SignOutButton({
       type="button"
       variant="ghost"
       disabled={pending}
-      className={`w-full justify-start px-3 ${className}`}
+      className={`w-full rounded-md px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 ${className}`}
       onClick={handleSignOut}
     >
       <span>{pending ? "Signing out…" : "Sign out"}</span>

@@ -299,10 +299,17 @@ model User {
   /// Site-wide security clearance (#security-checks): set by staff, usually with an on-call invite.
   /// Only the agents of a cleared person get security-check jobs or read results.
   securityClearedAt           DateTime?
+  /// Site-wide Finance clearance (FIN-D-005): set by staff. Only the agents of a
+  /// cleared person get Finance jobs (lib/finance/clearance.ts).
+  financeClearedAt            DateTime?
   /// When the person borrowed Ziks to try Security (16 Nov call): a one-time overdraft of ZIKS_LOAN that only
   /// Security payments may use, until their first purchase pays it back (lib/coins/loan.ts). Null if never borrowed.
   ziksLoanAt                  DateTime?
   securityChecksRequested     SecurityCheck[]               @relation("SecurityCheckRequester")
+  financeProfile              FinanceProfile?
+  financeHoldings             FinanceHolding[]
+  financeBriefings            FinanceBriefing[]
+  financeSettingsChanges      FinanceSettingsChange[]       @relation("FinanceSettingsChanger")
   name                        String
   email                       String                        @unique
   /// Null for Google-only accounts; required for credentials login/signup.
@@ -398,6 +405,10 @@ model User {
   shareRedemptions            OrganisationShareRedemption[]
   projectAuditEvents          ProjectAuditEvent[]
   jobsCreated                 Job[]                         @relation("JobCreator")
+  /// Finance (FIN-CR-013, Stream A): the owner's criteria and research runs.
+  /// Finance belongs to no organisation; every record is scoped to its owner.
+  financeCriteria             FinanceCriteria[]             @relation("FinanceCriteriaOwner")
+  financeRuns                 FinanceRun[]                  @relation("FinanceRunOwner")
   goalsCreated                Goal[]                        @relation("GoalCreator")
   jobSubmissions              JobSubmission[]               @relation("JobSubmissionBeneficiary")
   jobReviews                  JobReview[]                   @relation("JobReviewBeneficiary")
@@ -1438,6 +1449,9 @@ model ProjectJoinRequest {
 /// A named agent working for its owner inside an organisation (#427). It always acts
 /// as itself and for a named person.
 model Agent {
+  /// Finance views and verdicts this agent gave (lib/finance/research.ts).
+  financeViews         FinanceView[]
+  financeVerdicts      FinanceVerdict[]
   /// Parts of security checks this agent holds or did (#security-checks).
   securityCheckItems   SecurityCheckItem[]
   requests             AgentRequest[]
@@ -1528,6 +1542,8 @@ model Agent {
   jobSubmissions       JobSubmission[]
   jobReviews           JobReview[]
   jobReviewOffers      JobReviewOffer[]
+  /// Finance screening (Stream A): a stock this agent proposed or confirmed.
+  financeCandidateSignals FinanceCandidateSignal[]
   inboxItems           AgentInboxItem[]
   workAlerts           WorkAlert[]
   goalAllocations      GoalAllocation[]
@@ -4723,4 +4739,777 @@ model Instruction {
 
   @@unique([organisationId, tag])
   @@index([position])
+}
+
+// ---------------------------------------------------------------------------
+// Ziki Finance foundation (ported from the v1 release steps 0–2b).
+// A person's profile and holdings are private to them. Agents research tickers,
+// never people.
+// ---------------------------------------------------------------------------
+
+enum FinanceRiskComfort {
+  careful
+  balanced
+  adventurous
+}
+
+enum FinanceHorizon {
+  lt1
+  y1to5
+  gt5
+}
+
+enum FinanceTickerType {
+  stock
+  etf
+}
+
+/// One person's Finance set-up: the notice they accepted and their two answers.
+model FinanceProfile {
+  id               String             @id @default(cuid())
+  userId           String             @unique
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  riskComfort      FinanceRiskComfort
+  horizon          FinanceHorizon
+  /// When they accepted the not-financial-advice notice and confirmed they are 18 or over.
+  noticeAcceptedAt DateTime
+  /// The daily briefing by email (on by default).
+  briefingEmail    Boolean            @default(true)
+  /// IANA time zone, e.g. "Africa/Lagos", for the 07:00 briefing.
+  timezone         String             @default("America/New_York")
+  /// The 7-day free trial (release step 4 uses it), set at setup.
+  trialEndsAt      DateTime
+  paidUntil        DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+}
+
+/// A US-listed stock or ETF that at least one person holds or watches. Shared and owner-free.
+model FinanceTicker {
+  id             String            @id @default(cuid())
+  /// Upper case, e.g. "AAPL", "BRK.B".
+  symbol         String            @unique
+  name           String
+  industry       String?
+  exchange       String?
+  type           FinanceTickerType @default(stock)
+  lastSnapshotAt DateTime?
+  lastReviewedAt DateTime?
+  createdAt      DateTime          @default(now())
+  holdings       FinanceHolding[]
+  snapshots      FinanceSnapshot[]
+  jobs           FinanceJob[]
+  views          FinanceView[]
+  agreedViews    FinanceAgreedView[]
+  candidates     FinanceCandidate[]
+  trades         FinanceTrade[]
+  decisions      FinanceDecision[]
+
+  @@index([name])
+}
+
+/// A stock a person owns (shares set) or just watches (shares null). Private to that person.
+model FinanceHolding {
+  id        String        @id @default(cuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tickerId  String
+  ticker    FinanceTicker @relation(fields: [tickerId], references: [id], onDelete: Restrict)
+  /// Null = watch only.
+  shares    Decimal?      @db.Decimal(20, 6)
+  /// What they paid per share, when they said (idea 27, layers 2 and 3). Never shown to agents.
+  avgCost   Decimal?      @db.Decimal(20, 4)
+  /// When `avgCost` came from the closing price of a date they picked (idea 27, layer 3);
+  /// null when they typed the price themselves.
+  avgCostAsOf DateTime?
+  /// The close on the day the stock was added, so "Up 4% since you added it" needs nothing
+  /// from the person (idea 27, layer 1). Null when prices were unavailable that day.
+  addedPrice Decimal?     @db.Decimal(20, 4)
+  addedAt   DateTime      @default(now())
+  /// When they said they sold it; it then stops counting as held.
+  soldAt    DateTime?
+  updatedAt DateTime      @updatedAt
+  reasonPoints FinanceReasonPoint[]
+  checks       FinanceCheck[]
+
+  @@unique([userId, tickerId])
+  @@index([tickerId])
+}
+
+enum FinanceJobReason {
+  first
+  news
+  move
+  earnings
+  weekly
+}
+
+enum FinanceJobStatus {
+  open
+  agreed
+  no_agreement
+}
+
+enum FinanceCall {
+  buy_keep
+  consider_selling
+  sell
+}
+
+enum FinanceRisk {
+  low
+  medium
+  high
+}
+
+enum FinanceVerdictKind {
+  agree
+  disagree
+  unsure
+}
+
+enum FinanceViewOutcome {
+  open
+  agreed
+  not_agreed
+}
+
+/// One trading day's market data for a ticker, taken after the US close. Links and headlines only.
+model FinanceSnapshot {
+  id        String        @id @default(cuid())
+  tickerId  String
+  ticker    FinanceTicker @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+  /// The trading day, "YYYY-MM-DD" in US Eastern time.
+  date      String
+  close     Decimal?      @db.Decimal(20, 4)
+  changePct Float?
+  /// [{ title, url, publishedAt, kind }] from the data provider.
+  headlines Json          @default("[]")
+  createdAt DateTime      @default(now())
+
+  @@unique([tickerId, date])
+}
+
+/// A review job for one ticker on one trading day (FIN-D-015: an open pool, up to 3 views).
+model FinanceJob {
+  id        String           @id @default(cuid())
+  tickerId  String
+  ticker    FinanceTicker    @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+  date      String
+  reason    FinanceJobReason
+  status    FinanceJobStatus @default(open)
+  settledAt DateTime?
+  createdAt DateTime         @default(now())
+  views     FinanceView[]
+
+  @@unique([tickerId, date])
+  @@index([status, createdAt])
+}
+
+/// An agent's view on a ticker. Kept unchanged for audit (PRD §10); only its outcome is set at settling.
+model FinanceView {
+  id         String             @id @default(cuid())
+  jobId      String
+  job        FinanceJob         @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  tickerId   String
+  ticker     FinanceTicker      @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+  /// Null once the agent itself is deleted; the view stays for audit.
+  agentId    String?
+  agent      Agent?             @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  /// The agent's owner, so a person's agents can't judge each other's views (FIN-D-016).
+  ownerId    String
+  call       FinanceCall
+  risk       FinanceRisk
+  /// 1–5 plain-English bullet points.
+  reasons    String[]
+  changeMind String
+  sources    String[]
+  outcome    FinanceViewOutcome @default(open)
+  createdAt  DateTime           @default(now())
+  verdicts   FinanceVerdict[]
+  agreed     FinanceAgreedView?
+
+  @@unique([jobId, agentId])
+  @@index([tickerId, createdAt])
+  @@index([outcome])
+}
+
+/// Another cleared agent's verdict on a view.
+model FinanceVerdict {
+  id        String             @id @default(cuid())
+  viewId    String
+  view      FinanceView        @relation(fields: [viewId], references: [id], onDelete: Cascade)
+  agentId   String?
+  agent     Agent?             @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  ownerId   String
+  verdict   FinanceVerdictKind
+  reason    String
+  /// 1, or the manager weight for a manager agent, when it was given.
+  weight    Int
+  createdAt DateTime           @default(now())
+
+  @@unique([viewId, agentId])
+}
+
+/// A view that reached agreement: what users see. The latest per ticker is its current view.
+model FinanceAgreedView {
+  id               String        @id @default(cuid())
+  tickerId         String
+  ticker           FinanceTicker @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+  viewId           String        @unique
+  view             FinanceView   @relation(fields: [viewId], references: [id], onDelete: Restrict)
+  agreedAt         DateTime
+  priceAtAgreement Decimal?      @db.Decimal(20, 4)
+  /// "4 of 5 agents agree" (FIN-D-017).
+  agentsAgree      Int
+  agentsTotal      Int
+  /// Another view with an opposing call also reached agreement.
+  divided          Boolean       @default(false)
+  /// Scored against the S&P 500 in release step 4.
+  score30          Float?
+  score90          Float?
+
+  @@index([tickerId, agreedAt])
+}
+
+/// Marks a daily step as done, so the one-minute sweep does nothing more that day.
+model FinanceCycle {
+  id     String   @id @default(cuid())
+  /// "YYYY-MM-DD", US Eastern.
+  date   String
+  /// "jobs" or "settle".
+  step   String
+  doneAt DateTime @default(now())
+
+  @@unique([date, step])
+}
+
+/// One person's briefing for one local day, put together by code from agreed views only
+/// (FIN-D-018). Kept unchanged for audit (PRD §10). Private to that person.
+model FinanceBriefing {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// The person's local date, "YYYY-MM-DD".
+  date      String
+  /// The briefing's sections (lib/finance/briefing.ts `BriefingContent`).
+  content   Json
+  /// One line for the inbox and the past-briefings list.
+  headline  String
+  /// Something needs a look.
+  needsLook Boolean  @default(false)
+  /// Whether it had anything to say; an empty one is kept but not sent.
+  hasViews  Boolean  @default(false)
+  inboxAt   DateTime?
+  emailedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@unique([userId, date])
+  @@index([userId, createdAt])
+}
+
+/// The thresholds Finance settles with. One row, id "default".
+model FinanceSettings {
+  id                  String   @id @default("default")
+  /// Weighted agree verdicts a view needs.
+  agreementNeeded     Int      @default(3)
+  /// What a manager agent's verdict counts.
+  managerVoteWeight   Int      @default(3)
+  /// The higher bar for a change to Sell; never below agreementNeeded.
+  sellAgreementNeeded Int      @default(4)
+  /// Researchers for the screen job (one job per run).
+  researchersScreen   Int      @default(3)
+  /// Researchers for each enrich job (one job per candidate).
+  researchersEnrich   Int      @default(3)
+  /// Researchers for each evaluate job (one job per candidate).
+  researchersEvaluate Int      @default(5)
+  /// Reviewers for each review job (one job per candidate).
+  reviewersPerStock   Int      @default(3)
+  /// Reviewers who must say Go before the Decider gets the stock.
+  reviewersWhoMustAgree Int   @default(2)
+  /// How a candidate goes forward: proposed_by_2 or proposed_1_confirmed_by_1.
+  candidateRule       String   @default("proposed_by_2")
+  /// Maximum dossier items per section, e.g. { "news": 8 }.
+  dossierCaps         Json     @default("{}")
+  /// How long an agent may hold a Finance task before the claim lapses, in minutes.
+  stageTimeLimitMinutes Int   @default(20)
+  /// Balance warning share: one industry over this % of portfolio value triggers a sentence.
+  balanceShare        Int      @default(35)
+  /// Polite-browsing rules text, shown to agents and on the staff Finance page.
+  browsingRules       String   @default("")
+  /// An agent holds at most one Finance task at a time.
+  oneTaskPerAgent     Boolean  @default(true)
+  updatedAt           DateTime @updatedAt
+}
+
+/// One row per change to the agreement numbers: who changed them, when, and the
+/// numbers before and after. Kept for audit (PRD §10).
+model FinanceSettingsChange {
+  id                        String   @id @default(cuid())
+  /// Null once the person's account is deleted; the record stays for audit.
+  changedById               String?
+  changedBy                 User?    @relation("FinanceSettingsChanger", fields: [changedById], references: [id], onDelete: SetNull)
+  beforeAgreementNeeded     Int
+  beforeManagerVoteWeight   Int
+  beforeSellAgreementNeeded Int
+  agreementNeeded           Int
+  managerVoteWeight         Int
+  sellAgreementNeeded       Int
+  createdAt                 DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Ziki Finance v3 — Stream B (Enrichment & Evaluation), PRD §4.3–4.4, §6, §7.
+// A run holds candidates; a candidate gathers dossier evidence and the agents'
+// evaluations. Enrichment runs as retryable jobs so a slow browse never blocks
+// the feed.
+// ---------------------------------------------------------------------------
+
+/// The six dossier sections (PRD §4.3).
+enum FinanceEvidenceSection {
+  business
+  numbers
+  filings
+  news
+  social
+  market_context
+}
+
+enum FinanceCandidateStage {
+  screen
+  enrich
+  evaluate
+  review
+  decide
+  done
+}
+
+// ---------------------------------------------------------------------------
+// Ziki Finance v3 — Stream A (FIN-CR-013): criteria, runs and screening.
+// ---------------------------------------------------------------------------
+
+/// The three suggested starting points, or the owner's own words (§4.1).
+enum FinanceCriteriaPreset {
+  steady_dividend_growers
+  quality_at_a_fair_price
+  long_term_growth_leaders
+  own_words
+}
+
+/// A code-checkable size tag on criteria. `any` checks nothing.
+enum FinanceCompanySize {
+  any
+  small
+  mid
+  large
+}
+
+/// Where a research run is in the five-stage flow. Stream A starts every run
+/// at `screen`; later streams move it on.
+enum FinanceRunStage {
+  screen
+  enrich
+  evaluate
+  review
+  decide
+  done
+}
+
+/// A candidate's screening life in a run. `issue` is a confirmed match (the
+/// stock goes forward); `dropped` means a code check failed.
+enum FinanceScreenStage {
+  proposed
+  issue
+  dropped
+}
+
+/// What Finnhub's free data said about a candidate against the criteria.
+/// `unavailable` never drops a candidate: missing data is not a failed check.
+enum FinanceCodeCheckStatus {
+  not_checked
+  matched
+  failed
+  unavailable
+}
+
+/// How an agent backed a candidate: it proposed the stock, or it confirmed
+/// another agent's proposal (§4.2).
+enum FinanceSignalKind {
+  proposed
+  confirmed
+}
+
+/// The evaluator's call (PRD §4.4): Buy / Hold / Don't buy.
+enum FinanceEvalCall {
+  buy
+  hold
+  dont_buy
+}
+
+enum FinancePipelineKind {
+  enrich
+  evaluate
+  review
+  decide
+}
+
+enum FinancePipelineStatus {
+  queued
+  running
+  done
+  failed
+}
+
+/// One research run, created when the owner enters criteria. Every run keeps the
+/// exact criteria version it used (PRD §4.1).
+model FinanceRun {
+  id                 String                  @id @default(cuid())
+  /// Human label of the criteria version used, e.g. "steady dividend growers v1".
+  criteriaLabel      String                  @default("")
+  /// The criteria version number this run was started with.
+  criteriaVersion    Int                     @default(1)
+  ownerId            String?
+  criteriaId         String?
+  criteriaVersionId  String?
+  stage              FinanceRunStage         @default(screen)
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @default(now()) @updatedAt
+  owner              User?                   @relation("FinanceRunOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  criteria           FinanceCriteria?        @relation(fields: [criteriaId], references: [id], onDelete: Cascade)
+  criteriaVersionRef FinanceCriteriaVersion? @relation(fields: [criteriaVersionId], references: [id], onDelete: Cascade)
+  candidates         FinanceCandidate[]
+
+  @@index([ownerId, createdAt])
+  @@index([stage])
+  @@index([criteriaId])
+}
+
+/// run × ticker: a stock proposed by the screen stage (PRD §6).
+model FinanceCandidate {
+  id               String                 @id @default(cuid())
+  runId            String
+  run              FinanceRun             @relation(fields: [runId], references: [id], onDelete: Cascade)
+  tickerId         String?
+  ticker           FinanceTicker?         @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+  tickerSymbol     String?
+  companyName      String?
+  stage            FinanceCandidateStage  @default(screen)
+  screenStage      FinanceScreenStage     @default(proposed)
+  /// How many Researchers proposed it (PRD §4.2).
+  proposedCount    Int                    @default(1)
+  /// The code check's result against Finnhub, e.g. { price: { checked: true, matched: true } }.
+  codeCheck        Json                   @default("{}")
+  codeCheckStatus  FinanceCodeCheckStatus @default(not_checked)
+  codeCheckDetail  Json?
+  confirmedAt      DateTime?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  evidence         FinanceEvidence[]
+  evaluations      FinanceEvaluation[]
+  jobs             FinancePipelineJob[]
+  reviews          FinanceReview[]
+  decision         FinanceDecision?
+  signals          FinanceCandidateSignal[]
+  /// Review thresholds are frozen when evaluation reaches its quota.
+  reviewSlots      Int?
+  reviewGoRequired Int?
+
+  @@unique([runId, tickerId])
+  @@unique([runId, tickerSymbol])
+  @@index([tickerId])
+  @@index([stage])
+  @@index([runId, screenStage])
+}
+
+/// A dossier item an agent read while enriching a candidate (PRD §4.3). Duplicate
+/// URLs merge (unique), and the staff caps are enforced in the app.
+model FinanceEvidence {
+  id            String                 @id @default(cuid())
+  candidateId   String
+  candidate     FinanceCandidate       @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  section       FinanceEvidenceSection
+  /// One or two plain sentences of what the source says.
+  summary       String
+  /// The source link; duplicates on the same candidate merge into one item.
+  url           String
+  /// When the agent read it.
+  readAt        DateTime
+  /// 1 = filings and official company pages, 2 = major financial news,
+  /// 3 = other news/analysis, 4 = social (PRD §4.3).
+  tier          Int
+  /// A figure Finnhub also has, and whether the two agreed.
+  codeChecked   Boolean                @default(false)
+  codeCheckNote String?
+  /// Null once the agent is deleted; the item stays for audit.
+  agentId       String?
+  ownerId       String
+  createdAt     DateTime               @default(now())
+
+  @@unique([candidateId, url])
+  @@index([candidateId, section])
+  @@index([candidateId, tier])
+}
+
+/// One evaluator's verdict on a candidate (PRD §4.4). Citations are required:
+/// an evaluation with no cited dossier items is refused, never stored.
+model FinanceEvaluation {
+  id              String           @id @default(cuid())
+  candidateId     String
+  candidate       FinanceCandidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  agentId         String?
+  ownerId         String
+  /// The Against evaluator's job is to find the strongest reasons not to buy.
+  against         Boolean          @default(false)
+  call            FinanceEvalCall
+  /// 0–100, shown but never used to decide (PRD §4.4).
+  confidence      Int
+  /// Up to 5 reasons.
+  reasons         String[]
+  /// The risks it sees.
+  risks           String[]
+  /// What would change its mind.
+  changeMind      String
+  buyRangeLow     Decimal?         @db.Decimal(20, 4)
+  buyRangeHigh    Decimal?         @db.Decimal(20, 4)
+  /// "Review if below" level.
+  reviewIfBelow   Decimal?         @db.Decimal(20, 4)
+  /// How long to hold, in the evaluator's words, e.g. "3–5 years".
+  holdDuration    String
+  /// The dossier items it cites. No citations means refused.
+  citedEvidenceIds String[]
+  createdAt       DateTime         @default(now())
+
+  @@unique([candidateId, agentId])
+  @@index([candidateId, createdAt])
+}
+
+/// An async enrichment or evaluation job per candidate, with retry/backoff
+/// (PRD §4.3, job 6). A worker claims it by setting `claimedByAgentId` and
+/// `leaseUntil`; a lapsed lease lets another worker retry it.
+model FinancePipelineJob {
+  id              String                  @id @default(cuid())
+  candidateId     String
+  candidate       FinanceCandidate        @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  kind            FinancePipelineKind
+  status          FinancePipelineStatus   @default(queued)
+  attempts        Int                     @default(0)
+  maxAttempts     Int                     @default(3)
+  /// When a queued job becomes eligible again after a failure (backoff).
+  nextRunAt       DateTime                @default(now())
+  /// Worker that currently holds the job; null when free.
+  claimedByAgentId String?
+  /// When the current claim lapses so a stuck worker can be retried.
+  leaseUntil      DateTime?
+  lastError       String?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  @@index([kind, status, nextRunAt])
+  @@index([candidateId])
+}
+
+/// One independent manager vote, counted by head, never by confidence/weight.
+model FinanceReview {
+  id String @id @default(cuid())
+  candidateId String
+  candidate FinanceCandidate @relation(fields: [candidateId], references: [id], onDelete: Restrict)
+  agentId String
+  actorLabel String
+  call String
+  summary String
+  answerAgainst String
+  createdAt DateTime @default(now())
+  @@unique([candidateId, agentId])
+}
+
+/// Immutable final recommendation. A review rejection cannot reach a Decider.
+model FinanceDecision {
+  id String @id @default(cuid())
+  tickerId String
+  ticker FinanceTicker @relation(fields: [tickerId], references: [id], onDelete: Restrict)
+  candidateId String? @unique
+  candidate FinanceCandidate? @relation(fields: [candidateId], references: [id], onDelete: Restrict)
+  checkId String? @unique
+  check FinanceCheck? @relation(fields: [checkId], references: [id], onDelete: Restrict)
+  call String
+  sentence String
+  reasons String[]
+  reasonPoints Json @default("[]")
+  answerAgainst String
+  answerDissent String?
+  changeMind String
+  buyRangeLow Decimal? @db.Decimal(20,4)
+  buyRangeHigh Decimal? @db.Decimal(20,4)
+  reviewIfBelow Decimal? @db.Decimal(20,4)
+  holdDuration String?
+  agentId String?
+  actorLabel String
+  origin String
+  reviewGo Int
+  reviewTotal Int
+  createdAt DateTime @default(now())
+  trades FinanceTrade[]
+  actions FinanceOwnerAction[]
+  @@index([tickerId, createdAt])
+}
+
+/// The authoritative ledger. Correct mistakes with compensating entries.
+/// Null price is reserved for migrated legacy holdings whose cost is unknown.
+model FinanceTrade {
+  id String @id @default(cuid())
+  userId String
+  tickerId String
+  ticker FinanceTicker @relation(fields: [tickerId], references: [id], onDelete: Restrict)
+  decisionId String?
+  decision FinanceDecision? @relation(fields: [decisionId], references: [id], onDelete: Restrict)
+  side String
+  shares Decimal @db.Decimal(20,6)
+  price Decimal? @db.Decimal(20,4)
+  benchmarkPrice Decimal? @db.Decimal(20,4)
+  tradedAt DateTime
+  requestId String
+  actorId String
+  actorLabel String
+  createdAt DateTime @default(now())
+  @@unique([userId, requestId])
+  @@index([userId, tickerId, tradedAt, createdAt])
+}
+
+/// Checkable thesis, immutable once attached. Status lives in check results.
+model FinanceReasonPoint {
+  id String @id @default(cuid())
+  holdingId String
+  holding FinanceHolding @relation(fields: [holdingId], references: [id], onDelete: Restrict)
+  text String
+  main Boolean @default(false)
+  createdAt DateTime @default(now())
+  results FinanceCheckResult[]
+}
+
+/// Retryable monitor work; it contains no mutable investment verdict.
+model FinanceCheck {
+  id String @id @default(cuid())
+  holdingId String
+  holding FinanceHolding @relation(fields: [holdingId], references: [id], onDelete: Restrict)
+  trigger String
+  dedupeKey String @unique
+  status String @default("queued")
+  researcherAgentId String?
+  reviewerAgentId String?
+  deciderAgentId String?
+  claimedByAgentId String?
+  leaseUntil DateTime?
+  reasonStatus String?
+  reviewSummary String?
+  reviewedAt DateTime?
+  createdAt DateTime @default(now())
+  results FinanceCheckResult[]
+  decision FinanceDecision?
+  @@index([status, createdAt])
+}
+
+model FinanceCheckResult {
+  id String @id @default(cuid())
+  checkId String
+  check FinanceCheck @relation(fields: [checkId], references: [id], onDelete: Restrict)
+  reasonPointId String
+  reasonPoint FinanceReasonPoint @relation(fields: [reasonPointId], references: [id], onDelete: Restrict)
+  status String
+  summary String
+  sources String[]
+  actorId String
+  actorLabel String
+  createdAt DateTime @default(now())
+  @@unique([checkId, reasonPointId])
+}
+
+model FinanceOwnerAction {
+  id String @id @default(cuid())
+  userId String
+  decisionId String
+  decision FinanceDecision @relation(fields: [decisionId], references: [id], onDelete: Restrict)
+  action String
+  reason String?
+  actorLabel String
+  createdAt DateTime @default(now())
+  @@index([userId, decisionId, createdAt])
+}
+
+/// Append-only audit with trusted actor identity and before/after detail.
+model FinanceChange {
+  id String @id @default(cuid())
+  userId String?
+  tickerId String
+  kind String
+  actorId String
+  actorLabel String
+  detail Json
+  createdAt DateTime @default(now())
+  @@index([userId, tickerId, createdAt])
+}
+
+/// The owner's current criteria (§4.1). Editing writes a new
+/// `FinanceCriteriaVersion`; an existing run keeps the version it started with.
+model FinanceCriteria {
+  id            String                   @id @default(cuid())
+  ownerId       String
+  preset        FinanceCriteriaPreset    @default(own_words)
+  /// The exact words the owner chose: a preset's text, or their own.
+  words         String
+  companySize   FinanceCompanySize       @default(any)
+  /// Industries the owner wants, lower-case tags matched against Finnhub.
+  industries    String[]
+  /// Industries to leave out, matched against Finnhub.
+  leaveOut      String[]
+  /// How many stocks the run keeps (5 / 10 / 15, default 10).
+  howManyStocks Int                      @default(10)
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @default(now()) @updatedAt
+  owner         User                     @relation("FinanceCriteriaOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  versions      FinanceCriteriaVersion[]
+  runs          FinanceRun[]
+
+  @@index([ownerId, createdAt])
+}
+
+/// One immutable version of criteria. A run always points at the version it
+/// used, so a decision can be traced to the exact criteria that produced it.
+model FinanceCriteriaVersion {
+  id            String                @id @default(cuid())
+  criteriaId    String
+  version       Int
+  preset        FinanceCriteriaPreset
+  words         String
+  companySize   FinanceCompanySize
+  industries    String[]
+  leaveOut      String[]
+  howManyStocks Int
+  createdAt     DateTime              @default(now())
+  criteria      FinanceCriteria       @relation(fields: [criteriaId], references: [id], onDelete: Cascade)
+  runs          FinanceRun[]
+
+  @@unique([criteriaId, version])
+  @@index([criteriaId, createdAt])
+}
+
+/// One agent's proposal or confirmation for a candidate. One entry per agent
+/// per kind: an agent can propose a stock once, and confirm another's once.
+model FinanceCandidateSignal {
+  id          String            @id @default(cuid())
+  candidateId String
+  agentId     String
+  kind        FinanceSignalKind
+  /// Why it fits, one entry per criterion: [{ criterion, why }].
+  whyItFits   Json?
+  /// The public sources the agent read.
+  sources     String[]
+  createdAt   DateTime          @default(now())
+  candidate   FinanceCandidate  @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  agent       Agent             @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([candidateId, agentId, kind])
+  @@index([candidateId])
+  @@index([agentId])
 }

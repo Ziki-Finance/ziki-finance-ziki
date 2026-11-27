@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireLevel } from "@/lib/agents/levels";
 import { agentIssueRequest, issueProject } from "@/lib/agent-api/issues";
 import { parseTriageQuery, triageQueue } from "@/lib/agent-api/triage";
+import { financeTriageSummary } from "@/lib/finance/triage";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,10 @@ export const runtime = "nodejs";
  * next actions the caller may take (`canAct`, and why not). Manager and merger
  * agents only (`403 insufficient_level` otherwise). Pages with `nextCursor`
  * (`limit` 50 by default, at most 100). Charged to the read budget.
+ *
+ * When the calling agent's owner is finance-cleared (`User.financeClearedAt`),
+ * also includes a `finance` summary block with pending Finance v3 pipeline job
+ * counts and the `/api/v1/finance/jobs` discovery URL.
  */
 export async function GET(request: NextRequest) {
   return agentIssueRequest(request, "triage.read", "read", null, async (agent) => {
@@ -22,8 +27,15 @@ export async function GET(request: NextRequest) {
     const params = request.nextUrl.searchParams;
     const query = parseTriageQuery(params);
     const scope = await issueProject(agent, params);
-    const page = await triageQueue(agent, scope, query);
-    return NextResponse.json(page);
+    const [page, finance] = await Promise.all([
+      triageQueue(agent, scope, query),
+      financeTriageSummary({
+        agentId: agent.agentId,
+        ownerId: agent.ownerId,
+        level: agent.level,
+      }),
+    ]);
+    return NextResponse.json(finance ? { ...page, finance } : page);
   });
 }
 
