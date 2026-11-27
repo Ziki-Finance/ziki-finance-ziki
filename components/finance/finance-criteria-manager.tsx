@@ -48,10 +48,12 @@ export function CriteriaModal({
   open,
   editing,
   onClose,
+  onSaved,
 }: {
   open: boolean;
   editing: FinanceCriteriaView | null;
   onClose: () => void;
+  onSaved?: (criteriaId: string) => void;
 }) {
   if (!open) return null;
   return (
@@ -59,6 +61,7 @@ export function CriteriaModal({
       key={editing?.id ?? "new"}
       editing={editing}
       onClose={onClose}
+      onSaved={onSaved}
     />
   );
 }
@@ -66,9 +69,11 @@ export function CriteriaModal({
 function CriteriaModalInner({
   editing,
   onClose,
+  onSaved,
 }: {
   editing: FinanceCriteriaView | null;
   onClose: () => void;
+  onSaved?: (criteriaId: string) => void;
 }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
@@ -94,13 +99,14 @@ function CriteriaModalInner({
     if (!saveState) return;
     if (saveState.ok) {
       clear();
-      toast("Criteria saved. A new screening run started.", "success");
+      toast("Criteria saved. Agents are working on this — check back soon.", "success");
+      if (saveState.criteriaId) onSaved?.(saveState.criteriaId);
       onClose();
       router.refresh();
     } else {
       show(saveState);
     }
-  }, [saveState, show, clear, toast, onClose, router]);
+  }, [saveState, show, clear, toast, onClose, onSaved, router]);
 
   useEffect(() => {
     if (!deleteState) return;
