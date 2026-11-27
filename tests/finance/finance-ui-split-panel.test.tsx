@@ -222,4 +222,36 @@ describe("FIN-UI-CR-001: /finance Linear/spreadsheet list and split-screen side 
     const editBtn = el.querySelector('button[aria-label="Edit criteria"]');
     expect(editBtn).not.toBeNull();
   });
+
+  it("hides Log a trade in the side panel when an unheld stock has no decision yet", () => {
+    const inProgressItem: ResearchStockItem = {
+      id: "cand-nvda",
+      symbol: "NVDA",
+      name: "NVIDIA",
+      bucket: "in_progress",
+      call: null,
+      stage: "screen",
+      summary: "Strong AI GPU demand",
+      reviewGo: null,
+      reviewTotal: null,
+      origin: null,
+      criteriaId: "crit-1",
+      isHeld: false,
+      latestPrice: 135.0,
+      position: null,
+    };
+
+    const el = renderBoard([inProgressItem]);
+    const row = el.querySelector('[role="button"]');
+    expect(row).not.toBeNull();
+    act(() => {
+      row?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const aside = el.querySelector('aside[aria-label="Company Detail"]');
+    expect(aside).not.toBeNull();
+    expect(aside?.className).toContain("lg:sticky");
+    expect(aside?.textContent).not.toContain("Log a trade");
+    expect(aside?.textContent).not.toContain("Buy & log trade");
+  });
 });

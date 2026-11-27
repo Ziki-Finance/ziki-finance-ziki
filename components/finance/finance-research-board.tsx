@@ -684,7 +684,7 @@ export function FinanceResearchBoard({
         {hasSide && selectedItem ? (
           <aside
             aria-label="Company Detail"
-            className="lg:col-span-5 space-y-4"
+            className="lg:col-span-5 lg:sticky lg:top-20 lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto space-y-4"
           >
             <div className="rounded-2xl border border-zk-border bg-zk-surface p-5 space-y-5">
               {/* Side Panel Header */}
@@ -841,8 +841,9 @@ export function FinanceResearchBoard({
                   </div>
                 )}
 
-                {/* Trade Action (super_admin only) */}
-                {canManageTrades ? (
+                {/* Trade Action (super_admin only, once a decision exists or position is held) */}
+                {canManageTrades &&
+                (selectedItem.isHeld || Boolean(selectedDetail?.decision)) ? (
                   <div className="flex items-center gap-2">
                     <TradeButton
                       symbol={selectedItem.symbol}

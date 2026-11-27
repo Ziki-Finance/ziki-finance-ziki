@@ -326,6 +326,17 @@ export default async function FinancePage() {
       const symbol = c.ticker?.symbol ?? c.tickerSymbol ?? "—";
       const name = c.ticker?.name ?? c.companyName ?? symbol;
       const levels = evaluationLevels(c.evaluations);
+      const firstSignalWhy = (() => {
+        const raw = c.signals[0]?.whyItFits;
+        if (!Array.isArray(raw)) return null;
+        for (const entry of raw) {
+          if (entry && typeof entry === "object" && "why" in entry) {
+            const why = (entry as { why?: unknown }).why;
+            if (typeof why === "string" && why.trim()) return why;
+          }
+        }
+        return null;
+      })();
       return {
         id: `cand-${c.id}`,
         symbol,
@@ -335,7 +346,10 @@ export default async function FinancePage() {
         stage: c.stage,
         summary:
           c.evaluations[0]?.reasons[0] ??
-          `${c.evidence.length} research sources gathered`,
+          firstSignalWhy ??
+          (c.evidence.length > 0
+            ? `${c.evidence.length} research sources gathered`
+            : "Proposed in screening — agents are reviewing"),
         reviewGo: null,
         reviewTotal: null,
         origin: null,
