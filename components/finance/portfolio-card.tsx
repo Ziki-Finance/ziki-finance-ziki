@@ -108,10 +108,10 @@ function TradeDialog({
       }}
       onClose={onClose}
       aria-labelledby="finance-trade-heading"
-      className="m-auto w-[calc(100%-2rem)] max-w-md rounded-2xl border border-zk-border bg-zk-surface p-6 text-zk-text shadow-xl backdrop:bg-black/40"
+      className="m-auto w-[calc(100%-2rem)] max-w-md rounded-2xl border border-zk-border bg-zk-surface p-5 text-zk-text shadow-xl backdrop:bg-black/40"
     >
-      <div className="mb-5 flex items-center justify-between">
-        <h2 id="finance-trade-heading" className="text-lg font-bold">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 id="finance-trade-heading" className="text-base font-bold">
           Log a trade{symbol ? ` · ${symbol}` : ""}
         </h2>
         <button
@@ -143,7 +143,7 @@ function TradeDialog({
             else setError(result.error);
           });
         }}
-        className="space-y-4"
+        className="space-y-3"
       >
         <label className="block text-xs font-medium">
           US stock ticker
@@ -166,7 +166,7 @@ function TradeDialog({
             <option value="sold">Sold</option>
           </select>
         </label>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3">
           <label className="text-xs font-medium">
             Shares
             <input

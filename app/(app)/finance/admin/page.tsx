@@ -18,14 +18,15 @@ import {
   type FinanceSettingsError,
 } from "@/lib/finance/settings";
 import {
-  FINANCE_CANDIDATE_RULES,
   FINANCE_EVIDENCE_SECTIONS,
   PIPELINE_SETTINGS_ERRORS,
+  proposalsRequiredFromRule,
   readPipelineSettings,
   type PipelineSettingsError,
 } from "@/lib/finance/pipeline-settings";
 import { FinanceClearancePicker } from "@/components/finance/finance-clearance-picker";
 
+export const dynamic = "force-dynamic";
 export const metadata = { title: "Finance Admin" };
 
 const ERRORS: Record<string, string> = {
@@ -41,11 +42,6 @@ const SECTION_LABEL: Record<string, string> = {
   news: "News",
   social: "Social",
   market_context: "Market context",
-};
-
-const RULE_LABEL: Record<string, string> = {
-  proposed_by_2: "2 agents pick it",
-  proposed_1_confirmed_by_1: "1 picks, 1 confirms",
 };
 
 const INPUT_CLASS =
@@ -161,6 +157,7 @@ export default async function FinanceAdminPage({
 
         <div className="space-y-5 p-6">
           <FinanceClearancePicker
+            key={people.map((p) => p.id).join(",")}
             candidates={candidates}
             action={grantFinanceClearanceAction}
             errorMessage={clearanceError}
@@ -389,18 +386,16 @@ export default async function FinanceAdminPage({
 
           <div className="grid grid-cols-1 gap-5 border-t border-zk-divider pt-5 sm:grid-cols-3">
             <label className="flex flex-col gap-1.5 text-xs font-medium text-zk-text">
-              <span>How a stock qualifies</span>
-              <select
+              <span>Agents to qualify</span>
+              <input
                 name="candidateRule"
-                defaultValue={pipeline.candidateRule}
+                type="number"
+                min={1}
+                step={1}
+                required
+                defaultValue={proposalsRequiredFromRule(pipeline.candidateRule)}
                 className={INPUT_CLASS}
-              >
-                {FINANCE_CANDIDATE_RULES.map((rule) => (
-                  <option key={rule} value={rule}>
-                    {RULE_LABEL[rule]}
-                  </option>
-                ))}
-              </select>
+              />
             </label>
 
             <label className="flex flex-col gap-1.5 text-xs font-medium text-zk-text">

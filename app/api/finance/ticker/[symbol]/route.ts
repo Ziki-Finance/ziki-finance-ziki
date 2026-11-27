@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { unstable_rethrow } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { normalizeSymbol } from "@/lib/finance";
-import { requireFinanceOwner } from "@/lib/finance/owner";
+import { isFinanceOwner, requireFinanceOwner } from "@/lib/finance/owner";
 import { getFinanceTickerDetail } from "@/lib/finance/ticker-detail";
 
 export const runtime = "nodejs";
@@ -40,9 +40,10 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(detail, {
-      headers: { "Cache-Control": "no-store" },
-    });
+    return NextResponse.json(
+      isFinanceOwner(owner) ? detail : { ...detail, holding: null },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   } catch (error) {
     unstable_rethrow(error);
     console.error("[api/finance/ticker] Failed to load ticker detail:", error);

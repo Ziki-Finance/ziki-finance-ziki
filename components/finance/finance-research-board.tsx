@@ -110,6 +110,9 @@ const METRIC_BOX_CLASS =
 const ROW_GRID_CLASS =
   "sm:grid sm:grid-cols-[minmax(240px,1fr)_96px_112px_156px_112px_84px] sm:items-center sm:gap-3";
 
+const SPLIT_ROW_GRID_CLASS =
+  "sm:grid sm:grid-cols-[minmax(140px,1fr)_84px_88px_72px] sm:items-center sm:gap-2.5";
+
 function statusBadgeClass(kind: string | null): string {
   if (kind === "go" || kind === "keep" || kind === "holds") {
     return "border-zk-ok-fg/30 bg-zk-ok-bg text-zk-ok-fg";
@@ -228,10 +231,12 @@ export function FinanceResearchBoard({
   initialCriteria,
   items,
   detailsBySymbol = {},
+  canManageTrades = true,
 }: {
   initialCriteria: FinanceCriteriaView[];
   items: ResearchStockItem[];
   detailsBySymbol?: Record<string, TickerPanelDetail>;
+  canManageTrades?: boolean;
 }) {
   const [selectedCriteriaId, setSelectedCriteriaId] = useState<string>("");
   const [filter, setFilter] = useState<FilterKey>("all");
@@ -347,7 +352,7 @@ export function FinanceResearchBoard({
     const valueOrRangeText = item.isHeld
       ? item.position
         ? `${formatCompactMoney(item.position.value)} · ${item.position.shares}sh`
-        : "Held"
+        : "Owned"
       : item.buyRange ?? "—";
 
     const returnOrScoreText = item.isHeld
@@ -387,7 +392,9 @@ export function FinanceResearchBoard({
             openCompanyPanel(item.symbol);
           }
         }}
-        className={`cursor-pointer grid grid-cols-1 gap-3 px-6 py-3.5 transition ${ROW_GRID_CLASS} ${
+        className={`cursor-pointer grid grid-cols-1 gap-3 px-6 py-3.5 transition ${
+          hasSide ? SPLIT_ROW_GRID_CLASS : ROW_GRID_CLASS
+        } ${
           isSelected
             ? "bg-zk-tint/50 ring-1 ring-inset ring-zk-accent/40"
             : "hover:bg-zk-tint/30"
@@ -435,27 +442,31 @@ export function FinanceResearchBoard({
           </span>
         </div>
 
-        {/* Value / Buy Range */}
-        <div>
-          <span className={`${METRIC_BOX_CLASS} text-zk-text`}>
-            {valueOrRangeText}
-          </span>
-        </div>
+        {/* Value / Buy Range (hidden in split-screen like Linear) */}
+        {!hasSide ? (
+          <div>
+            <span className={`${METRIC_BOX_CLASS} text-zk-text`}>
+              {valueOrRangeText}
+            </span>
+          </div>
+        ) : null}
 
-        {/* Return / Score */}
-        <div>
-          <span className={`${METRIC_BOX_CLASS} ${returnColorClass}`}>
-            {returnOrScoreText}
-          </span>
-        </div>
+        {/* Return / Score (hidden in split-screen like Linear) */}
+        {!hasSide ? (
+          <div>
+            <span className={`${METRIC_BOX_CLASS} ${returnColorClass}`}>
+              {returnOrScoreText}
+            </span>
+          </div>
+        ) : null}
 
         {/* Action */}
-        <div data-row-action="true" className="whitespace-nowrap sm:text-right">
-          {item.isHeld ? (
+        <div data-row-action="true" className="whitespace-nowrap">
+          {!canManageTrades || item.isHeld ? (
             <button
               type="button"
               onClick={() => openCompanyPanel(item.symbol)}
-              className="whitespace-nowrap rounded-md border border-zk-border bg-zk-bg px-2.5 py-1 text-xs font-medium text-zk-text transition hover:border-zk-accent"
+              className="inline-flex items-center whitespace-nowrap rounded-md border border-zk-border bg-zk-bg px-2.5 py-1 text-xs font-medium text-zk-text transition hover:border-zk-accent"
             >
               Details
             </button>
@@ -463,7 +474,7 @@ export function FinanceResearchBoard({
             <TradeButton
               symbol={item.symbol}
               label={item.call === "go" ? "Buy" : "+ Trade"}
-              className="whitespace-nowrap rounded-md bg-zk-accent px-2.5 py-1 text-xs font-semibold text-white transition hover:opacity-90"
+              className="inline-flex items-center whitespace-nowrap rounded-md border border-zk-accent bg-zk-accent px-2.5 py-1 text-xs font-semibold text-white transition hover:opacity-90"
             />
           )}
         </div>
@@ -589,18 +600,20 @@ export function FinanceResearchBoard({
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <div className="min-w-[760px]">
+            <div className={hasSide ? "" : "overflow-x-auto"}>
+              <div className={hasSide ? "min-w-0" : "min-w-[760px]"}>
                 {/* Column Headers */}
                 <div
-                  className={`hidden border-b border-zk-divider bg-zk-bg px-6 py-2.5 text-xs font-semibold text-zk-muted ${ROW_GRID_CLASS}`}
+                  className={`hidden border-b border-zk-divider bg-zk-bg px-6 py-2.5 text-xs font-semibold text-zk-muted ${
+                    hasSide ? SPLIT_ROW_GRID_CLASS : ROW_GRID_CLASS
+                  }`}
                 >
                   <span>Company</span>
                   <span>Price</span>
                   <span>Status</span>
-                  <span>Value / Range</span>
-                  <span>Return / Score</span>
-                  <span className="text-right">Action</span>
+                  {!hasSide ? <span>Value / Range</span> : null}
+                  {!hasSide ? <span>Return / Score</span> : null}
+                  <span>Action</span>
                 </div>
 
                 {/* Owned Group */}
@@ -797,21 +810,23 @@ export function FinanceResearchBoard({
                   </div>
                 )}
 
-                {/* Trade Action */}
-                <div className="flex items-center gap-2">
-                  <TradeButton
-                    symbol={selectedItem.symbol}
-                    decisionId={selectedDetail?.decision?.id}
-                    label={
-                      selectedItem.isHeld
-                        ? `+ Log a trade (${selectedItem.symbol})`
-                        : selectedItem.call === "go"
-                          ? `Buy & log trade (${selectedItem.symbol})`
-                          : `+ Log a trade (${selectedItem.symbol})`
-                    }
-                    className="flex-1 rounded-lg bg-zk-accent px-3 py-2 text-xs font-semibold text-white transition hover:opacity-90"
-                  />
-                </div>
+                {/* Trade Action (super_admin only) */}
+                {canManageTrades ? (
+                  <div className="flex items-center gap-2">
+                    <TradeButton
+                      symbol={selectedItem.symbol}
+                      decisionId={selectedDetail?.decision?.id}
+                      label={
+                        selectedItem.isHeld
+                          ? `+ Log a trade (${selectedItem.symbol})`
+                          : selectedItem.call === "go"
+                            ? `Buy & log trade (${selectedItem.symbol})`
+                            : `+ Log a trade (${selectedItem.symbol})`
+                      }
+                      className="flex-1 rounded-lg bg-zk-accent px-3 py-2 text-xs font-semibold text-white transition hover:opacity-90"
+                    />
+                  </div>
+                ) : null}
 
                 {/* 4-Stage Pipeline */}
                 {selectedDetail ? (

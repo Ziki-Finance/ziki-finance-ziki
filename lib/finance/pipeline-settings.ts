@@ -28,7 +28,17 @@ export const REQUIRED_SECTIONS: readonly FinanceEvidenceSectionName[] = [
 ];
 
 export const FINANCE_CANDIDATE_RULES = ["proposed_by_2", "proposed_1_confirmed_by_1"] as const;
-export type FinanceCandidateRule = (typeof FINANCE_CANDIDATE_RULES)[number];
+export type FinanceCandidateRule = string;
+
+/** Parse `candidateRule` (either a positive integer string or legacy rule name) into an agent count. */
+export function proposalsRequiredFromRule(rule: string): number {
+  const trimmed = rule.trim();
+  if (/^\d+$/.test(trimmed)) {
+    const n = Number(trimmed);
+    if (Number.isSafeInteger(n) && n >= 1) return n;
+  }
+  return 2;
+}
 
 export type FinanceDossierCaps = Partial<Record<FinanceEvidenceSectionName, number>>;
 
@@ -123,8 +133,15 @@ export function parsePipelineSettings(
   }
   if (balanceShare === null || balanceShare > 100) return { ok: false, error: "invalid_share" };
 
-  const candidateRule = String(input.candidateRule ?? "") as FinanceCandidateRule;
-  if (!(FINANCE_CANDIDATE_RULES as readonly string[]).includes(candidateRule)) {
+  const rawCandidateRule = String(input.candidateRule ?? "").trim();
+  const numericRule = wholeNumber(rawCandidateRule);
+  const candidateRule =
+    numericRule !== null
+      ? String(numericRule)
+      : (FINANCE_CANDIDATE_RULES as readonly string[]).includes(rawCandidateRule)
+        ? rawCandidateRule
+        : null;
+  if (candidateRule === null) {
     return { ok: false, error: "invalid_candidate_rule" };
   }
   if (reviewersWhoMustAgree > reviewersPerStock) {

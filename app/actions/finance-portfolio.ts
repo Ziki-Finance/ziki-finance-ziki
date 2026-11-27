@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireFinanceOwner } from "@/lib/finance/owner";
+import { requireFinanceSuperAdmin } from "@/lib/finance/owner";
 import { recordOwnerAction, recordTrade } from "@/lib/finance/portfolio";
 import { requestFreshCheck } from "@/lib/finance/monitor";
 import { FinancePipelineError } from "@/lib/finance/pipeline";
@@ -12,7 +12,7 @@ import { FINANCE_PATH } from "@/lib/finance";
 export type PortfolioActionResult = { ok: boolean; error?: string };
 
 export async function submitFinanceTrade(raw: unknown): Promise<PortfolioActionResult> {
-  const user = await requireFinanceOwner();
+  const user = await requireFinanceSuperAdmin();
   try {
     await recordTrade(prisma, { id: user.id, label: user.name || "Finance owner" }, raw);
     revalidatePath(FINANCE_PATH, "layout");
@@ -25,7 +25,7 @@ export async function submitFinanceTrade(raw: unknown): Promise<PortfolioActionR
 }
 
 export async function submitFinanceOwnerAction(raw: unknown): Promise<PortfolioActionResult> {
-  const user = await requireFinanceOwner();
+  const user = await requireFinanceSuperAdmin();
   const parsed = z.object({ decisionId: z.string().min(1).max(191), action: z.enum(["watch", "not_for_me"]), reason: z.string().max(1500).optional() }).safeParse(raw);
   if (!parsed.success) return { ok: false, error: "Check the action and optional reason." };
   try {
@@ -35,7 +35,7 @@ export async function submitFinanceOwnerAction(raw: unknown): Promise<PortfolioA
 }
 
 export async function submitFinanceFreshCheck(raw: unknown): Promise<PortfolioActionResult> {
-  const user = await requireFinanceOwner();
+  const user = await requireFinanceSuperAdmin();
   const parsed = z.object({ holdingId: z.string().min(1).max(191), requestId: z.uuid() }).safeParse(raw);
   if (!parsed.success) return { ok: false, error: "Invalid holding or submission." };
   try {

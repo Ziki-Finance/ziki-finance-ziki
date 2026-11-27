@@ -18,6 +18,8 @@ const {
 
 vi.mock("@/lib/finance/owner", () => ({
   requireFinanceOwner: mockRequireFinanceOwner,
+  isFinanceOwner: (u: { role?: string; isRealSuperAdmin?: boolean }) =>
+    u?.isRealSuperAdmin === true || u?.role === "super_admin",
 }));
 
 vi.mock("@/lib/finance/portfolio", () => ({

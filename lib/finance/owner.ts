@@ -31,6 +31,13 @@ export async function requireFinanceOwner() {
   return user;
 }
 
+/** Super-admin only: trade logging, owner decisions, and fresh thesis checks. */
+export async function requireFinanceSuperAdmin() {
+  const user = await requireUser();
+  if (!isFinanceOwner(user)) notFound();
+  return user;
+}
+
 /** An agent may do Finance work when its owner is super_admin or finance-cleared. */
 export async function requireFinanceAgent(agent: AgentContext): Promise<void> {
   if (agent.ownerRole === "super_admin") return;

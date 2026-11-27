@@ -50,22 +50,29 @@ export const MID_MARKET_CAP_MAX_MILLIONS = 10_000;
 /** At least two proposals, or one proposal and one confirmation. */
 export const FINANCE_PROPOSALS_NEEDED = 2;
 
-export function candidateRuleMet(counts: {
-  proposals: number;
-  confirmations: number;
-}): boolean {
-  if (counts.proposals >= FINANCE_PROPOSALS_NEEDED) return true;
-  return counts.proposals >= 1 && counts.confirmations >= 1;
+export function candidateRuleMet(
+  counts: {
+    proposals: number;
+    confirmations: number;
+  },
+  required = FINANCE_PROPOSALS_NEEDED,
+): boolean {
+  const needed = Math.max(1, Math.floor(required));
+  if (counts.proposals >= needed) return true;
+  return counts.proposals >= 1 && counts.proposals + counts.confirmations >= needed;
 }
 
 /** The stage a candidate belongs in after its signals and code check. */
-export function candidateStageFor(input: {
-  codeCheckStatus: FinanceCodeCheckStatusValue;
-  proposals: number;
-  confirmations: number;
-}): FinanceCandidateStageValue {
+export function candidateStageFor(
+  input: {
+    codeCheckStatus: FinanceCodeCheckStatusValue;
+    proposals: number;
+    confirmations: number;
+  },
+  required = FINANCE_PROPOSALS_NEEDED,
+): FinanceCandidateStageValue {
   if (input.codeCheckStatus === "failed") return "dropped";
-  return candidateRuleMet(input) ? "issue" : "proposed";
+  return candidateRuleMet(input, required) ? "issue" : "proposed";
 }
 
 /** Rank by how many agents proposed it, then confirmations, then age. */

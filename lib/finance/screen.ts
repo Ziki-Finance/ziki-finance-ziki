@@ -3,6 +3,10 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCompanyProfile } from "@/lib/finance/finnhub";
 import {
+  proposalsRequiredFromRule,
+  readPipelineSettings,
+} from "@/lib/finance/pipeline-settings";
+import {
   candidateRuleMet,
   candidateStageFor,
   checkCandidateAgainstCriteria,
@@ -373,10 +377,14 @@ export async function recordFinanceCandidateSignal(
         select: { kind: true },
       });
       const counts = countsOf(signals);
-      const screenStage = candidateStageFor({
-        codeCheckStatus: codeCheck.status,
-        ...counts,
-      });
+      const settings = await readPipelineSettings(tx);
+      const screenStage = candidateStageFor(
+        {
+          codeCheckStatus: codeCheck.status,
+          ...counts,
+        },
+        proposalsRequiredFromRule(settings.candidateRule),
+      );
       await tx.financeCandidate.update({
         where: { id: candidate.id },
         data: {

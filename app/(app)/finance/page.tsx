@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
-import { requireFinanceOwner } from "@/lib/finance/owner";
+import { isFinanceOwner, requireFinanceOwner } from "@/lib/finance/owner";
 import { listFinanceCriteria } from "@/lib/finance/criteria";
 import { decisionsForOwner } from "@/lib/finance/decisions";
 import { portfolioForOwner } from "@/lib/finance/portfolio";
@@ -65,6 +65,15 @@ function evaluationLevels(
 
 export default async function FinancePage() {
   const user = await requireFinanceOwner();
+  const canManageTrades = isFinanceOwner(user);
+  const ownerAccount = canManageTrades
+    ? { id: user.id }
+    : await prisma.user.findFirst({
+        where: { role: "super_admin" },
+        orderBy: { createdAt: "asc" },
+        select: { id: true },
+      });
+  const portfolioOwnerId = ownerAccount?.id ?? user.id;
   let criteria: Awaited<ReturnType<typeof listFinanceCriteria>>;
   let decisions: Awaited<ReturnType<typeof decisionsForOwner>>;
   let portfolio: Awaited<ReturnType<typeof portfolioForOwner>>;
@@ -179,8 +188,8 @@ export default async function FinancePage() {
           },
         },
       }),
-      decisionsForOwner(prisma, user.id),
-      portfolioForOwner(prisma, user.id),
+      decisionsForOwner(prisma, portfolioOwnerId),
+      portfolioForOwner(prisma, portfolioOwnerId),
     ]);
   } catch (err) {
     const message =
@@ -198,23 +207,26 @@ export default async function FinancePage() {
     );
   }
 
+  const heldSymbols = new Set(portfolio.positions.map((p) => p.symbol));
   const positionBySymbol = new Map<string, ResearchStockPosition>();
-  for (const p of portfolio.positions) {
-    positionBySymbol.set(p.symbol, {
-      holdingId: p.id,
-      shares: Number(p.shares),
-      averageCost: p.averageCost !== null ? Number(p.averageCost) : null,
-      value: p.value,
-      gainPct: p.gainPct,
-      benchmarkGainPct: p.benchmarkGainPct,
-      reasonStatus: p.reasonStatus,
-      nextCheck: p.nextCheck,
-      reasonPoints: p.reasonPoints.map((pt) => ({
-        id: pt.id,
-        text: pt.text,
-        main: pt.main,
-      })),
-    });
+  if (canManageTrades) {
+    for (const p of portfolio.positions) {
+      positionBySymbol.set(p.symbol, {
+        holdingId: p.id,
+        shares: Number(p.shares),
+        averageCost: p.averageCost !== null ? Number(p.averageCost) : null,
+        value: p.value,
+        gainPct: p.gainPct,
+        benchmarkGainPct: p.benchmarkGainPct,
+        reasonStatus: p.reasonStatus,
+        nextCheck: p.nextCheck,
+        reasonPoints: p.reasonPoints.map((pt) => ({
+          id: pt.id,
+          text: pt.text,
+          main: pt.main,
+        })),
+      });
+    }
   }
 
   const allDecisions = [...decisions.needsYou, ...decisions.notNow];
@@ -296,7 +308,7 @@ export default async function FinancePage() {
         criteriaId: d.candidateId
           ? (candidateById.get(d.candidateId)?.run.criteriaId ?? null)
           : null,
-        isHeld: positionBySymbol.has(d.ticker.symbol),
+        isHeld: heldSymbols.has(d.ticker.symbol),
         latestPrice: priceBySymbol.get(d.ticker.symbol) ?? null,
         buyRange: formatBuyRange(d.buyRangeLow, d.buyRangeHigh),
         position: positionBySymbol.get(d.ticker.symbol) ?? null,
@@ -320,7 +332,7 @@ export default async function FinancePage() {
         reviewTotal: null,
         origin: null,
         criteriaId: c.criteriaId,
-        isHeld: positionBySymbol.has(symbol),
+        isHeld: heldSymbols.has(symbol),
         latestPrice: priceBySymbol.get(symbol) ?? null,
         buyRange: levels.buyRange,
         position: positionBySymbol.get(symbol) ?? null,
@@ -341,7 +353,7 @@ export default async function FinancePage() {
         criteriaId: d.candidateId
           ? (candidateById.get(d.candidateId)?.run.criteriaId ?? null)
           : null,
-        isHeld: positionBySymbol.has(d.ticker.symbol),
+        isHeld: heldSymbols.has(d.ticker.symbol),
         latestPrice: priceBySymbol.get(d.ticker.symbol) ?? null,
         buyRange: formatBuyRange(d.buyRangeLow, d.buyRangeHigh),
         position: positionBySymbol.get(d.ticker.symbol) ?? null,
@@ -509,6 +521,7 @@ export default async function FinancePage() {
         initialCriteria={criteria}
         items={items}
         detailsBySymbol={detailsBySymbol}
+        canManageTrades={canManageTrades}
       />
     </div>
   );
