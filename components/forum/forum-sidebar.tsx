@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import type { AccessibleOrganisation, ExternalProject } from "@/lib/forum-types";
-import { scopedForumPath } from "@/lib/project-paths";
+import { orgForumWorkstreamPath, scopedForumPath } from "@/lib/project-paths";
 import {
   ExternalLinkIcon,
   ForumIcon,
@@ -12,8 +12,15 @@ import {
   type SelectedScope,
 } from "@/components/forum/forum-shared";
 
+/** A sidebar entry that shows a page on the right instead of topics (#forum-instructions). */
+export type ForumSidebarEntry = { type: "llms" } | { type: "workstream"; orgSlug: string };
+
+/** The forum's llms.txt entry (#forum-instructions). */
+export const FORUM_LLMS_PATH = "/forum/llms";
+
 export interface ForumSidebarProps {
   selectedScope: SelectedScope;
+  activeEntry?: ForumSidebarEntry;
   onSelectScope?: (scope: SelectedScope, href: string) => void;
   organisations: AccessibleOrganisation[];
   externalProjects: ExternalProject[];
@@ -35,7 +42,8 @@ export interface ForumSidebarProps {
 }
 
 export function ForumSidebar({
-  selectedScope,
+  selectedScope: scope,
+  activeEntry,
   onSelectScope,
   organisations,
   externalProjects,
@@ -50,8 +58,11 @@ export function ForumSidebar({
   myAgentsCount,
   bookmarkedCount,
 }: ForumSidebarProps) {
+  // On an entry's page, no forum scope is the one shown.
+  const selectedScope: SelectedScope = activeEntry ? { type: "external", name: "" } : scope;
   const [expandedSections, setExpandedSections] = useState({
     pinned: true,
+    instructions: true,
     organisations: true,
     external: true,
   });
@@ -99,6 +110,38 @@ export function ForumSidebar({
           All
         </span>
       </Link>
+
+      {/* Instructions (#forum-instructions): what agents read first. */}
+      <div className="flex flex-col gap-1 pt-2 border-t border-zk-border">
+        <button
+          type="button"
+          aria-expanded={expandedSections.instructions}
+          onClick={() => toggleSection("instructions")}
+          className="flex items-center justify-between px-2 py-1 rounded-chip text-[11px] uppercase tracking-wider text-zk-muted hover:text-zk-text font-semibold transition-colors cursor-pointer"
+        >
+          <span>Instructions</span>
+          <ForumIcon size={11} className={`transition-transform ${expandedSections.instructions ? "rotate-90" : ""}`}>
+            <path d="m9 18 6-6-6-6" />
+          </ForumIcon>
+        </button>
+        {expandedSections.instructions && (
+          <Link
+            href={FORUM_LLMS_PATH}
+            aria-current={activeEntry?.type === "llms" ? "page" : undefined}
+            className={`flex items-center gap-2 px-2.5 py-1.5 rounded-control text-[13px] transition-colors ${
+              activeEntry?.type === "llms"
+                ? "bg-zk-tint text-zk-accent font-semibold border border-zk-accent/25"
+                : "text-zk-text2 hover:text-zk-text hover:bg-zk-chip/60"
+            }`}
+          >
+            <ForumIcon size={14} className={activeEntry?.type === "llms" ? "text-zk-accent shrink-0" : "text-zk-muted shrink-0"}>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <path d="M14 2v6h6M8 13h8M8 17h5" />
+            </ForumIcon>
+            <span className="truncate">LLMs.txt</span>
+          </Link>
+        )}
+      </div>
 
       {/* Section 2: Pinned Topics (Collapsible, capped at 5 + More filter) */}
       {pinnedPosts.length > 0 && (
@@ -175,7 +218,8 @@ export function ForumSidebar({
             const isOrgSelected =
               selectedScope.type === "org" &&
               (selectedScope.orgId === org.id || selectedScope.orgId === currentOrgSlug);
-            const isExpanded = expandedOrgs[org.id] ?? expandedOrgs[currentOrgSlug] ?? false;
+            const isWorkstreamShown = activeEntry?.type === "workstream" && activeEntry.orgSlug === currentOrgSlug;
+            const isExpanded = isWorkstreamShown || (expandedOrgs[org.id] ?? expandedOrgs[currentOrgSlug] ?? false);
 
             return (
               <div key={org.id} className="flex flex-col gap-0.5">
@@ -217,6 +261,21 @@ export function ForumSidebar({
 
                 {isExpanded && (
                   <div className="flex flex-col gap-0.5 pl-5 pr-1 border-l border-zk-border/60 ml-3.5 my-0.5">
+                    {/* The organisation's workstream (#forum-workstream): what agents are asked to do there now. */}
+                    <Link
+                      href={orgForumWorkstreamPath(currentOrgSlug)}
+                      aria-current={isWorkstreamShown ? "page" : undefined}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded-chip text-xs transition-colors ${
+                        isWorkstreamShown
+                          ? "bg-zk-chip text-zk-accent font-semibold"
+                          : "text-zk-text2 hover:text-zk-text hover:bg-zk-chip/40"
+                      }`}
+                    >
+                      <ForumIcon size={12} className={isWorkstreamShown ? "text-zk-accent shrink-0" : "text-zk-muted shrink-0"}>
+                        <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                      </ForumIcon>
+                      <span className="truncate">WorkStream</span>
+                    </Link>
                     {org.projects.map((proj) => {
                       const currentProjSlug = proj.slug || proj.id;
                       const isProjSelected =

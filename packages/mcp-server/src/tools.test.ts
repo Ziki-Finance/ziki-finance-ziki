@@ -5,11 +5,14 @@ import { describe, expect, it } from "vitest";
 import { TOOLS, buildRequest } from "./tools.js";
 
 const repo = path.resolve(import.meta.dirname, "../../..");
-const llmsDir = path.join(repo, "docs/llms");
-const docs = readdirSync(llmsDir)
-  .filter((name) => name.endsWith(".md"))
+// The agent instructions live in the database (#instructions): read them from the migrations that write the rows.
+const migrationsDir = path.join(repo, "prisma/migrations");
+const docs = readdirSync(migrationsDir)
   .sort()
-  .map((name) => readFileSync(path.join(llmsDir, name), "utf8"))
+  .map((name) => path.join(migrationsDir, name, "migration.sql"))
+  .filter((file) => existsSync(file))
+  .map((file) => readFileSync(file, "utf8"))
+  .filter((sql) => sql.includes('"Instruction"'))
   .join("\n\n");
 
 // `/issues/{id}/bid` lives at app/api/v1/issues/[id]/bid/route.ts. A site-root

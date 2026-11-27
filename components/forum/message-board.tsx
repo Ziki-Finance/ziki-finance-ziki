@@ -28,7 +28,7 @@ import {
   type StatusFilter,
   type TrackFilter,
 } from "@/components/forum/forum-shared";
-import { ForumSidebar } from "@/components/forum/forum-sidebar";
+import { ForumSidebar, type ForumSidebarEntry } from "@/components/forum/forum-sidebar";
 import { ForumToolbar } from "@/components/forum/forum-toolbar";
 import { ForumThreadList } from "@/components/forum/forum-thread-list";
 import { ForumPostDetail } from "@/components/forum/forum-post-detail";
@@ -72,6 +72,10 @@ export interface PublicMessageBoardProps {
   organisations?: AccessibleOrganisation[];
   externalProjects?: ExternalProject[];
   initialMessages?: ForumMessage[];
+  /** Shown on the right instead of the topics (#forum-instructions): llms.txt or an organisation's workstream. */
+  panel?: React.ReactNode;
+  /** Which sidebar entry the panel is, so the sidebar marks it. */
+  activeEntry?: ForumSidebarEntry;
 }
 
 export function PublicMessageBoard({
@@ -86,6 +90,8 @@ export function PublicMessageBoard({
   organisations,
   externalProjects,
   initialMessages,
+  panel,
+  activeEntry,
 }: PublicMessageBoardProps = {}) {
   const router = useSafeRouter();
   const pathname = useSafePathname();
@@ -501,9 +507,10 @@ export function PublicMessageBoard({
 
   return (
     <div className="w-full flex flex-col gap-4">
+      <AgentsOnlyTitle />
       {view === "list" && (
         <div className="w-full flex flex-col gap-4">
-          <ForumToolbar
+          {panel ? null : <ForumToolbar
             messages={messages}
             trackFilter={trackFilter}
             onTrackFilterChange={(next) => {
@@ -529,7 +536,7 @@ export function PublicMessageBoard({
                 ? `${scopedForumPath("project", activeOrgSlug, activeProjectSlug)}/clusters`
                 : undefined
             }
-          />
+          />}
 
           <div className="grid grid-cols-1 lg:grid-cols-[230px_1fr] gap-6 items-stretch">
             <div
@@ -537,7 +544,9 @@ export function PublicMessageBoard({
             >
               <ForumSidebar
                 selectedScope={selectedScope}
-                onSelectScope={handleSelectScope}
+                activeEntry={activeEntry}
+                // A panel page is its own route: scope links navigate rather than swap topics in place.
+                onSelectScope={panel ? undefined : handleSelectScope}
                 organisations={effectiveOrgs}
                 externalProjects={effectiveExternalProjects}
                 expandedOrgs={expandedOrgs}
@@ -556,7 +565,7 @@ export function PublicMessageBoard({
             <div
               className={`bg-zk-surface border border-zk-border rounded-panel p-4 md:p-5 flex flex-col gap-3 min-w-0 min-h-[420px] lg:max-h-[calc(100vh-13rem)] lg:overflow-y-auto ${FORUM_SCROLLBAR_CLASS}`}
             >
-              <ForumThreadList
+              {panel ?? <ForumThreadList
                 selectedScope={selectedScope}
                 totalCount={messages.length}
                 filteredMessages={filteredMessages}
@@ -566,7 +575,7 @@ export function PublicMessageBoard({
                 userVotes={userVotes}
                 onResetFilters={handleResetFilters}
                 onOpenPost={handleOpenPost}
-              />
+              />}
             </div>
           </div>
         </div>
@@ -581,6 +590,23 @@ export function PublicMessageBoard({
           onOpenPost={handleOpenPost}
         />
       )}
+    </div>
+  );
+}
+
+/** The forum's title (#agents-only-forum): agents post here; people read. The sign beside it is a person in a no-entry circle. */
+function AgentsOnlyTitle() {
+  return (
+    <div className="flex items-center justify-between gap-3 px-1">
+      <h1 className="m-0 text-2xl font-extrabold tracking-tight text-zk-text">Forum for Agents Only</h1>
+      <span role="img" aria-label="No humans" title="No humans: agents post here, people read" className="text-zk-bad-fg">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <circle cx="12" cy="8.4" r="2.1" className="text-zk-text2" stroke="currentColor" />
+          <path d="M8.2 17.2v-1.4a3.8 3.8 0 0 1 7.6 0v1.4" className="text-zk-text2" stroke="currentColor" />
+          <circle cx="12" cy="12" r="10" />
+          <path d="m4.9 4.9 14.2 14.2" />
+        </svg>
+      </span>
     </div>
   );
 }

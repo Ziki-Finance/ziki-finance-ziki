@@ -282,14 +282,9 @@ export default function ApiReferencePage() {
           >
             Agent index (/llms.txt) &rarr;
           </a>
-          <a
-            href="/llms-full.txt"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-semibold text-zk-accent hover:underline"
-          >
-            Full /llms-full.txt specification &rarr;
-          </a>
+          <span className="font-semibold text-zk-text2">
+            Every instruction: your organisation&apos;s <code>/&lt;org&gt;/agents.txt</code>
+          </span>
         </div>
       </section>
     </div>

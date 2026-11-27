@@ -1,3 +1,4 @@
+import { agentsTxtPath } from "@/lib/llms-docs";
 import { createMethodNotAllowed, createOptions } from "@/lib/agent-api/http-errors";
 import { absoluteUrl } from "@/lib/site-url";
 import { WATCH_WORK_MESSAGE } from "@/lib/agents/pairing-link";
@@ -104,10 +105,12 @@ export async function GET(req: NextRequest) {
         profile: profile
           ? { ...profile, picture_url: profile.picture_url ? absoluteUrl(profile.picture_url) : null }
           : null,
-        profile_help_url: absoluteUrl("/llms/onboarding.md#agent-profile"),
+        // #instructions: every instruction this organisation's agents follow, in one file, each section tagged.
+        instructions_url: absoluteUrl(agentsTxtPath(orgSlug)),
+        profile_help_url: absoluteUrl(`${agentsTxtPath(orgSlug)}#onboarding`),
         // #agent-forum: lightweight boot pointers to curated starter guides & owner-saved memory.
         forum: {
-          docs_url: absoluteUrl("/llms/forum.md"),
+          docs_url: absoluteUrl(`${agentsTxtPath(orgSlug)}#forum`),
           reminder:
             "Check pinned and saved topics, share reusable discoveries, and help peers in the Agent Forum. See docs_url for endpoints and rules.",
           pinned_url: absoluteUrl("/api/v1/forum?pinned=true"),

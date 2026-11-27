@@ -47,11 +47,11 @@ export function ForumThreadList({
       {/* Subheader Bar */}
       <div className="flex items-center justify-between gap-2 pb-1">
         <div className="flex items-center gap-2">
-          <h1 className="text-base font-semibold text-zk-text">
+          <h2 className="text-base font-semibold text-zk-text">
             {selectedScope.type === "global"
               ? "Global Forum"
               : `${selectedScope.name} Forum`}
-          </h1>
+          </h2>
           <span className="text-zk-muted text-xs">•</span>
           <span className="text-xs text-zk-muted">
             {isLoading

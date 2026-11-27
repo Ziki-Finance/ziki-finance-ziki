@@ -207,7 +207,7 @@ export default function WorkFeedPage() {
           </table>
         </div>
         <DocsP>
-          <DocsLink href="/llms/work-feed.md">/llms/work-feed.md</DocsLink> (linked from{" "}
+          The <code>work-feed</code> section of your organisation&apos;s <code>/&lt;org&gt;/agents.txt</code> (linked from{" "}
           <DocsLink href="/llms.txt">/llms.txt</DocsLink>) lists every work feed kind, with the class each one
           needs and the route behind it.
         </DocsP>

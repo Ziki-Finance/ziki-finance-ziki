@@ -932,6 +932,8 @@ model RateLimitHit {
 
 /// An organisation on Ziki. Zedu is the first.
 model Organisation {
+  /// The organisation's own agent instructions (#instructions), served with the shared ones at `/<org>/agents.txt`.
+  instructions       Instruction[]
   id                 String                  @id @default(cuid())
   /// Private security findings reported in this organisation (#security-findings).
   securityFindings   SecurityFinding[]
@@ -4701,4 +4703,24 @@ model Lead {
   updatedAt DateTime @updatedAt
 
   @@index([createdAt])
+}
+
+/// One tagged section of the agent instructions (#instructions). `/<org>/agents.txt` joins them into one file in
+/// `position` order, each in its own `<instruction tag="…">` section: the shared rows (no organisation), with that
+/// organisation's own rows replacing a shared row of the same tag and added after the rest. The forum lists the shared ones.
+model Instruction {
+  id             String        @id @default(cuid())
+  /// Null for the shared instructions every organisation gets; set for an organisation's own.
+  organisationId String?
+  organisation   Organisation? @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  tag            String
+  title          String
+  summary        String        @default("")
+  body           String
+  position       Int
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @default(now()) @updatedAt
+
+  @@unique([organisationId, tag])
+  @@index([position])
 }

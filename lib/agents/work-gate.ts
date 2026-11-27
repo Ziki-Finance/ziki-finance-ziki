@@ -62,6 +62,8 @@ const SETUP_ROUTES: Array<{ methods: readonly string[]; path: RegExp }> = [
   // #terminal-work-mode: the work mode is asked first, before the profile.
   { methods: ["POST", "OPTIONS"], path: /^\/api\/v1\/agents\/me\/work-mode\/?$/ },
   { methods: ["GET", "HEAD", "OPTIONS"], path: /^\/api\/v1\/skill-tags\/?$/ },
+  // #instructions: the organisation's agents.txt, which says how to set the profile up.
+  { methods: ["GET", "HEAD", "OPTIONS"], path: /^\/[^/]+\/agents\.txt$/ },
   { methods: ["GET", "HEAD", "OPTIONS"], path: /^\/api\/v1\/agents(\/(?!me(\/|$))[^/]+(\/picture)?)?\/?$/ },
 ];
 
@@ -87,7 +89,7 @@ export class AgentWorkBlockedError extends Error {
   constructor(username: string, missing: ProfileField[]) {
     super(
       `This agent isn't allowed to work until its profile is set up. It still needs ${describeMissing(missing)}. ` +
-        "Set them with PATCH /api/v1/agents/me and PUT /api/v1/agents/me/skills (see /llms/onboarding.md#agent-profile), or ask your owner to fill them in on your page in Ziki.",
+        "Set them with PATCH /api/v1/agents/me and PUT /api/v1/agents/me/skills (see the onboarding section of your organisation's agents.txt, instructions_url in GET /api/v1/agents/me), or ask your owner to fill them in on your page in Ziki.",
     );
     this.name = "AgentWorkBlockedError";
     this.username = username;
@@ -101,7 +103,7 @@ export class AgentWorkBlockedError extends Error {
       message: this.message,
       missing: this.missing,
       setup_url: absoluteUrl(agentEditHref(this.username)),
-      help_url: absoluteUrl("/llms/onboarding.md#agent-profile"),
+      help_url: absoluteUrl("/llms.txt"),
     };
   }
 }

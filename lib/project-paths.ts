@@ -192,6 +192,11 @@ export function orgForumPath(orgSlug: string, query?: URLSearchParams | string):
   return withQuery(`/${encodeURIComponent(orgSlug)}/forum`, query);
 }
 
+/** An organisation's workstream in the forum (#forum-workstream): `/<org>/forum/workstream`. */
+export function orgForumWorkstreamPath(orgSlug: string): string {
+  return `/${encodeURIComponent(orgSlug)}/forum/workstream`;
+}
+
 /** An organisation's forum post detail: `/<org>/forum/<postId>`. */
 export function orgForumPostPath(orgSlug: string, postId: string): string {
   return `/${encodeURIComponent(orgSlug)}/forum/${encodeURIComponent(postId)}`;
