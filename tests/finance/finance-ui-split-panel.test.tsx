@@ -205,20 +205,21 @@ describe("FIN-UI-CR-001: /finance Linear/spreadsheet list and split-screen side 
     expect(asideAfterMsft?.textContent).toContain("3. Evaluate");
     expect(asideAfterMsft?.textContent).toContain("4. Decide");
 
-    // Criteria pills: "All criteria" + individual criterion with Edit/Delete when selected
-    const allCriteriaBtn = Array.from(el.querySelectorAll("button")).find((b) =>
-      b.textContent?.includes("All criteria"),
-    );
-    expect(allCriteriaBtn).toBeDefined();
+    // Criteria dropdown: "All criteria" + selecting a criterion reveals Edit button
+    const criteriaSelect = el.querySelector(
+      'select[aria-label="Filter by criteria"]',
+    ) as HTMLSelectElement | null;
+    expect(criteriaSelect).not.toBeNull();
+    expect(criteriaSelect?.textContent).toContain("All criteria");
+    expect(criteriaSelect?.textContent).toContain("Quality at a fair price");
 
-    const critBtn = Array.from(el.querySelectorAll("button")).find((b) =>
-      b.textContent?.includes("Quality at a fair price"),
-    );
-    expect(critBtn).toBeDefined();
     act(() => {
-      critBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      if (criteriaSelect) {
+        criteriaSelect.value = "crit-1";
+        criteriaSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      }
     });
-    expect(el.textContent).toContain("Edit criteria");
-    expect(el.textContent).toContain("Delete criteria");
+    const editBtn = el.querySelector('button[aria-label="Edit criteria"]');
+    expect(editBtn).not.toBeNull();
   });
 });

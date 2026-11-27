@@ -85,6 +85,11 @@ function CriteriaModalInner({
     FormData
   >(saveFinanceCriteriaAction, undefined);
 
+  const [deleteState, deleteAction, deleting] = useActionState<
+    FinanceCriteriaActionResult | undefined,
+    FormData
+  >(deleteFinanceCriteriaAction, undefined);
+
   useEffect(() => {
     if (!saveState) return;
     if (saveState.ok) {
@@ -96,6 +101,17 @@ function CriteriaModalInner({
       show(saveState);
     }
   }, [saveState, show, clear, toast, onClose, router]);
+
+  useEffect(() => {
+    if (!deleteState) return;
+    if (deleteState.ok) {
+      toast("Criteria deleted.", "success");
+      onClose();
+      router.refresh();
+    } else if (deleteState.error) {
+      toast(deleteState.error, "error");
+    }
+  }, [deleteState, toast, onClose, router]);
 
   return (
     <div
@@ -206,17 +222,35 @@ function CriteriaModalInner({
             <FieldError formId={FORM_ID} field="words" errors={fieldErrors} />
           </div>
 
-          <div className="flex items-center justify-end gap-2 border-t border-zk-border pt-4">
-            <Button type="button" variant="ghost" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving
-                ? "Saving…"
-                : editing
-                  ? "Save new version"
-                  : "Save & start research"}
-            </Button>
+          <div className="flex items-center justify-between gap-2 border-t border-zk-border pt-4">
+            <div>
+              {editing ? (
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={() => {
+                    const fd = new FormData();
+                    fd.set("id", editing.id);
+                    deleteAction(fd);
+                  }}
+                  className="rounded-lg border border-zk-border px-3 py-1.5 text-xs font-medium text-zk-bad-fg transition hover:border-zk-bad-fg/50 disabled:opacity-50"
+                >
+                  {deleting ? "Deleting…" : "Delete criteria"}
+                </button>
+              ) : null}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="ghost" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={saving}>
+                {saving
+                  ? "Saving…"
+                  : editing
+                    ? "Save new version"
+                    : "Save & start research"}
+              </Button>
+            </div>
           </div>
         </form>
       </div>

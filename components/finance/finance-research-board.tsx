@@ -1,13 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useMemo, useState } from "react";
-import {
-  deleteFinanceCriteriaAction,
-  type FinanceCriteriaActionResult,
-} from "@/app/actions/finance-criteria";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/toast";
 import type { FinanceCriteriaView } from "@/lib/finance/criteria";
 import { financeCriteriaTitle } from "@/lib/validations/finance";
 import { DEMO_STOCK_ITEMS, findDemoStock } from "@/lib/finance/demo-stocks";
@@ -106,7 +100,7 @@ const METRIC_BOX_CLASS =
   "inline-flex items-center whitespace-nowrap rounded-md border border-zk-border bg-zk-bg px-2.5 py-1 text-xs tabular-nums";
 
 const ROW_GRID_CLASS =
-  "sm:grid sm:grid-cols-[minmax(220px,1.8fr)_minmax(88px,auto)_minmax(108px,auto)_minmax(140px,auto)_minmax(96px,auto)_80px] sm:items-center sm:gap-3";
+  "sm:grid sm:grid-cols-[minmax(240px,1fr)_96px_112px_156px_112px_84px] sm:items-center sm:gap-3";
 
 function statusBadgeClass(kind: string | null): string {
   if (kind === "go" || kind === "keep" || kind === "holds") {
@@ -192,11 +186,7 @@ export function FinanceResearchBoard({
   items: ResearchStockItem[];
   detailsBySymbol?: Record<string, TickerPanelDetail>;
 }) {
-  const router = useRouter();
-  const toast = useToast();
-  const [selectedCriteriaId, setSelectedCriteriaId] = useState<string | null>(
-    null,
-  );
+  const [selectedCriteriaId, setSelectedCriteriaId] = useState<string>("");
   const [filter, setFilter] = useState<FilterKey>("all");
   const [search, setSearch] = useState("");
   const [showDemo, setShowDemo] = useState(items.length === 0);
@@ -205,26 +195,10 @@ export function FinanceResearchBoard({
   const [editingCriteria, setEditingCriteria] =
     useState<FinanceCriteriaView | null>(null);
 
-  const [deleteState, deleteAction, deleting] = useActionState<
-    FinanceCriteriaActionResult | undefined,
-    FormData
-  >(deleteFinanceCriteriaAction, undefined);
-
-  useEffect(() => {
-    if (!deleteState) return;
-    if (deleteState.ok) {
-      toast("Criteria deleted.", "success");
-      router.refresh();
-    } else if (deleteState.error) {
-      toast(deleteState.error, "error");
-    }
-  }, [deleteState, toast, router]);
-
   const activeCriteria =
-    selectedCriteriaId !== null
+    selectedCriteriaId !== ""
       ? (initialCriteria.find((c) => c.id === selectedCriteriaId) ?? null)
       : null;
-  const effectiveCriteriaId = activeCriteria?.id ?? null;
 
   const displayItems = useMemo(
     () => (showDemo ? [...DEMO_STOCK_ITEMS, ...items] : items),
@@ -366,7 +340,7 @@ export function FinanceResearchBoard({
             openCompanyPanel(item.symbol);
           }
         }}
-        className={`cursor-pointer grid grid-cols-1 gap-3 px-4 py-3 transition ${ROW_GRID_CLASS} ${
+        className={`cursor-pointer grid grid-cols-1 gap-3 px-5 py-3.5 transition ${ROW_GRID_CLASS} ${
           isSelected
             ? "bg-zk-tint/50 ring-1 ring-inset ring-zk-accent/40"
             : "hover:bg-zk-tint/30"
@@ -374,7 +348,7 @@ export function FinanceResearchBoard({
       >
         {/* Company */}
         <div className="min-w-0 pr-2">
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-3">
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-zk-border bg-zk-bg text-xs font-bold text-zk-accent">
               {item.symbol.slice(0, 2)}
             </span>
@@ -390,7 +364,7 @@ export function FinanceResearchBoard({
               </span>
             ) : null}
           </div>
-          <p className="mt-0.5 max-w-[46ch] truncate pl-9 text-xs text-zk-muted">
+          <p className="mt-0.5 max-w-[46ch] truncate pl-10 text-xs text-zk-muted">
             {item.summary}
           </p>
         </div>
@@ -449,74 +423,42 @@ export function FinanceResearchBoard({
 
   return (
     <>
-      {/* Header + Criteria Bar */}
-      <header className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-extrabold tracking-tight text-zk-text">
-            Finance
-          </h1>
+      {/* Header + Criteria Dropdown */}
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-extrabold tracking-tight text-zk-text">
+          Finance
+        </h1>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <select
+              aria-label="Filter by criteria"
+              value={activeCriteria?.id ?? ""}
+              onChange={(event) => setSelectedCriteriaId(event.target.value)}
+              className="rounded-lg border border-zk-border bg-zk-surface px-3 py-1.5 text-xs font-medium text-zk-text focus:outline-none focus:ring-2 focus:ring-zk-accent"
+            >
+              <option value="">All criteria</option>
+              {initialCriteria.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {financeCriteriaTitle(c)} (v{c.latestVersion})
+                </option>
+              ))}
+            </select>
+            {activeCriteria ? (
+              <button
+                type="button"
+                aria-label="Edit criteria"
+                title="Edit selected criteria"
+                onClick={() => openEditModal(activeCriteria)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-zk-border bg-zk-surface text-xs text-zk-text2 transition hover:border-zk-accent hover:text-zk-text"
+              >
+                ✎
+              </button>
+            ) : null}
+          </div>
           <Button type="button" onClick={openNewModal}>
             + New criteria
           </Button>
-        </div>
-
-        <div
-          aria-label="Criteria filter"
-          className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zk-border bg-zk-surface px-3.5 py-2.5"
-        >
-          <div className="flex flex-wrap items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setSelectedCriteriaId(null)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                effectiveCriteriaId === null
-                  ? "bg-zk-accent text-white"
-                  : "bg-zk-chip text-zk-text2 hover:text-zk-text"
-              }`}
-            >
-              All criteria
-            </button>
-            {initialCriteria.map((c) => {
-              const selected = effectiveCriteriaId === c.id;
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setSelectedCriteriaId(c.id)}
-                  className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                    selected
-                      ? "bg-zk-accent text-white"
-                      : "bg-zk-chip text-zk-text2 hover:text-zk-text"
-                  }`}
-                >
-                  {financeCriteriaTitle(c)}{" "}
-                  <span className="opacity-75">v{c.latestVersion}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {activeCriteria ? (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => openEditModal(activeCriteria)}
-                className="rounded-md border border-zk-border bg-zk-bg px-2.5 py-1 text-xs font-medium text-zk-text2 transition hover:border-zk-accent hover:text-zk-text"
-              >
-                Edit criteria
-              </button>
-              <form action={deleteAction}>
-                <input type="hidden" name="id" value={activeCriteria.id} />
-                <button
-                  type="submit"
-                  disabled={deleting}
-                  className="rounded-md border border-zk-border bg-zk-bg px-2.5 py-1 text-xs font-medium text-zk-bad-fg transition hover:border-zk-bad-fg/50 disabled:opacity-50"
-                >
-                  {deleting ? "Deleting…" : "Delete criteria"}
-                </button>
-              </form>
-            </div>
-          ) : null}
         </div>
       </header>
 
@@ -592,10 +534,10 @@ export function FinanceResearchBoard({
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <div className="min-w-[700px]">
+              <div className="min-w-[760px]">
                 {/* Column Headers */}
                 <div
-                  className={`hidden border-b border-zk-divider bg-zk-bg px-4 py-2.5 text-xs font-semibold text-zk-muted ${ROW_GRID_CLASS}`}
+                  className={`hidden border-b border-zk-divider bg-zk-bg px-5 py-2.5 text-xs font-semibold text-zk-muted ${ROW_GRID_CLASS}`}
                 >
                   <span>Company</span>
                   <span>Price</span>
@@ -606,11 +548,11 @@ export function FinanceResearchBoard({
                 </div>
 
                 {/* Owned Group */}
-                <div className="border-b border-zk-divider bg-zk-chip/60 px-4 py-2 text-xs font-bold uppercase tracking-wider text-zk-text">
+                <div className="border-b border-zk-divider bg-zk-chip/60 px-5 py-2 text-xs font-bold uppercase tracking-wider text-zk-text">
                   Owned ({ownedItems.length})
                 </div>
                 {ownedItems.length === 0 ? (
-                  <p className="border-b border-zk-divider px-4 py-3.5 text-xs text-zk-muted">
+                  <p className="border-b border-zk-divider px-5 py-3.5 text-xs text-zk-muted">
                     No owned positions yet — log a trade on any recommendation to
                     track it here.
                   </p>
@@ -621,11 +563,11 @@ export function FinanceResearchBoard({
                 )}
 
                 {/* Recommendations Group */}
-                <div className="border-y border-zk-divider bg-zk-chip/60 px-4 py-2 text-xs font-bold uppercase tracking-wider text-zk-muted">
+                <div className="border-y border-zk-divider bg-zk-chip/60 px-5 py-2 text-xs font-bold uppercase tracking-wider text-zk-muted">
                   Recommendations ({recommendationItems.length})
                 </div>
                 {recommendationItems.length === 0 ? (
-                  <p className="px-4 py-3.5 text-xs text-zk-muted">
+                  <p className="px-5 py-3.5 text-xs text-zk-muted">
                     No recommendations match this filter.
                   </p>
                 ) : (
