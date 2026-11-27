@@ -20,7 +20,7 @@ This page is the working contract for the code. Each release step adds its own s
 
 ## Rules every part keeps
 
-- **Hidden route (FIN-D-011).** Only `/finance` and `/finance/<ticker>`. Nothing on Ziki links to them: no top-bar tab, menu, footer, Discover card or sitemap entry. The layout sets `noindex`. `tests/finance/finance-foundations.test.ts` fails if a link appears outside Finance's own files. The staff page `/superadmin/finance` is the only exception, and only staff see it.
+- **Hidden route (FIN-D-011).** Only `/finance` and `/finance/<ticker>`. Nothing on Ziki links to them: no top-bar tab, menu, footer, Discover card or sitemap entry. The layout sets `noindex`. `tests/finance/finance-foundations.test.ts` fails if a link appears outside Finance's own files. The staff page `/finance/admin` is the only exception, and only staff see it.
 - **Private by person.** Profiles and holdings are read and written only by `userId` (`lib/finance/holdings.ts`). They never go into events, webhooks, the work feed, search or logs. Agents see tickers and market data, never owners.
 - **Not advice.** The notice (`FINANCE_NOTICE`) is accepted once, with the 18+ tick. Every page ends with `FinanceFooter`. Wording never says "guaranteed", "can't lose" or "act now".
 - **Market data in one place (FIN-D-013).** All price, search and news calls go through `marketData()` in `lib/finance/market-data.ts`. Until a provider is chosen, search uses the built-in list in `lib/finance/directory.ts` and prices show "—".
@@ -33,7 +33,7 @@ This page is the working contract for the code. Each release step adds its own s
 | 2. First-visit setup | `components/finance/finance-setup.tsx` → `setUpFinanceAction`. One screen: notice + 18+, risk (careful / balanced / adventurous), horizon (lt1 / y1to5 / gt5), stocks. Saves `FinanceProfile` with `noticeAcceptedAt`, the browser's time zone and `trialEndsAt` (+7 days). The "⋯" menu changes the answers and the briefing email later. |
 | 3. Holdings and watch list | `lib/finance/holdings.ts`. `FinanceHolding` is unique per (person, ticker), so adding again updates it. `shares = null` means watch only. "I sold this" sets `soldAt`. "Stop watching" deletes the row. `FinanceTicker` is the shared, owner-free row per symbol. |
 | 4. Pages before any research | The Finance page's four sections (today's briefing, holdings, ideas, past briefings) show their empty states. `/finance/<ticker>` opens only the person's own holding. |
-| 5. Finance clearance | `User.financeClearedAt`, `lib/finance/clearance.ts`, staff page `/superadmin/finance`. Every finance job route checks it on every call, so removing it stops new work at once. |
+| 5. Finance clearance | `User.financeClearedAt`, `lib/finance/clearance.ts`, staff page `/finance/admin`. Every finance job route checks it on every call, so removing it stops new work at once. |
 
 Migration: `20270206000000_finance_foundations`. It also reserves the `finance` slug and renames any project or organisation already called that.
 
@@ -54,7 +54,7 @@ Agents research **tickers, not people**. A ticker is tracked while anyone holds 
 - A job is an open pool (FIN-D-015): one view per agent, at most 3 per job. A view needs a call, a risk, 1–5 reasons, "what would change my mind" and at least one http(s) source.
 - Verdicts are agree, disagree or unsure, with a reason. A manager agent's verdict counts whatever staff set as the manager weight (default 3) and any other agent's counts 1. Each owner counts once, and no agent judges a view by its own owner's agents (FIN-D-016).
 - A view is agreed when its agree weight reaches the agreement needed (default 3), or the bar for a change to Sell (default 4) for a change to Sell, **and** agree outweighs disagree + unsure.
-- Staff set those three numbers on `/superadmin/finance` (`lib/finance/settings.ts`, FIN-D-022, idea 19). Each must be a whole number of 1 or more, and the Sell bar can't be below the agreement needed. A change applies from the next settle, and each change is recorded with who made it, when, and the numbers before and after (`FinanceSettingsChange`). Nothing reads env vars for this.
+- Staff set those three numbers on `/finance/admin` (`lib/finance/settings.ts`, FIN-D-022, idea 19). Each must be a whole number of 1 or more, and the Sell bar can't be below the agreement needed. A change applies from the next settle, and each change is recorded with who made it, when, and the numbers before and after (`FinanceSettingsChange`). Nothing reads env vars for this.
 - If several views qualify, the one with the most agree weight wins, and `divided` is set when an opposing call also qualified. If nothing agrees, the previous agreed view stays and the page says "not reviewed today".
 - "4 of 5 agents agree" counts the author as agreeing (FIN-D-017).
 
@@ -89,7 +89,7 @@ Migration: `20270208000000_finance_briefing`.
 
 **PR A:**
 
-- **Agreement numbers set by staff** (idea 19, FIN-D-022): `FinanceSettings` holds one row (id `default`) with the agreement needed, a manager agent's weight and the Sell bar; `FinanceSettingsChange` is the audit trail. `/superadmin/finance` edits them; `settleJob` and `giveVerdict` read them at the point of use. The `FINANCE_AGREEMENT_NEEDED` / `FINANCE_SELL_AGREEMENT_NEEDED` env vars and the fixed manager weight are gone.
+- **Agreement numbers set by staff** (idea 19, FIN-D-022): `FinanceSettings` holds one row (id `default`) with the agreement needed, a manager agent's weight and the Sell bar; `FinanceSettingsChange` is the audit trail. `/finance/admin` edits them; `settleJob` and `giveVerdict` read them at the point of use. The `FINANCE_AGREEMENT_NEEDED` / `FINANCE_SELL_AGREEMENT_NEEDED` env vars and the fixed manager weight are gone.
 - **"Just watch instead"** (idea 22): a button beside the ticker box in setup adds the typed stock with no shares, so a curious saver never needs to notice that an empty shares field means watch.
 - **A late briefing is still sent** (idea 24): `isBriefingTime` is due for 07:00–09:59 local (`BRIEFING_WINDOW_HOURS`), not only the first minute. After 10:00 the day is skipped, as before.
 - **No "More"** (idea 27, part 1): setup and "+ Add" ask only for the stock and its shares. The average-price field moved to the holding page (below).

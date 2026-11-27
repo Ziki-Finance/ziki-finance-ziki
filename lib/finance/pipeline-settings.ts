@@ -2,7 +2,7 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 
 /**
  * The Finance thresholds the v3 pipeline reads (PRD §3, §4.3, §4.4), set by
- * staff on `/superadmin/finance`. They live beside the agreement numbers in
+ * staff on `/finance/admin`. They live beside the agreement numbers in
  * `lib/finance/settings.ts` rather than replacing them, so the v1 settle logic
  * keeps working unchanged.
  */

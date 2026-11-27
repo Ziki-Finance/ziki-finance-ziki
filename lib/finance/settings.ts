@@ -1,7 +1,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 /**
- * The agreement numbers staff set on `/superadmin/finance` (FIN-CR-006, idea 19,
+ * The agreement numbers staff set on `/finance/admin` (FIN-CR-006, idea 19,
  * FIN-D-022). They replace the `FINANCE_AGREEMENT_NEEDED` and
  * `FINANCE_SELL_AGREEMENT_NEEDED` env vars and the fixed manager weight of 3.
  *

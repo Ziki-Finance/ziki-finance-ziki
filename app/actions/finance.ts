@@ -18,7 +18,7 @@ import {
  * pipeline thresholds staff set on `/superadmin/finance` (FIN-D-022, PRD §3).
  */
 
-const CLEARANCE_PAGE = "/superadmin/finance";
+const CLEARANCE_PAGE = "/finance/admin";
 
 function field(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "").trim();
