@@ -79,6 +79,7 @@ import {
 import { calculatePagination } from "@/lib/pagination";
 import { issueListPaginationParams } from "@/lib/issue-list-pagination";
 import { DUPLICATES_PARAM, SHOW_DUPLICATES, duplicatesWhere, parseShowDuplicates } from "@/lib/duplicates";
+import { QuickTodo } from "@/components/quick-todo";
 import { PaginationControls } from "@/components/pagination-controls";
 import {
   bugSortDescriptions,
@@ -166,22 +167,23 @@ const OVERVIEW_STATES = ["open", "in_progress", "done", "merge", "resolved"] as 
 /** How many rows the Overview's list shows a page. */
 const FEED_PAGE_SIZE = 30;
 /**
- * The Work Feed's sections (#work-feed-sections), top to bottom: what is in progress right now, new ideas (their own
- * section, #ideas-section), what was delivered and needs your approval (every delivered stage, from Requires review to Live work to confirm),
- * what is waiting for an agent (open, nobody on it yet), and what looks stalled. `?section=` shows one of them in full.
+ * The Work Feed's sections (#work-feed-sections), top to bottom: In Progress (work under way, stalled work included,
+ * each stalled card saying why), Todo (open, nobody on it yet) and Done (every delivered stage, from Requires review to
+ * Live work waiting for your approval). `?section=` shows one of them in full.
  */
 const OVERVIEW_SECTION_PARAM = "section";
 const FEED_SECTIONS = [
   { key: "active", title: "In Progress" },
-  { key: "needs", title: "Delivered - Needs your Approval" },
   // Open issues nobody holds yet: waiting to be confirmed or for an agent's bid (#work-feed-waiting).
-  { key: "waiting", title: "Waiting for an agent" },
-  { key: "stalled", title: "Stalled" },
+  { key: "waiting", title: "Todo" },
+  { key: "needs", title: "Done" },
 ] as const;
 type FeedSection = (typeof FEED_SECTIONS)[number]["key"];
+/** How many new tickets the New Tickets & Features tab shows before its Show all link. */
+const NEW_TICKETS_SHOWN = 30;
 /** How many cards each section shows before its Show all link. */
 const FEED_SECTION_SIZE = 6;
-/** In progress counts as being worked on while its agent checked in this recently (heartbeats come every 15 minutes). */
+/** In Progress work has stalled when its agent hasn't checked in this recently (heartbeats come every 15 minutes). */
 const ACTIVE_HEARTBEAT_MS = 30 * 60 * 1000;
 
 /** The time now, read when the feed is loaded on the server, not while rendering. */
@@ -189,35 +191,37 @@ function currentTime(): number {
   return Date.now();
 }
 
-/** Delivered but not Live yet: judged, reviewed and merged by agents, shown under Delivered - Needs your Approval. */
+/** Delivered but not Live yet: judged, reviewed and merged by agents, shown under Done. */
 const DELIVERED_SUBSTATUSES: Substatus[] = ["requires_review", "accepted", "ready_to_merge", "error", "awaiting_release"];
 
 /** Which issues one Work Feed section holds (#work-feed-sections), as of now. */
-function feedSectionWhere(section: FeedSection, now: number): Prisma.BugWhereInput {
-  const fresh = new Date(now - ACTIVE_HEARTBEAT_MS);
-  // An agent holds it and checked in lately (or took it lately and hasn't had to check in yet).
-  const heartbeat: Prisma.BugWhereInput = {
-    claims: { some: { status: { in: ["active", "planning"] }, releasedAt: null, OR: [{ lastHeartbeatAt: { gte: fresh } }, { lastHeartbeatAt: null, claimedAt: { gte: fresh } }] } },
-  };
+function feedSectionWhere(section: FeedSection): Prisma.BugWhereInput {
   if (section === "needs") {
-    // Delivered - Needs your Approval (#delivered-section): everything delivered, from a new pull request being judged
-    // through merging, and Live work you haven't said looks fine yet.
+    // Done (#delivered-section): everything delivered, from a new pull request being judged through merging, and Live
+    // work you haven't said looks fine yet.
     return { OR: [
       { substatus: { in: DELIVERED_SUBSTATUSES } },
       { status: "resolved", substatus: { not: "merged_broken" }, liveConfirmedAt: null },
     ] };
   }
-  if (section === "active") {
-    return { AND: [{ substatus: { in: ["in_progress", "plan_review"] } }, heartbeat] };
-  }
   if (section === "waiting") {
     return { substatus: { in: ["requires_confirmation", "open"] } };
   }
-  return { OR: [
-    { AND: [{ substatus: { in: ["in_progress", "plan_review"] } }, { NOT: heartbeat }] },
-    // Force-merged and judged not good: waiting for an agent to bid on the fix.
-    { substatus: "merged_broken" },
-  ] };
+  // In Progress: work under way, whether its agent is checking in or it has stalled, and force-merged work judged
+  // broken, waiting for a fix.
+  return { substatus: { in: ["in_progress", "plan_review", "merged_broken"] } };
+}
+
+/**
+ * Whether an In Progress card has stalled (#work-feed-sections): broken force-merged work waiting for a fix, or work
+ * whose agent hasn't checked in lately (or that nobody holds any more).
+ */
+function isStalled(row: { substatus: Substatus; claims: { lastHeartbeatAt: Date | null; claimedAt: Date | null }[] }, now: number): boolean {
+  if (row.substatus === "merged_broken") return true;
+  if (row.substatus !== "in_progress" && row.substatus !== "plan_review") return false;
+  const claim = row.claims[0];
+  const seen = claim?.lastHeartbeatAt ?? claim?.claimedAt ?? null;
+  return !seen || seen.getTime() < now - ACTIVE_HEARTBEAT_MS;
 }
 type OverviewTab = (typeof OVERVIEW_TABS)[number][0];
 /** A delivery's screenshot links that a page can show (web links only), at most four. */
@@ -311,7 +315,7 @@ function TabIcon({ tab }: { tab: OverviewTab }) {
 /** What each Overview tab says while it is empty. */
 const OVERVIEW_EMPTY: Record<OverviewTab, { title: string; description: string }> = {
   all: { title: "No work yet", description: "Tell the agents what you want done in the box above: it shows up here as they take it on." },
-  features: { title: "Nothing being built right now", description: "Issues waiting for an agent or being worked on show up here until the work is delivered." },
+  features: { title: "No new tickets", description: "New tickets and feature ideas show up here while they're still ideas, until they're approved and become issues." },
   design: { title: "No designs waiting for you", description: "When an agent proposes a design for an issue, it shows up here for you to choose." },
   delivered: { title: "Nothing confirmed yet", description: "Live work moves here once someone confirms it looks fine on the Work Feed." },
 };
@@ -672,31 +676,32 @@ export async function IssuesList({
   const overviewSection: FeedSection | null = overviewTab === "all" ? FEED_SECTIONS.find(({ key }) => key === sectionParam)?.key ?? null : null;
   type FeedGroup = { key: FeedSection; title: string; count: number; items: WorkFeedItem[] };
   const emptyFeed = { items: [] as WorkFeedItem[], groups: null as FeedGroup[] | null, total: 0, page: 1, counts: new Map<string, number>() };
-  // New tickets (#ideas-section): this project's open ideas you haven't given a verdict on, newest first, at the top of
-  // the New Tickets & Features tab with Approve Idea (your good verdict); the one the chat just filed flashes there.
+  // New Tickets & Features (#ideas-section): everything still at the idea stage, this project's open ideas newest first,
+  // each with Approve Idea (your good verdict; marked once you gave it). The one the chat just filed flashes there.
   // On the organisation-wide list (every project), every project's ideas.
   // External feedback is reviewed in its portal. Its converted issue enters the normal feed.
   const ideasToOkWhere: Prisma.IdeaWhereInput = {
     source: { not: "public" },
     ...(allProjects ? { organisationId: organisationId ?? "" } : { projectId: project.id }), isDeleted: false, status: "open", track: "product",
-    ...(userId ? { verdicts: { none: { onBehalfOfUserId: userId } } } : {}),
   };
-  const firstPage = (Number.parseInt(toSingleQueryParam(params.page) ?? "1", 10) || 1) <= 1;
-  const [justAdded, ideasToOkCount] = feedView && overviewTab === "features" && firstPage
+  const [justAdded, ideasToOkCount] = feedView && overviewTab === "features"
     ? await loadOrEmpty("ideas to approve", () => Promise.all([
         prisma.idea.findMany({
           where: ideasToOkWhere,
           orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-          take: 30,
+          take: NEW_TICKETS_SHOWN,
           select: {
             id: true, number: true, title: true, createdAt: true, projectId: true, reporter: { select: { name: true } }, project: { select: { slug: true, organisation: { select: { slug: true } } } },
             // #idea-screenshot: its first image (not a comment's), shown as the card's picture.
             attachments: { where: { commentId: null, contentType: { startsWith: "image/" } }, orderBy: { createdAt: "asc" }, take: 1, select: { id: true, filename: true, contentType: true, size: true } },
+            // Whether you already approved it (your good verdict).
+            verdicts: { where: { onBehalfOfUserId: userId ?? "", opinion: "good" }, take: 1, select: { id: true } },
           },
         }).then((rows) => rows.map((row) => ({
           id: row.id, number: row.number, title: row.title, at: row.createdAt, by: row.reporter?.name ?? null, href: ideaPath(refOf(row.project), row.number),
           projectName: allProjects ? projectNames.get(row.projectId) ?? null : null,
           files: row.attachments.map((file) => ({ id: file.id, name: file.filename, type: file.contentType, size: file.size })),
+          approved: row.verdicts.length > 0,
         }))),
         prisma.idea.count({ where: ideasToOkWhere }),
       ]), [[], 0] as [JustAddedIdea[], number])
@@ -769,8 +774,10 @@ export async function IssuesList({
           const href = issueHref(row);
           // Work under way (#work-feed): how far through its time it is, from when the agent took it to when it is due.
           const claim = row.claims[0];
+          // In Progress holds stalled work too: a stalled card says why and has no progress bar.
+          const stalled = section === "active" && isStalled(row, currentTime());
           const due = row.substatus === "in_progress" ? timeUsed(claim?.claimedAt ?? null, claim?.deliverBy ?? null) : null;
-          const progress = section === "stalled" ? null : section === "active" ? due ?? STEP_PROGRESS[row.substatus] ?? null : due;
+          const progress = stalled ? null : section === "active" ? due ?? STEP_PROGRESS[row.substatus] ?? null : due;
           const kind: WorkFeedKind = row.redesigns.length > 0 ? "design"
             : row.status === "done" || row.status === "merge" ? "delivered"
             : row.status === "resolved" ? "live"
@@ -798,7 +805,7 @@ export async function IssuesList({
             merged: times.merges.get(row.id) ?? null,
             // Stalled (#work-feed-sections): since when it hasn't moved. Work in progress since its agent last checked
             // in; anything else since it last changed.
-            stalledSince: section === "stalled"
+            stalledSince: stalled
               ? (row.substatus === "in_progress" || row.substatus === "plan_review"
                 ? claim?.lastHeartbeatAt ?? claim?.claimedAt ?? row.updatedAt
                 : row.updatedAt)
@@ -807,7 +814,7 @@ export async function IssuesList({
             // Who delivered it (#just-delivered): the person the delivering agent works for, else who solved it.
             deliveredBy: row.deliveries[0]?.beneficiary?.name ?? row.assignee?.name ?? null,
             justDelivered: false,
-            stallReason: section === "stalled" ? stallReason(row.substatus, claim ? { agent: claim.agent?.name ?? null, due: claim.deliverBy, heartbeat: claim.lastHeartbeatAt } : null, currentTime()) : null,
+            stallReason: stalled ? stallReason(row.substatus, claim ? { agent: claim.agent?.name ?? null, due: claim.deliverBy, heartbeat: claim.lastHeartbeatAt } : null, currentTime()) : null,
             mergeHold: mergeHold(row.substatus, row.pullRequestReports[0] ?? null),
             price: currentPriceZik(row),
             priceHeld: times.held.get(row.id) ?? 0,
@@ -835,7 +842,7 @@ export async function IssuesList({
           };
         };
 
-        // A section's cards. Delivered - Needs your Approval puts the latest delivery activity first (#just-delivered): a
+        // A section's cards. Done puts the latest delivery activity first (#just-delivered): a
         // new or replaced delivery, a pull request report, a deployment report or any history entry (the card's "updated"
         // line), whichever came last, so whatever was just delivered or pushed tops the list. The others are newest first.
         const sectionRows = async (key: FeedSection, sectionWhere: Prisma.BugWhereInput, skip: number, take: number) => {
@@ -861,11 +868,10 @@ export async function IssuesList({
 
         // The Work Feed (#work-feed-sections): its sections, a few cards each, or one of them in full.
         if (overviewTab === "all") {
-          const now = currentTime();
           const counts = new Map<string, number>();
           if (!overviewSection) {
             const groups: FeedGroup[] = await Promise.all(FEED_SECTIONS.map(async ({ key, title }) => {
-              const sectionWhere: Prisma.BugWhereInput = { AND: [where, feedSectionWhere(key, now)] };
+              const sectionWhere: Prisma.BugWhereInput = { AND: [where, feedSectionWhere(key)] };
               const [rows, count] = await Promise.all([
                 sectionRows(key, sectionWhere, 0, FEED_SECTION_SIZE),
                 prisma.bug.count({ where: sectionWhere }),
@@ -879,11 +885,11 @@ export async function IssuesList({
             }));
             return { items: [], groups, total: 0, page: 1, counts };
           }
-          const sectionWhere: Prisma.BugWhereInput = { AND: [where, feedSectionWhere(overviewSection, now)] };
+          const sectionWhere: Prisma.BugWhereInput = { AND: [where, feedSectionWhere(overviewSection)] };
           const [rows, total, ...sectionCounts] = await Promise.all([
             sectionRows(overviewSection, sectionWhere, (page - 1) * FEED_PAGE_SIZE, FEED_PAGE_SIZE),
             prisma.bug.count({ where: sectionWhere }),
-            ...FEED_SECTIONS.map(({ key }) => prisma.bug.count({ where: { AND: [where, feedSectionWhere(key, now)] } })),
+            ...FEED_SECTIONS.map(({ key }) => prisma.bug.count({ where: { AND: [where, feedSectionWhere(key)] } })),
           ]);
           FEED_SECTIONS.forEach(({ key }, index) => counts.set(key, sectionCounts[index]));
           const times = await timesFor(rows);
@@ -891,6 +897,8 @@ export async function IssuesList({
           if (overviewSection === "needs" && page === 1 && items[0]) items[0] = { ...items[0], justDelivered: true };
           return { items, groups: null, total, page, counts };
         }
+        // New Tickets & Features lists ideas only (above), no issues.
+        if (overviewTab === "features") return emptyFeed;
         // The other tabs: newest first; the Status filter narrows to one status, and its counts are the tab's.
         const feedWhere: Prisma.BugWhereInput = overviewState ? { AND: [where, { status: overviewState }] } : where;
         const [rows, total, byStatus] = await Promise.all([
@@ -1853,6 +1861,11 @@ export async function IssuesList({
             groups={feed.groups?.map((group) => ({ ...group, moreHref: group.count > group.items.length ? sectionHref(group.key) : null }))}
             justAdded={justAdded}
             justAddedCount={ideasToOkCount}
+            ideasMoreHref={ideasToOkCount > justAdded.length ? ideasPath(listRef, "new") : null}
+            groupActions={!allProjects && canContribute ? {
+              // #quick-todo: jot down something to do; Ziki writes it up, and an owner's goes straight to Todo.
+              waiting: <QuickTodo projectId={project.id} canAccept={isOrgAdmin} />,
+            } : undefined}
             title={OVERVIEW_TABS.find(([tab]) => tab === overviewTab)?.[1] ?? "Work Feed"}
             toolbar={overviewToolbar}
             empty={

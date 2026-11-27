@@ -78,7 +78,7 @@ export type WorkFeedItem = {
   justDelivered: boolean;
   /** Whether an agent holds it now (an active claim). */
   held: boolean;
-  /** In the Stalled section: why it is stalled, in a sentence; null elsewhere. */
+  /** A stalled In Progress card: why it is stalled, in a sentence; null otherwise. */
   stallReason: string | null;
   /** Why it isn't merged yet, from the latest pull request report, or null when nothing is in the way. */
   mergeHold: string | null;
@@ -218,13 +218,13 @@ export function WorkFeed({ items, groups, title, toolbar, empty, footer, justAdd
   const groupSection = (group: NonNullable<typeof groups>[number]) => (
             <section key={group.key} aria-labelledby={`work-feed-${group.key}`}>
               <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-1">
-                <div className="min-w-0">
+                <div className="flex min-w-0 items-center gap-1.5">
                   <h2 id={`work-feed-${group.key}`} className="m-0 inline text-[15px] font-semibold text-zk-text">
                     {group.title} <span className="ml-1 text-[13px] font-medium tabular-nums text-zk-muted">{group.count}</span>
                   </h2>
+                  {groupActions[group.key] ?? null}
                 </div>
                 <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                  {groupActions[group.key] ?? null}
                   {group.moreHref ? (
                     <Link href={group.moreHref} className={`shrink-0 text-[13px] font-medium text-zk-accent hover:underline ${focus}`}>
                       Show all {group.count} →
@@ -1021,7 +1021,7 @@ function DeliveredActions({ item, className = "" }: { item: WorkFeedItem; classN
 
 /** A new idea that needs your OK (#just-added): open, and you haven't given it a verdict yet. */
 /** A new idea for the New Tickets & Features tab; `files` holds its first image, shown as the card's picture (#idea-screenshot). */
-export type JustAddedIdea = { id: string; number: number; title: string; at: Date; by: string | null; href: string; projectName: string | null; files: WorkFeedItem["files"] };
+export type JustAddedIdea = { id: string; number: number; title: string; at: Date; by: string | null; href: string; projectName: string | null; files: WorkFeedItem["files"]; approved: boolean };
 
 /** Which project a row belongs to (Desktop, Web, …), as a small tag, on the organisation-wide feed. */
 function ProjectTag({ name }: { name: string | null }) {
@@ -1046,7 +1046,7 @@ function IdeaOkCards({ ideas, flash }: { ideas: JustAddedIdea[]; flash: number |
 }
 
 function IdeaOkCard({ idea, flashing }: { idea: JustAddedIdea; flashing: boolean }) {
-  const [approved, setApproved] = useState(false);
+  const [approved, setApproved] = useState(idea.approved);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const approve = () => {

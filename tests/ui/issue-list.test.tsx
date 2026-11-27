@@ -338,7 +338,7 @@ describe("issue list layout", () => {
     count.mockResolvedValue(0);
     findMany.mockResolvedValue([]);
     ideaCount.mockResolvedValue(1);
-    ideaFindMany.mockResolvedValue([{ ...IDEA, attachments: [], project: { slug: "acme", organisation: { slug: "zedu" } } }]);
+    ideaFindMany.mockResolvedValue([{ ...IDEA, attachments: [], verdicts: [], project: { slug: "acme", organisation: { slug: "zedu" } } }]);
     expect(clean(await renderList({ status: "your_work" }))).not.toContain("No tasks yet");
     const tab = clean(await renderList({ status: "your_work", view: "features" }));
     expect(tab).toContain("Export activity as CSV");
