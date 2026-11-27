@@ -42,6 +42,9 @@ export type ResearchStockItem = {
   reviewTotal: number | null;
   origin: string | null;
   criteriaId: string | null;
+  criteriaLabel?: string | null;
+  evaluationCount?: number;
+  evaluationTotal?: number;
   isHeld: boolean;
   isDemo?: boolean;
   latestPrice?: number | null;
@@ -206,6 +209,7 @@ function TickerLogo({
 
 function resolveItemDetail(
   item: ResearchStockItem,
+  detailsById: Record<string, TickerPanelDetail>,
   detailsBySymbol: Record<string, TickerPanelDetail>,
 ): TickerPanelDetail | null {
   if (item.isDemo) {
@@ -228,17 +232,39 @@ function resolveItemDetail(
       decision: demo.decision,
     };
   }
-  return detailsBySymbol[item.symbol] ?? null;
+  return detailsById[item.id] ?? detailsBySymbol[item.symbol] ?? null;
 }
+
+const ITEM_STAGE_PRIORITY: Record<string, number> = {
+  done: 5,
+  decide: 4,
+  review: 3,
+  evaluate: 2,
+  enrich: 1,
+  screen: 0,
+};
+
+function itemPriority(item: ResearchStockItem): number {
+  const bucketScore =
+    item.bucket === "needs_you" ? 300 : item.isHeld ? 200 : item.bucket === "in_progress" ? 100 : 0;
+  return bucketScore + (ITEM_STAGE_PRIORITY[item.stage] ?? 0);
+}
+
+type StockRowGroup = {
+  primary: ResearchStockItem;
+  variants: ResearchStockItem[];
+};
 
 export function FinanceResearchBoard({
   initialCriteria,
   items,
+  detailsById = {},
   detailsBySymbol = {},
   canManageTrades = true,
 }: {
   initialCriteria: FinanceCriteriaView[];
   items: ResearchStockItem[];
+  detailsById?: Record<string, TickerPanelDetail>;
   detailsBySymbol?: Record<string, TickerPanelDetail>;
   canManageTrades?: boolean;
 }) {
@@ -246,7 +272,7 @@ export function FinanceResearchBoard({
   const [filter, setFilter] = useState<FilterKey>("all");
   const [search, setSearch] = useState("");
   const [showDemo, setShowDemo] = useState(false);
-  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCriteria, setEditingCriteria] =
     useState<FinanceCriteriaView | null>(null);
@@ -266,60 +292,91 @@ export function FinanceResearchBoard({
     return displayItems.filter((item) => item.criteriaId === activeCriteria.id);
   }, [displayItems, activeCriteria]);
 
+  const groupedEntries = useMemo<StockRowGroup[]>(() => {
+    const bySymbol = new Map<string, ResearchStockItem[]>();
+    for (const item of criteriaFilteredItems) {
+      const key = item.isDemo ? `demo:${item.symbol}` : item.symbol;
+      const list = bySymbol.get(key);
+      if (list) list.push(item);
+      else bySymbol.set(key, [item]);
+    }
+    const groups: StockRowGroup[] = [];
+    for (const variants of bySymbol.values()) {
+      let primary = variants[0];
+      for (let i = 1; i < variants.length; i += 1) {
+        if (itemPriority(variants[i]) > itemPriority(primary)) {
+          primary = variants[i];
+        }
+      }
+      groups.push({ primary, variants });
+    }
+    return groups;
+  }, [criteriaFilteredItems]);
+
   const counts = useMemo(
     () => ({
-      all: criteriaFilteredItems.length,
-      needs_you: criteriaFilteredItems.filter((i) => i.bucket === "needs_you")
+      all: groupedEntries.length,
+      needs_you: groupedEntries.filter((g) => g.primary.bucket === "needs_you")
         .length,
-      go: criteriaFilteredItems.filter(
-        (i) => i.call === "go" || i.call === "keep",
+      go: groupedEntries.filter(
+        (g) => g.primary.call === "go" || g.primary.call === "keep",
       ).length,
-      in_progress: criteriaFilteredItems.filter(
-        (i) => i.bucket === "in_progress",
+      in_progress: groupedEntries.filter(
+        (g) => g.primary.bucket === "in_progress",
       ).length,
-      not_now: criteriaFilteredItems.filter((i) => i.bucket === "not_now")
+      not_now: groupedEntries.filter((g) => g.primary.bucket === "not_now")
         .length,
     }),
-    [criteriaFilteredItems],
+    [groupedEntries],
   );
 
-  const filteredItems = useMemo(() => {
+  const filteredEntries = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return criteriaFilteredItems.filter((item) => {
+    return groupedEntries.filter(({ primary, variants }) => {
       const matchesFilter =
         filter === "all" ||
-        (filter === "needs_you" && item.bucket === "needs_you") ||
-        (filter === "go" && (item.call === "go" || item.call === "keep")) ||
-        (filter === "in_progress" && item.bucket === "in_progress") ||
-        (filter === "not_now" && item.bucket === "not_now");
+        (filter === "needs_you" && primary.bucket === "needs_you") ||
+        (filter === "go" &&
+          (primary.call === "go" || primary.call === "keep")) ||
+        (filter === "in_progress" && primary.bucket === "in_progress") ||
+        (filter === "not_now" && primary.bucket === "not_now");
       const matchesSearch =
         !q ||
-        item.symbol.toLowerCase().includes(q) ||
-        item.name.toLowerCase().includes(q) ||
-        item.summary.toLowerCase().includes(q);
+        primary.symbol.toLowerCase().includes(q) ||
+        primary.name.toLowerCase().includes(q) ||
+        variants.some((v) => v.summary.toLowerCase().includes(q));
       return matchesFilter && matchesSearch;
     });
-  }, [criteriaFilteredItems, filter, search]);
+  }, [groupedEntries, filter, search]);
 
   const ownedItems = useMemo(
-    () => filteredItems.filter((item) => item.isHeld),
-    [filteredItems],
+    () => filteredEntries.filter((g) => g.primary.isHeld),
+    [filteredEntries],
   );
   const recommendationItems = useMemo(
-    () => filteredItems.filter((item) => !item.isHeld),
-    [filteredItems],
+    () => filteredEntries.filter((g) => !g.primary.isHeld),
+    [filteredEntries],
   );
 
   const selectedItem = useMemo(
     () =>
-      displayItems.find((item) => item.symbol === selectedSymbol) ?? null,
-    [displayItems, selectedSymbol],
+      displayItems.find((item) => item.id === selectedItemId) ?? null,
+    [displayItems, selectedItemId],
   );
+
+  const selectedVariants = useMemo(() => {
+    if (!selectedItem || selectedItem.isDemo) return [];
+    return criteriaFilteredItems.filter(
+      (item) => !item.isDemo && item.symbol === selectedItem.symbol,
+    );
+  }, [selectedItem, criteriaFilteredItems]);
 
   const selectedDetail = useMemo(
     () =>
-      selectedItem ? resolveItemDetail(selectedItem, detailsBySymbol) : null,
-    [selectedItem, detailsBySymbol],
+      selectedItem
+        ? resolveItemDetail(selectedItem, detailsById, detailsBySymbol)
+        : null,
+    [selectedItem, detailsById, detailsBySymbol],
   );
 
   const hasSide = selectedItem !== null;
@@ -334,12 +391,13 @@ export function FinanceResearchBoard({
     setModalOpen(true);
   }
 
-  function openCompanyPanel(symbol: string) {
-    setSelectedSymbol(symbol);
+  function openCompanyPanel(itemId: string) {
+    setSelectedItemId(itemId);
   }
 
-  function renderStockRow(item: ResearchStockItem) {
-    const isSelected = selectedSymbol === item.symbol;
+  function renderStockRow(group: StockRowGroup) {
+    const item = group.primary;
+    const isSelected = group.variants.some((v) => v.id === selectedItemId);
 
     const statusKey =
       item.isHeld && item.position
@@ -357,7 +415,9 @@ export function FinanceResearchBoard({
       ? item.position
         ? `${formatCompactMoney(item.position.value)} · ${item.position.shares}sh`
         : "Owned"
-      : item.buyRange ?? "—";
+      : item.bucket === "in_progress"
+        ? "—"
+        : item.buyRange ?? "—";
 
     const returnOrScoreText = item.isHeld
       ? formatPct(item.position?.gainPct)
@@ -365,7 +425,9 @@ export function FinanceResearchBoard({
         ? item.origin === "monitor"
           ? "Thesis check"
           : `${item.reviewGo}/${item.reviewTotal} agree`
-        : "In pipeline";
+        : item.evaluationCount && item.evaluationCount > 0
+          ? `${item.evaluationCount} of ${item.evaluationTotal ?? 5} evaluated`
+          : "In pipeline";
 
     const returnColorClass = item.isHeld
       ? item.position?.gainPct === null || item.position?.gainPct === undefined
@@ -385,7 +447,7 @@ export function FinanceResearchBoard({
           if ((event.target as HTMLElement).closest("[data-row-action]")) {
             return;
           }
-          openCompanyPanel(item.symbol);
+          openCompanyPanel(item.id);
         }}
         onKeyDown={(event) => {
           if ((event.target as HTMLElement).closest("[data-row-action]")) {
@@ -393,7 +455,7 @@ export function FinanceResearchBoard({
           }
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
-            openCompanyPanel(item.symbol);
+            openCompanyPanel(item.id);
           }
         }}
         className={`cursor-pointer grid grid-cols-1 gap-3 px-6 py-3.5 transition ${
@@ -417,6 +479,11 @@ export function FinanceResearchBoard({
             {item.isDemo ? (
               <span className="shrink-0 rounded-full border border-zk-accent/40 bg-zk-tint px-1.5 py-0.5 text-[10px] font-medium text-zk-accent">
                 Demo
+              </span>
+            ) : null}
+            {group.variants.length > 1 ? (
+              <span className="shrink-0 rounded-full border border-zk-border bg-zk-chip px-1.5 py-0.5 text-[10px] font-medium text-zk-text2">
+                {group.variants.length} criteria
               </span>
             ) : null}
           </div>
@@ -469,7 +536,7 @@ export function FinanceResearchBoard({
           {!canManageTrades || item.isHeld || !item.call ? (
             <button
               type="button"
-              onClick={() => openCompanyPanel(item.symbol)}
+              onClick={() => openCompanyPanel(item.id)}
               className="inline-flex items-center whitespace-nowrap rounded-md border border-zk-border bg-zk-bg px-2.5 py-1 text-xs font-medium text-zk-text transition hover:border-zk-accent"
             >
               Details
@@ -569,7 +636,7 @@ export function FinanceResearchBoard({
                   const next = !showDemo;
                   setShowDemo(next);
                   if (!next && selectedItem?.isDemo) {
-                    setSelectedSymbol(null);
+                    setSelectedItemId(null);
                   }
                 }}
                 className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
@@ -590,7 +657,7 @@ export function FinanceResearchBoard({
             </div>
           </div>
 
-          {filteredItems.length === 0 ? (
+          {filteredEntries.length === 0 ? (
             <div className="p-8 text-center space-y-2">
               {activeCriteria?.latestRun &&
               activeCriteria.latestRun.stage !== "done" &&
@@ -658,7 +725,7 @@ export function FinanceResearchBoard({
                   </p>
                 ) : (
                   <div className="divide-y divide-zk-divider">
-                    {ownedItems.map((item) => renderStockRow(item))}
+                    {ownedItems.map((group) => renderStockRow(group))}
                   </div>
                 )}
 
@@ -672,7 +739,7 @@ export function FinanceResearchBoard({
                   </p>
                 ) : (
                   <div className="divide-y divide-zk-divider">
-                    {recommendationItems.map((item) => renderStockRow(item))}
+                    {recommendationItems.map((group) => renderStockRow(group))}
                   </div>
                 )}
               </div>
@@ -719,18 +786,63 @@ export function FinanceResearchBoard({
                       <strong className="tabular-nums text-zk-text">
                         {formatPrice(selectedItem.latestPrice)}
                       </strong>
+                      {selectedDetail?.criteriaLabel ||
+                      selectedItem.criteriaLabel ? (
+                        <>
+                          {" · "}
+                          <span className="text-zk-text2">
+                            {selectedDetail?.criteriaLabel ??
+                              selectedItem.criteriaLabel}
+                            {selectedDetail?.criteriaVersion
+                              ? ` (v${selectedDetail.criteriaVersion})`
+                              : ""}
+                          </span>
+                        </>
+                      ) : null}
                     </p>
                   </div>
                 </div>
                 <button
                   type="button"
                   aria-label="Close side panel"
-                  onClick={() => setSelectedSymbol(null)}
+                  onClick={() => setSelectedItemId(null)}
                   className="rounded-md border border-zk-border px-2 py-1 text-xs text-zk-muted hover:text-zk-text"
                 >
                   ✕
                 </button>
               </div>
+
+              {/* Per-criteria Tabs when stock appears in multiple runs */}
+              {selectedVariants.length > 1 ? (
+                <div
+                  role="tablist"
+                  aria-label="Criteria runs for this stock"
+                  className="flex flex-wrap gap-1.5"
+                >
+                  {selectedVariants.map((variant) => {
+                    const isTabActive = variant.id === selectedItem.id;
+                    const tabStage = variant.call
+                      ? CALL_LABELS[variant.call] ?? variant.call
+                      : STAGE_LABELS[variant.stage] ?? variant.stage;
+                    return (
+                      <button
+                        key={variant.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={isTabActive}
+                        onClick={() => setSelectedItemId(variant.id)}
+                        className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition ${
+                          isTabActive
+                            ? "border-zk-accent bg-zk-tint text-zk-accent"
+                            : "border-zk-border bg-zk-bg text-zk-muted hover:text-zk-text"
+                        }`}
+                      >
+                        {variant.criteriaLabel ?? "Criteria"} · {tabStage}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
 
                 {/* Position / Recommendation Summary */}
                 {selectedItem.isHeld && selectedItem.position ? (
@@ -818,9 +930,13 @@ export function FinanceResearchBoard({
                       <div>
                         <p className="text-[11px] text-zk-muted">Buy range</p>
                         <p className="text-xs font-semibold tabular-nums text-zk-text">
-                          {selectedDetail?.buyRange ??
-                            selectedItem.buyRange ??
-                            "—"}
+                          {selectedDetail?.decision
+                            ? selectedDetail.buyRange ??
+                              selectedItem.buyRange ??
+                              "—"
+                            : (selectedDetail?.evaluations.length ?? 0) > 0
+                              ? `${selectedDetail!.evaluations.length} of ${selectedItem.evaluationTotal ?? 5} evaluated`
+                              : "—"}
                         </p>
                       </div>
                       <div>
