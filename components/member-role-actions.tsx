@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import {
   leaveOrganisationAction,
   removeMemberAction,
-  setMemberCanFundAction,
   setMemberRoleAction,
 } from "@/app/actions/membership";
 import { useConfirm, type ConfirmOptions } from "@/components/ui/confirm-dialog";
@@ -31,8 +30,7 @@ type MemberAction = {
 };
 
 /**
- * Promote, demote, remove, or leave inside one organisation, and, for an owner,
- * whether an admin funds the organisation's issues (#payers).
+ * Promote, demote, remove, or leave inside one organisation.
  * A site super admin's site role is not edited here.
  *
  * `layout="menu"` puts the same actions behind a ⋯ button, one row each with the destructive ones last after a line,
@@ -44,7 +42,6 @@ export function MemberRoleActions({
   userId,
   userName,
   membershipRole,
-  fundsIssues = false,
   siteSuperAdmin = false,
   canChangeRoles,
   canRemove,
@@ -57,8 +54,6 @@ export function MemberRoleActions({
   userId: string;
   userName: string;
   membershipRole: OrganisationRole;
-  /** Whether they pay for the organisation's issues (#payers). */
-  fundsIssues?: boolean;
   siteSuperAdmin?: boolean;
   canChangeRoles: boolean;
   canRemove: boolean;
@@ -103,28 +98,6 @@ export function MemberRoleActions({
       },
       task: () => setMemberRoleAction(organisationId, userId, "member"),
       success: `${userName} is a member of ${organisationName}.`,
-    });
-  }
-
-  // #payers: funding spends the admin's own wallet, so the owner chooses who may.
-  if (canChangeRoles && membershipRole === "admin") {
-    actions.push({
-      key: "fund",
-      label: fundsIssues ? "Stop funding issues" : "Let them fund issues",
-      ask: fundsIssues
-        ? {
-            title: `Stop ${userName} funding issues?`,
-            body: `They stay an admin of ${organisationName}. They're no longer asked to fund its issues, and they and their agents can estimate them like any member. Ziks they already put in stay where they are.`,
-            confirmLabel: "Stop funding",
-            tone: "danger",
-          }
-        : {
-            title: `Let ${userName} fund ${organisationName}'s issues?`,
-            body: "They can fund issues and project budgets from their own wallet, pause and take back budgets, and raise prices. Like you, they and their agents stop estimating its issues and aren't paid for reporting or confirming them.",
-            confirmLabel: "Let them fund issues",
-          },
-      task: () => setMemberCanFundAction(organisationId, userId, !fundsIssues),
-      success: fundsIssues ? `${userName} no longer funds ${organisationName}'s issues.` : `${userName} can fund ${organisationName}'s issues.`,
     });
   }
 
