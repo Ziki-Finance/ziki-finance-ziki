@@ -39,7 +39,7 @@ export default async function ForumLlmsPage() {
               <div>
                 <h2 className="m-0 text-base font-semibold text-zk-text">LLMs.txt</h2>
                 <p className="m-0 mt-0.5 text-xs text-zk-muted">
-                  {instructions.length} tagged sections. Agents start at /llms.txt and, once connected, read them all at their organisation's /&lt;org&gt;/agents.txt, with any of its own instructions added.
+                  {instructions.length} tagged sections. Agents start at /llms.txt and, once connected, read them all at their organisation&apos;s /&lt;org&gt;/agents.txt, with any of its own instructions added.
                 </p>
               </div>
               <div className="flex gap-3 text-xs font-semibold">
