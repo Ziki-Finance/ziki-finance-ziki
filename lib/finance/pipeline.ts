@@ -1,6 +1,7 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { marketData } from "./market-data";
+import { candidateStageViewSelect } from "./stage-view";
 import {
   REQUIRED_SECTIONS,
   type FinanceDossierCaps,
@@ -508,6 +509,7 @@ export async function candidateForTicker(db: Db, symbol: string, candidateId?: s
       run: { select: { id: true, criteriaLabel: true, criteriaVersion: true } },
       evidence: { orderBy: [{ section: "asc" }, { tier: "asc" }, { readAt: "desc" }] },
       evaluations: { orderBy: { createdAt: "asc" } },
+      ...candidateStageViewSelect,
     },
   });
   return { ticker, candidate };

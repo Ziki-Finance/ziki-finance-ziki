@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button";
 import type { FinanceCriteriaView } from "@/lib/finance/criteria";
 import { financeCriteriaTitle } from "@/lib/validations/finance";
 import { DEMO_STOCK_ITEMS, findDemoStock } from "@/lib/finance/demo-stocks";
+import type {
+  PipelineActivityView,
+  PipelineScreeningView,
+} from "@/lib/finance/stage-view";
 import { CriteriaModal } from "./finance-criteria-manager";
 import {
   FinanceTickerPipeline,
@@ -51,7 +55,8 @@ export type TickerPanelDetail = {
   criteriaVersion: number;
   currentStage: string;
   proposedCount: number;
-  sectionsCovered: number;
+  screening?: PipelineScreeningView | null;
+  activity?: PipelineActivityView;
   buyRange: string | null;
   reviewIfBelow: string | null;
   holdFor: string | null;
@@ -212,7 +217,6 @@ function resolveItemDetail(
       criteriaVersion: demo.criteriaVersion,
       currentStage: demo.item.stage,
       proposedCount: demo.proposedCount,
-      sectionsCovered: demo.sectionsCovered,
       buyRange: demo.buyRange,
       reviewIfBelow: demo.reviewIfBelow,
       holdFor: demo.holdFor,
@@ -865,7 +869,8 @@ export function FinanceResearchBoard({
                     criteriaLabel={selectedDetail.criteriaLabel}
                     criteriaVersion={selectedDetail.criteriaVersion}
                     proposedCount={selectedDetail.proposedCount}
-                    sectionsCovered={selectedDetail.sectionsCovered}
+                    screening={selectedDetail.screening}
+                    activity={selectedDetail.activity}
                     isDemo={selectedItem.isDemo}
                     evidence={selectedDetail.evidence}
                     evaluations={selectedDetail.evaluations}

@@ -1,6 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { REQUIRED_SECTIONS } from "@/lib/finance/pipeline-settings";
+import type {
+  PipelineActivityView,
+  PipelineScreeningView,
+  StageActivityView,
+} from "@/lib/finance/stage-view";
 import { DecisionActions } from "./portfolio-card";
 
 export type PipelineStageKey = "screen" | "enrich" | "evaluate" | "decide";
@@ -69,6 +75,60 @@ const VERDICT_STYLE: Record<"buy" | "hold" | "dont_buy", string> = {
   dont_buy: "bg-zk-bad-bg text-zk-bad-fg",
 };
 
+const SECTION_ORDER = [
+  "business",
+  "numbers",
+  "filings",
+  "news",
+  "social",
+  "market_context",
+] as const;
+
+const CHECK_RULE_LABEL: Record<string, string> = {
+  companySize: "Company size",
+  industries: "Industry",
+  leaveOut: "Leave out",
+};
+
+/** "1 agent working · 2 slots open for an agent", or null when idle. */
+function activityLine(activity: StageActivityView | undefined): string | null {
+  if (!activity) return null;
+  const parts: string[] = [];
+  if (activity.working > 0) {
+    parts.push(
+      `${activity.working} ${activity.working === 1 ? "agent" : "agents"} working`,
+    );
+  }
+  if (activity.queued > 0) {
+    parts.push(
+      `${activity.queued} ${activity.queued === 1 ? "slot" : "slots"} open for an agent`,
+    );
+  }
+  if (activity.done > 0) parts.push(`${activity.done} finished`);
+  if (activity.failed > 0) parts.push(`${activity.failed} gave up`);
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+function Outcome({
+  tone,
+  children,
+}: {
+  tone: "ok" | "bad" | "wait";
+  children: React.ReactNode;
+}) {
+  const style =
+    tone === "ok"
+      ? "bg-zk-ok-bg text-zk-ok-fg"
+      : tone === "bad"
+        ? "bg-zk-bad-bg text-zk-bad-fg"
+        : "bg-zk-chip text-zk-text2";
+  return (
+    <p className={`rounded-lg px-3 py-2 text-xs font-medium ${style}`}>
+      {children}
+    </p>
+  );
+}
+
 const STAGE_ORDER: Record<string, number> = {
   screen: 1,
   enrich: 2,
@@ -84,7 +144,8 @@ export function FinanceTickerPipeline({
   criteriaLabel,
   criteriaVersion,
   proposedCount,
-  sectionsCovered,
+  screening = null,
+  activity = {},
   evidence,
   evaluations,
   breakdown,
@@ -99,7 +160,10 @@ export function FinanceTickerPipeline({
   criteriaLabel: string;
   criteriaVersion: number;
   proposedCount: number;
-  sectionsCovered: number;
+  /** Who proposed the stock and why. Absent for demo stocks. */
+  screening?: PipelineScreeningView | null;
+  /** Open and working agent slots per stage. */
+  activity?: PipelineActivityView;
   evidence: SerializedEvidenceItem[];
   evaluations: SerializedEvaluationItem[];
   breakdown: {
@@ -127,6 +191,35 @@ export function FinanceTickerPipeline({
 
   const [activeTab, setActiveTab] = useState<PipelineStageKey>(defaultTab);
 
+  const signals = screening?.signals ?? [];
+  const proposers = screening
+    ? signals.filter((s) => s.kind === "proposed").length
+    : proposedCount;
+  const confirmers = signals.filter((s) => s.kind === "confirmed").length;
+  const screenDropped = screening?.screenStage === "dropped";
+  const screenPassed =
+    !screenDropped && (stageNum > 1 || screening?.screenStage === "issue");
+
+  // Social is optional, so it never counts toward the required sections.
+  const sectionRows = SECTION_ORDER.map((section) => {
+    const items = evidence.filter((item) => item.section === section);
+    const strong = items.filter((item) => item.tier <= 2).length;
+    return {
+      section,
+      items: items.length,
+      required: REQUIRED_SECTIONS.includes(section),
+      covered: strong > 0,
+    };
+  });
+  const requiredTotal = REQUIRED_SECTIONS.length;
+  const requiredCovered = sectionRows.filter(
+    (r) => r.required && r.covered,
+  ).length;
+  const missingSections = sectionRows
+    .filter((r) => r.required && !r.covered)
+    .map((r) => SECTION_LABEL[r.section]);
+  const enrichDone = stageNum > 2;
+
   const stages: Array<{
     key: PipelineStageKey;
     num: number;
@@ -137,13 +230,20 @@ export function FinanceTickerPipeline({
       key: "screen",
       num: 1,
       title: "1. Screen",
-      subtitle: `${criteriaLabel} · v${criteriaVersion}`,
+      subtitle: screenDropped
+        ? "Dropped by the code check"
+        : screenPassed
+          ? `Confirmed by ${proposers + confirmers} ${proposers + confirmers === 1 ? "agent" : "agents"}`
+          : `${proposers} proposed · needs a second agent`,
     },
     {
       key: "enrich",
       num: 2,
       title: "2. Enrich",
-      subtitle: `${evidence.length} items · ${sectionsCovered}/6 sections`,
+      subtitle:
+        stageNum < 2
+          ? "Not started"
+          : `${evidence.length} ${evidence.length === 1 ? "item" : "items"} · ${requiredCovered}/${requiredTotal} required sections`,
     },
     {
       key: "evaluate",
@@ -230,18 +330,140 @@ export function FinanceTickerPipeline({
 
       {/* Stage 1: Screen */}
       {activeTab === "screen" && (
-        <div className="rounded-xl border border-zk-border bg-zk-bg p-4 space-y-2">
+        <div className="rounded-xl border border-zk-border bg-zk-bg p-4 space-y-3">
           <h3 className="text-sm font-bold text-zk-text">
             Stage 1: Screening
           </h3>
-          <p className="text-xs leading-relaxed text-zk-text2">
-            Proposed for <span className="font-semibold">{criteriaLabel}</span>{" "}
-            (criteria v{criteriaVersion}) by {proposedCount}{" "}
-            {proposedCount === 1 ? "screening agent" : "screening agents"}.
-          </p>
+          {screenDropped ? (
+            <Outcome tone="bad">
+              Dropped: the code check found it doesn&apos;t match the criteria.
+            </Outcome>
+          ) : screenPassed ? (
+            <Outcome tone="ok">
+              Confirmed match for {criteriaLabel}
+              {stageNum > 1 ? ". Moved on to Enrich." : "."}
+            </Outcome>
+          ) : (
+            <Outcome tone="wait">
+              Waiting: {proposers} {proposers === 1 ? "agent has" : "agents have"}{" "}
+              proposed it. It moves on once a second agent proposes or confirms
+              it.
+            </Outcome>
+          )}
           <p className="text-xs text-zk-muted">
-            Current pipeline stage: {currentStage}
+            Criteria:{" "}
+            <span className="font-semibold text-zk-text2">{criteriaLabel}</span>{" "}
+            (v{criteriaVersion})
           </p>
+
+          {screening && screening.codeCheck.checks.length > 0 && (
+            <div className="space-y-1.5">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-zk-muted">
+                Checked by code (Finnhub data)
+              </h4>
+              <ul className="space-y-1 text-xs">
+                {screening.codeCheck.checks.map((check) => (
+                  <li key={check.rule} className="flex flex-wrap gap-x-2">
+                    <span
+                      className={check.passed ? "text-zk-ok-fg" : "text-zk-bad-fg"}
+                    >
+                      {check.passed ? "✓" : "✗"}
+                    </span>
+                    <span className="font-semibold text-zk-text">
+                      {CHECK_RULE_LABEL[check.rule] ?? check.rule}
+                    </span>
+                    <span className="text-zk-text2">
+                      wanted {check.expected}, found {check.actual}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {screening?.codeCheck.status === "unavailable" && (
+            <p className="text-xs text-zk-muted">
+              Finnhub had no data to check this stock by code, so it
+              wasn&apos;t dropped.
+            </p>
+          )}
+
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-zk-muted">
+              Why the agents picked it
+            </h4>
+            {!screening ? (
+              <p className="text-xs text-zk-muted">
+                Proposed by {proposedCount}{" "}
+                {proposedCount === 1 ? "screening agent" : "screening agents"}.
+                Sample stocks don&apos;t carry each agent&apos;s reasons.
+              </p>
+            ) : signals.length === 0 ? (
+              <p className="text-xs text-zk-muted">No proposals recorded yet.</p>
+            ) : (
+              <ul className="space-y-2">
+                {signals.map((signal) => (
+                  <li key={signal.id}>
+                    <details className="group rounded-lg border border-zk-border bg-zk-surface">
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-xs">
+                        <span>
+                          <span className="font-semibold text-zk-text">
+                            {signal.agentLabel}
+                          </span>{" "}
+                          <span className="text-zk-text2">
+                            {signal.kind === "proposed"
+                              ? "proposed it"
+                              : "confirmed it"}
+                          </span>
+                        </span>
+                        <span className="text-[11px] text-zk-muted">
+                          {signal.createdAt}{" "}
+                          <span className="group-open:hidden">▸</span>
+                          <span className="hidden group-open:inline">▾</span>
+                        </span>
+                      </summary>
+                      <div className="space-y-2 border-t border-zk-divider px-3 py-2.5 text-xs">
+                        {signal.whyItFits.length === 0 ? (
+                          <p className="text-zk-muted">No reason given.</p>
+                        ) : (
+                          <ul className="space-y-1.5">
+                            {signal.whyItFits.map((fit, i) => (
+                              <li
+                                key={i}
+                                className="leading-relaxed text-zk-text"
+                              >
+                                {fit.criterion ? (
+                                  <span className="font-semibold">
+                                    {fit.criterion}:{" "}
+                                  </span>
+                                ) : null}
+                                {fit.why}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {signal.sources.length > 0 && (
+                          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+                            <span className="text-zk-muted">Sources:</span>
+                            {signal.sources.map((url, i) => (
+                              <a
+                                key={i}
+                                href={url}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                                className="max-w-[16rem] truncate text-zk-accent underline"
+                              >
+                                {url.replace(/^https?:\/\//, "")}
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </details>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       )}
 
@@ -253,9 +475,71 @@ export function FinanceTickerPipeline({
               Stage 2: Enrichment Dossier
             </h3>
             <span className="text-xs text-zk-muted">
-              {sectionsCovered}/6 sections covered · {evidence.length} items
+              {requiredCovered}/{requiredTotal} required sections ·{" "}
+              {evidence.length} {evidence.length === 1 ? "item" : "items"}
             </span>
           </div>
+          {stageNum < 2 ? (
+            <Outcome tone="wait">
+              Not started. Enrichment opens once screening confirms the stock.
+            </Outcome>
+          ) : enrichDone ? (
+            <Outcome tone="ok">
+              {missingSections.length === 0
+                ? "Dossier complete. Moved on to Evaluate."
+                : `Time limit reached. Moved on to Evaluate without a strong source for ${missingSections.join(", ")}.`}
+            </Outcome>
+          ) : (
+            <Outcome tone="wait">
+              In progress. Moves on to Evaluate once every required section has
+              a tier 1–2 source (filings, official pages or major financial
+              news).
+              {missingSections.length > 0
+                ? ` Still needed: ${missingSections.join(", ")}.`
+                : ""}
+            </Outcome>
+          )}
+          {stageNum === 2 && activityLine(activity.enrich) ? (
+            <p className="text-xs text-zk-muted">
+              {activityLine(activity.enrich)}
+            </p>
+          ) : null}
+
+          <ul className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+            {sectionRows.map((row) => (
+              <li
+                key={row.section}
+                className="flex items-center justify-between gap-2 rounded-lg border border-zk-border bg-zk-bg px-3 py-2 text-xs"
+              >
+                <span className="font-semibold text-zk-text">
+                  {SECTION_LABEL[row.section]}
+                  {!row.required && (
+                    <span className="ml-1 font-normal text-zk-muted">
+                      (optional)
+                    </span>
+                  )}
+                </span>
+                <span
+                  className={
+                    row.covered
+                      ? "text-zk-ok-fg"
+                      : row.items > 0
+                        ? "text-zk-text2"
+                        : "text-zk-muted"
+                  }
+                >
+                  {row.covered
+                    ? `✓ ${row.items} ${row.items === 1 ? "item" : "items"}`
+                    : row.items > 0
+                      ? `${row.items} weak ${row.items === 1 ? "source" : "sources"}, needs tier 1–2`
+                      : row.required
+                        ? "Missing"
+                        : "None"}
+                </span>
+              </li>
+            ))}
+          </ul>
+
           {evidence.length === 0 ? (
             <p className="rounded-xl border border-dashed border-zk-border bg-zk-bg p-4 text-xs text-zk-muted">
               No dossier items gathered yet.
@@ -334,6 +618,11 @@ export function FinanceTickerPipeline({
             )}
           </div>
 
+          {stageNum === 3 && activityLine(activity.evaluate) ? (
+            <p className="text-xs text-zk-muted">
+              {activityLine(activity.evaluate)}
+            </p>
+          ) : null}
           {evaluations.length === 0 ? (
             <p className="rounded-xl border border-dashed border-zk-border bg-zk-bg p-4 text-xs text-zk-muted">
               No evaluations submitted yet.

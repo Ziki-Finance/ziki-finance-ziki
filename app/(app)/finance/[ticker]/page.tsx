@@ -11,8 +11,6 @@ import {
   candidateForTicker,
   overallVerdict,
   scoreBreakdown,
-  sectionStatuses,
-  type SectionStatus,
 } from "@/lib/finance/pipeline";
 import { findDemoStock } from "@/lib/finance/demo-stocks";
 import {
@@ -20,6 +18,7 @@ import {
   TradeButton,
 } from "@/components/finance/portfolio-card";
 import { FinanceTickerPipeline } from "@/components/finance/finance-ticker-pipeline";
+import { activityView, screeningView } from "@/lib/finance/stage-view";
 
 export const dynamic = "force-dynamic";
 
@@ -286,7 +285,6 @@ export default async function FinanceTickerPage({
           criteriaLabel={demoStock.criteriaLabel}
           criteriaVersion={demoStock.criteriaVersion}
           proposedCount={demoStock.proposedCount}
-          sectionsCovered={demoStock.sectionsCovered}
           isDemo
           evidence={demoStock.evidence}
           evaluations={demoStock.evaluations}
@@ -353,9 +351,6 @@ export default async function FinanceTickerPage({
         averageConfidence: null,
       };
   const verdict = overallVerdict(breakdown);
-  const statuses: SectionStatus[] = candidate
-    ? sectionStatuses(candidate.evidence)
-    : [];
   const evidenceById = new Map(
     (candidate?.evidence ?? []).map((item) => [item.id, item] as const),
   );
@@ -560,7 +555,8 @@ export default async function FinanceTickerPage({
           criteriaLabel={candidate.run.criteriaLabel}
           criteriaVersion={candidate.run.criteriaVersion}
           proposedCount={candidate.proposedCount}
-          sectionsCovered={statuses.filter((s) => s.done).length}
+          screening={screeningView(candidate)}
+          activity={activityView(candidate.jobs)}
           evidence={candidate.evidence.map((item) => ({
             id: item.id,
             section: item.section,
