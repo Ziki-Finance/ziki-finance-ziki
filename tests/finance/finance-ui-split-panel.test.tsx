@@ -34,9 +34,12 @@ vi.mock("@/app/actions/finance-portfolio", () => ({
 }));
 
 vi.mock("@/app/actions/finance-criteria", () => ({
-  createFinanceCriteriaAction: vi.fn(async () => ({ ok: true })),
-  updateFinanceCriteriaAction: vi.fn(async () => ({ ok: true })),
+  saveFinanceCriteriaAction: vi.fn(async () => ({ ok: true })),
   deleteFinanceCriteriaAction: vi.fn(async () => ({ ok: true })),
+}));
+
+vi.mock("@/components/ui/toast", () => ({
+  useToast: () => vi.fn(),
 }));
 
 import {
@@ -196,24 +199,26 @@ describe("FIN-UI-CR-001: /finance Linear/spreadsheet list and split-screen side 
     });
     const asideAfterMsft = el.querySelector('aside[aria-label="Company Detail"]');
     expect(asideAfterMsft?.textContent).toContain("Recommendation");
+    expect(asideAfterMsft?.textContent).not.toContain("Full page");
     expect(asideAfterMsft?.textContent).toContain("1. Screen");
     expect(asideAfterMsft?.textContent).toContain("2. Enrich");
     expect(asideAfterMsft?.textContent).toContain("3. Evaluate");
     expect(asideAfterMsft?.textContent).toContain("4. Decide");
 
-    // Click Criteria button -> switches side panel to Criteria
-    const criteriaBtn = Array.from(el.querySelectorAll("button")).find((b) =>
-      b.textContent?.includes("Criteria (1)"),
+    // Criteria pills: "All criteria" + individual criterion with Edit/Delete when selected
+    const allCriteriaBtn = Array.from(el.querySelectorAll("button")).find((b) =>
+      b.textContent?.includes("All criteria"),
     );
-    expect(criteriaBtn).toBeDefined();
-    act(() => {
-      criteriaBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
+    expect(allCriteriaBtn).toBeDefined();
 
-    const criteriaAside = el.querySelector(
-      'aside[aria-label="Research Criteria"]',
+    const critBtn = Array.from(el.querySelectorAll("button")).find((b) =>
+      b.textContent?.includes("Quality at a fair price"),
     );
-    expect(criteriaAside).not.toBeNull();
-    expect(criteriaAside?.textContent).toContain("Quality at a fair price");
+    expect(critBtn).toBeDefined();
+    act(() => {
+      critBtn?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(el.textContent).toContain("Edit criteria");
+    expect(el.textContent).toContain("Delete criteria");
   });
 });

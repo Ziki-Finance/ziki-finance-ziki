@@ -48,3 +48,26 @@ export async function listFinanceCleared(db: Db) {
   });
   return people.map((p) => ({ id: p.id, name: p.name, email: p.email, clearedAt: p.financeClearedAt as Date, agents: p._count.agents }));
 }
+
+/** Existing Ziki users not yet cleared for Finance, for the admin search picker. */
+export async function listFinanceClearanceCandidates(db: Db) {
+  const users = await db.user.findMany({
+    where: { financeClearedAt: null },
+    orderBy: [{ name: "asc" }, { email: "asc" }],
+    take: 200,
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      _count: { select: { agents: { where: { revokedAt: null } } } },
+    },
+  });
+  return users
+    .filter((u) => Boolean(u.email))
+    .map((u) => ({
+      id: u.id,
+      name: u.name ?? u.email,
+      email: u.email,
+      agents: u._count.agents,
+    }));
+}

@@ -1,15 +1,17 @@
 "use client";
 
-import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useMemo, useState } from "react";
+import {
+  deleteFinanceCriteriaAction,
+  type FinanceCriteriaActionResult,
+} from "@/app/actions/finance-criteria";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 import type { FinanceCriteriaView } from "@/lib/finance/criteria";
 import { financeCriteriaTitle } from "@/lib/validations/finance";
 import { DEMO_STOCK_ITEMS, findDemoStock } from "@/lib/finance/demo-stocks";
-import {
-  CriteriaModal,
-  FinanceCriteriaManager,
-} from "./finance-criteria-manager";
+import { CriteriaModal } from "./finance-criteria-manager";
 import {
   FinanceTickerPipeline,
   type SerializedDecision,
@@ -75,7 +77,6 @@ export type TickerPanelDetail = {
 };
 
 type FilterKey = "all" | "needs_you" | "go" | "in_progress" | "not_now";
-type SideMode = "company" | "criteria" | null;
 
 const CALL_LABELS: Record<string, string> = {
   go: "Go",
@@ -102,10 +103,10 @@ const REASON_LABELS: Record<string, string> = {
 };
 
 const METRIC_BOX_CLASS =
-  "inline-block rounded-md border border-zk-border bg-zk-bg px-2 py-1 text-xs tabular-nums";
+  "inline-flex items-center whitespace-nowrap rounded-md border border-zk-border bg-zk-bg px-2.5 py-1 text-xs tabular-nums";
 
 const ROW_GRID_CLASS =
-  "sm:grid sm:grid-cols-[minmax(190px,1.5fr)_84px_104px_124px_88px_76px] sm:items-center";
+  "sm:grid sm:grid-cols-[minmax(220px,1.8fr)_minmax(88px,auto)_minmax(108px,auto)_minmax(140px,auto)_minmax(96px,auto)_80px] sm:items-center sm:gap-3";
 
 function statusBadgeClass(kind: string | null): string {
   if (kind === "go" || kind === "keep" || kind === "holds") {
@@ -135,6 +136,13 @@ function formatPrice(value: number | null | undefined): string {
 
 function formatCompactMoney(value: number | null | undefined): string {
   if (value === null || value === undefined) return "—";
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) {
+    return `${value < 0 ? "-" : ""}$${(abs / 1_000_000).toFixed(2)}M`;
+  }
+  if (abs >= 100_000) {
+    return `${value < 0 ? "-" : ""}$${(abs / 1_000).toFixed(1)}K`;
+  }
   return value.toLocaleString("en-US", {
     style: "currency",
     currency: "USD",
@@ -184,44 +192,70 @@ export function FinanceResearchBoard({
   items: ResearchStockItem[];
   detailsBySymbol?: Record<string, TickerPanelDetail>;
 }) {
+  const router = useRouter();
+  const toast = useToast();
   const [selectedCriteriaId, setSelectedCriteriaId] = useState<string | null>(
-    initialCriteria[0]?.id ?? null,
+    null,
   );
   const [filter, setFilter] = useState<FilterKey>("all");
   const [search, setSearch] = useState("");
   const [showDemo, setShowDemo] = useState(items.length === 0);
-  const [sideMode, setSideMode] = useState<SideMode>(null);
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCriteria, setEditingCriteria] =
     useState<FinanceCriteriaView | null>(null);
 
+  const [deleteState, deleteAction, deleting] = useActionState<
+    FinanceCriteriaActionResult | undefined,
+    FormData
+  >(deleteFinanceCriteriaAction, undefined);
+
+  useEffect(() => {
+    if (!deleteState) return;
+    if (deleteState.ok) {
+      toast("Criteria deleted.", "success");
+      router.refresh();
+    } else if (deleteState.error) {
+      toast(deleteState.error, "error");
+    }
+  }, [deleteState, toast, router]);
+
   const activeCriteria =
-    initialCriteria.find((c) => c.id === selectedCriteriaId) ??
-    initialCriteria[0] ??
-    null;
+    selectedCriteriaId !== null
+      ? (initialCriteria.find((c) => c.id === selectedCriteriaId) ?? null)
+      : null;
+  const effectiveCriteriaId = activeCriteria?.id ?? null;
 
   const displayItems = useMemo(
     () => (showDemo ? [...DEMO_STOCK_ITEMS, ...items] : items),
     [showDemo, items],
   );
 
+  const criteriaFilteredItems = useMemo(() => {
+    if (!activeCriteria) return displayItems;
+    return displayItems.filter((item) => item.criteriaId === activeCriteria.id);
+  }, [displayItems, activeCriteria]);
+
   const counts = useMemo(
     () => ({
-      all: displayItems.length,
-      needs_you: displayItems.filter((i) => i.bucket === "needs_you").length,
-      go: displayItems.filter((i) => i.call === "go" || i.call === "keep")
+      all: criteriaFilteredItems.length,
+      needs_you: criteriaFilteredItems.filter((i) => i.bucket === "needs_you")
         .length,
-      in_progress: displayItems.filter((i) => i.bucket === "in_progress")
+      go: criteriaFilteredItems.filter(
+        (i) => i.call === "go" || i.call === "keep",
+      ).length,
+      in_progress: criteriaFilteredItems.filter(
+        (i) => i.bucket === "in_progress",
+      ).length,
+      not_now: criteriaFilteredItems.filter((i) => i.bucket === "not_now")
         .length,
-      not_now: displayItems.filter((i) => i.bucket === "not_now").length,
     }),
-    [displayItems],
+    [criteriaFilteredItems],
   );
 
   const filteredItems = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return displayItems.filter((item) => {
+    return criteriaFilteredItems.filter((item) => {
       const matchesFilter =
         filter === "all" ||
         (filter === "needs_you" && item.bucket === "needs_you") ||
@@ -235,7 +269,7 @@ export function FinanceResearchBoard({
         item.summary.toLowerCase().includes(q);
       return matchesFilter && matchesSearch;
     });
-  }, [displayItems, filter, search]);
+  }, [criteriaFilteredItems, filter, search]);
 
   const ownedItems = useMemo(
     () => filteredItems.filter((item) => item.isHeld),
@@ -258,8 +292,7 @@ export function FinanceResearchBoard({
     [selectedItem, detailsBySymbol],
   );
 
-  const hasSide =
-    sideMode === "criteria" || (sideMode === "company" && selectedItem !== null);
+  const hasSide = selectedItem !== null;
 
   function openNewModal() {
     setEditingCriteria(null);
@@ -273,16 +306,10 @@ export function FinanceResearchBoard({
 
   function openCompanyPanel(symbol: string) {
     setSelectedSymbol(symbol);
-    setSideMode("company");
-  }
-
-  function toggleCriteriaPanel() {
-    setSideMode((prev) => (prev === "criteria" ? null : "criteria"));
   }
 
   function renderStockRow(item: ResearchStockItem) {
-    const isSelected =
-      sideMode === "company" && selectedSymbol === item.symbol;
+    const isSelected = selectedSymbol === item.symbol;
 
     const statusKey =
       item.isHeld && item.position
@@ -339,7 +366,7 @@ export function FinanceResearchBoard({
             openCompanyPanel(item.symbol);
           }
         }}
-        className={`cursor-pointer grid grid-cols-1 gap-2 px-3 py-2.5 transition ${ROW_GRID_CLASS} ${
+        className={`cursor-pointer grid grid-cols-1 gap-3 px-4 py-3 transition ${ROW_GRID_CLASS} ${
           isSelected
             ? "bg-zk-tint/50 ring-1 ring-inset ring-zk-accent/40"
             : "hover:bg-zk-tint/30"
@@ -347,23 +374,23 @@ export function FinanceResearchBoard({
       >
         {/* Company */}
         <div className="min-w-0 pr-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-zk-border bg-zk-bg text-xs font-bold text-zk-accent">
               {item.symbol.slice(0, 2)}
             </span>
             <span className="truncate text-xs font-semibold text-zk-text">
               {item.name}
             </span>
-            <span className="font-mono text-xs text-zk-muted">
+            <span className="shrink-0 font-mono text-xs text-zk-muted">
               {item.symbol}
             </span>
             {item.isDemo ? (
-              <span className="rounded-full border border-zk-accent/40 bg-zk-tint px-1.5 py-0.5 text-[10px] font-medium text-zk-accent">
+              <span className="shrink-0 rounded-full border border-zk-accent/40 bg-zk-tint px-1.5 py-0.5 text-[10px] font-medium text-zk-accent">
                 Demo
               </span>
             ) : null}
           </div>
-          <p className="mt-0.5 truncate pl-9 text-xs text-zk-muted">
+          <p className="mt-0.5 max-w-[46ch] truncate pl-9 text-xs text-zk-muted">
             {item.summary}
           </p>
         </div>
@@ -378,7 +405,7 @@ export function FinanceResearchBoard({
         {/* Status / Verdict / Thesis Health */}
         <div>
           <span
-            className={`inline-block rounded-md border px-2 py-1 text-xs font-medium ${statusBadgeClass(statusKey)}`}
+            className={`inline-flex items-center whitespace-nowrap rounded-md border px-2.5 py-1 text-xs font-medium ${statusBadgeClass(statusKey)}`}
           >
             {statusText}
           </span>
@@ -399,12 +426,12 @@ export function FinanceResearchBoard({
         </div>
 
         {/* Action */}
-        <div data-row-action="true" className="sm:text-right">
+        <div data-row-action="true" className="whitespace-nowrap sm:text-right">
           {item.isHeld ? (
             <button
               type="button"
               onClick={() => openCompanyPanel(item.symbol)}
-              className="rounded-md border border-zk-border bg-zk-bg px-2.5 py-1 text-xs font-medium text-zk-text transition hover:border-zk-accent"
+              className="whitespace-nowrap rounded-md border border-zk-border bg-zk-bg px-2.5 py-1 text-xs font-medium text-zk-text transition hover:border-zk-accent"
             >
               Details
             </button>
@@ -412,7 +439,7 @@ export function FinanceResearchBoard({
             <TradeButton
               symbol={item.symbol}
               label={item.call === "go" ? "Buy" : "+ Trade"}
-              className="rounded-md bg-zk-accent px-2.5 py-1 text-xs font-semibold text-white transition hover:opacity-90"
+              className="whitespace-nowrap rounded-md bg-zk-accent px-2.5 py-1 text-xs font-semibold text-white transition hover:opacity-90"
             />
           )}
         </div>
@@ -422,45 +449,74 @@ export function FinanceResearchBoard({
 
   return (
     <>
-      {/* Slim Header (no top KPI boxes) */}
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+      {/* Header + Criteria Bar */}
+      <header className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-extrabold tracking-tight text-zk-text">
             Finance
           </h1>
-          <p className="mt-0.5 text-xs text-zk-muted">
-            Owned positions &amp; agent recommendations in one spreadsheet-style
-            list.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {initialCriteria.length > 0 ? (
-            <select
-              aria-label="Active strategy"
-              value={activeCriteria?.id ?? ""}
-              onChange={(event) => setSelectedCriteriaId(event.target.value)}
-              className="rounded-lg border border-zk-border bg-zk-surface px-3 py-1.5 text-xs font-medium text-zk-text focus:outline-none focus:ring-2 focus:ring-zk-accent"
-            >
-              {initialCriteria.map((c) => (
-                <option key={c.id} value={c.id}>
-                  Strategy: {financeCriteriaTitle(c)} (v{c.latestVersion})
-                </option>
-              ))}
-            </select>
-          ) : null}
-          <Button
-            type="button"
-            variant="secondary"
-            aria-expanded={sideMode === "criteria"}
-            onClick={toggleCriteriaPanel}
-          >
-            Criteria ({initialCriteria.length}){" "}
-            {sideMode === "criteria" ? "▴" : "▾"}
-          </Button>
           <Button type="button" onClick={openNewModal}>
             + New criteria
           </Button>
+        </div>
+
+        <div
+          aria-label="Criteria filter"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zk-border bg-zk-surface px-3.5 py-2.5"
+        >
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setSelectedCriteriaId(null)}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                effectiveCriteriaId === null
+                  ? "bg-zk-accent text-white"
+                  : "bg-zk-chip text-zk-text2 hover:text-zk-text"
+              }`}
+            >
+              All criteria
+            </button>
+            {initialCriteria.map((c) => {
+              const selected = effectiveCriteriaId === c.id;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setSelectedCriteriaId(c.id)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                    selected
+                      ? "bg-zk-accent text-white"
+                      : "bg-zk-chip text-zk-text2 hover:text-zk-text"
+                  }`}
+                >
+                  {financeCriteriaTitle(c)}{" "}
+                  <span className="opacity-75">v{c.latestVersion}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {activeCriteria ? (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => openEditModal(activeCriteria)}
+                className="rounded-md border border-zk-border bg-zk-bg px-2.5 py-1 text-xs font-medium text-zk-text2 transition hover:border-zk-accent hover:text-zk-text"
+              >
+                Edit criteria
+              </button>
+              <form action={deleteAction}>
+                <input type="hidden" name="id" value={activeCriteria.id} />
+                <button
+                  type="submit"
+                  disabled={deleting}
+                  className="rounded-md border border-zk-border bg-zk-bg px-2.5 py-1 text-xs font-medium text-zk-bad-fg transition hover:border-zk-bad-fg/50 disabled:opacity-50"
+                >
+                  {deleting ? "Deleting…" : "Delete criteria"}
+                </button>
+              </form>
+            </div>
+          ) : null}
         </div>
       </header>
 
@@ -535,143 +591,102 @@ export function FinanceResearchBoard({
               </p>
             </div>
           ) : (
-            <div>
-              {/* Column Headers */}
-              <div
-                className={`hidden border-b border-zk-divider bg-zk-bg px-3 py-2 text-xs font-semibold text-zk-muted ${ROW_GRID_CLASS}`}
-              >
-                <span>Company</span>
-                <span>Price</span>
-                <span>Status</span>
-                <span>Value / Range</span>
-                <span>Return / Score</span>
-                <span className="text-right">Action</span>
-              </div>
-
-              {/* Owned Group */}
-              <div className="border-b border-zk-divider bg-zk-chip/60 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-zk-text">
-                Owned ({ownedItems.length})
-              </div>
-              {ownedItems.length === 0 ? (
-                <p className="border-b border-zk-divider px-3 py-3 text-xs text-zk-muted">
-                  No owned positions yet — log a trade on any recommendation to
-                  track it here.
-                </p>
-              ) : (
-                <div className="divide-y divide-zk-divider">
-                  {ownedItems.map((item) => renderStockRow(item))}
+            <div className="overflow-x-auto">
+              <div className="min-w-[700px]">
+                {/* Column Headers */}
+                <div
+                  className={`hidden border-b border-zk-divider bg-zk-bg px-4 py-2.5 text-xs font-semibold text-zk-muted ${ROW_GRID_CLASS}`}
+                >
+                  <span>Company</span>
+                  <span>Price</span>
+                  <span>Status</span>
+                  <span>Value / Range</span>
+                  <span>Return / Score</span>
+                  <span className="text-right">Action</span>
                 </div>
-              )}
 
-              {/* Recommendations Group */}
-              <div className="border-y border-zk-divider bg-zk-chip/60 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-zk-muted">
-                Recommendations ({recommendationItems.length})
-              </div>
-              {recommendationItems.length === 0 ? (
-                <p className="px-3 py-3 text-xs text-zk-muted">
-                  No recommendations match this filter.
-                </p>
-              ) : (
-                <div className="divide-y divide-zk-divider">
-                  {recommendationItems.map((item) => renderStockRow(item))}
+                {/* Owned Group */}
+                <div className="border-b border-zk-divider bg-zk-chip/60 px-4 py-2 text-xs font-bold uppercase tracking-wider text-zk-text">
+                  Owned ({ownedItems.length})
                 </div>
-              )}
+                {ownedItems.length === 0 ? (
+                  <p className="border-b border-zk-divider px-4 py-3.5 text-xs text-zk-muted">
+                    No owned positions yet — log a trade on any recommendation to
+                    track it here.
+                  </p>
+                ) : (
+                  <div className="divide-y divide-zk-divider">
+                    {ownedItems.map((item) => renderStockRow(item))}
+                  </div>
+                )}
+
+                {/* Recommendations Group */}
+                <div className="border-y border-zk-divider bg-zk-chip/60 px-4 py-2 text-xs font-bold uppercase tracking-wider text-zk-muted">
+                  Recommendations ({recommendationItems.length})
+                </div>
+                {recommendationItems.length === 0 ? (
+                  <p className="px-4 py-3.5 text-xs text-zk-muted">
+                    No recommendations match this filter.
+                  </p>
+                ) : (
+                  <div className="divide-y divide-zk-divider">
+                    {recommendationItems.map((item) => renderStockRow(item))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </section>
 
-        {/* Unified Right Split-Screen Side Panel */}
-        {hasSide ? (
+        {/* Right Split-Screen Company Detail Panel */}
+        {hasSide && selectedItem ? (
           <aside
-            aria-label={
-              sideMode === "criteria" ? "Research Criteria" : "Company Detail"
-            }
+            aria-label="Company Detail"
             className="lg:col-span-5 space-y-4"
           >
-            {sideMode === "criteria" ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between rounded-xl border border-zk-border bg-zk-surface px-4 py-2.5">
-                  <div>
-                    <h2 className="text-sm font-bold text-zk-text">
-                      Research Criteria
-                    </h2>
-                    <p className="text-xs text-zk-muted">
-                      Active strategy guiding agent screening
+            <div className="rounded-2xl border border-zk-border bg-zk-surface p-5 space-y-5">
+              {/* Side Panel Header */}
+              <div className="flex items-start justify-between gap-3 border-b border-zk-divider pb-3.5">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zk-border bg-zk-bg text-xs font-bold text-zk-accent">
+                    {selectedItem.symbol.slice(0, 2)}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <h2 className="truncate text-sm font-bold text-zk-text">
+                        {selectedItem.name}
+                      </h2>
+                      <span className="font-mono text-xs text-zk-muted">
+                        {selectedItem.symbol}
+                      </span>
+                      {selectedItem.isHeld ? (
+                        <span className="rounded-full border border-zk-accent/40 bg-zk-tint px-2 py-0.5 text-[11px] font-medium text-zk-accent">
+                          Owned
+                        </span>
+                      ) : null}
+                      {selectedItem.isDemo ? (
+                        <span className="rounded-full border border-zk-accent/40 bg-zk-tint px-2 py-0.5 text-[11px] font-medium text-zk-accent">
+                          Demo
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-0.5 text-xs text-zk-muted">
+                      Price:{" "}
+                      <strong className="tabular-nums text-zk-text">
+                        {formatPrice(selectedItem.latestPrice)}
+                      </strong>
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    aria-label="Close side panel"
-                    onClick={() => setSideMode(null)}
-                    className="rounded-md border border-zk-border px-2 py-1 text-xs text-zk-muted hover:text-zk-text"
-                  >
-                    ✕
-                  </button>
                 </div>
-                <FinanceCriteriaManager
-                  initialCriteria={initialCriteria}
-                  activeCriteriaId={activeCriteria?.id ?? null}
-                  onSelectCriteria={(id) => setSelectedCriteriaId(id)}
-                  onOpenNew={openNewModal}
-                  onOpenEdit={openEditModal}
-                />
+                <button
+                  type="button"
+                  aria-label="Close side panel"
+                  onClick={() => setSelectedSymbol(null)}
+                  className="rounded-md border border-zk-border px-2 py-1 text-xs text-zk-muted hover:text-zk-text"
+                >
+                  ✕
+                </button>
               </div>
-            ) : selectedItem ? (
-              <div className="rounded-2xl border border-zk-border bg-zk-surface p-4 space-y-4">
-                {/* Side Panel Header */}
-                <div className="flex items-start justify-between gap-3 border-b border-zk-divider pb-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zk-border bg-zk-bg text-xs font-bold text-zk-accent">
-                      {selectedItem.symbol.slice(0, 2)}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <h2 className="truncate text-sm font-bold text-zk-text">
-                          {selectedItem.name}
-                        </h2>
-                        <span className="font-mono text-xs text-zk-muted">
-                          {selectedItem.symbol}
-                        </span>
-                        {selectedItem.isHeld ? (
-                          <span className="rounded-full border border-zk-accent/40 bg-zk-tint px-2 py-0.5 text-[11px] font-medium text-zk-accent">
-                            Owned
-                          </span>
-                        ) : null}
-                        {selectedItem.isDemo ? (
-                          <span className="rounded-full border border-zk-accent/40 bg-zk-tint px-2 py-0.5 text-[11px] font-medium text-zk-accent">
-                            Demo
-                          </span>
-                        ) : null}
-                      </div>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-3 text-xs text-zk-muted">
-                        <span>
-                          Price:{" "}
-                          <strong className="tabular-nums text-zk-text">
-                            {formatPrice(selectedItem.latestPrice)}
-                          </strong>
-                        </span>
-                        <Link
-                          href={
-                            selectedItem.isDemo
-                              ? `/finance/${encodeURIComponent(selectedItem.symbol)}?demo=1`
-                              : `/finance/${encodeURIComponent(selectedItem.symbol)}`
-                          }
-                          className="font-medium text-zk-accent hover:underline"
-                        >
-                          Full page ↗
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    aria-label="Close side panel"
-                    onClick={() => setSideMode(null)}
-                    className="rounded-md border border-zk-border px-2 py-1 text-xs text-zk-muted hover:text-zk-text"
-                  >
-                    ✕
-                  </button>
-                </div>
 
                 {/* Position / Recommendation Summary */}
                 {selectedItem.isHeld && selectedItem.position ? (
@@ -823,8 +838,7 @@ export function FinanceResearchBoard({
                     {selectedItem.symbol} yet.
                   </div>
                 )}
-              </div>
-            ) : null}
+            </div>
           </aside>
         ) : null}
       </div>

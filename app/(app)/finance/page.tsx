@@ -293,7 +293,9 @@ export default async function FinancePage() {
         reviewGo: d.origin === "monitor" ? null : d.reviewGo,
         reviewTotal: d.origin === "monitor" ? null : d.reviewTotal,
         origin: d.origin,
-        criteriaId: null,
+        criteriaId: d.candidateId
+          ? (candidateById.get(d.candidateId)?.run.criteriaId ?? null)
+          : null,
         isHeld: positionBySymbol.has(d.ticker.symbol),
         latestPrice: priceBySymbol.get(d.ticker.symbol) ?? null,
         buyRange: formatBuyRange(d.buyRangeLow, d.buyRangeHigh),
@@ -336,7 +338,9 @@ export default async function FinancePage() {
         reviewGo: d.origin === "monitor" ? null : d.reviewGo,
         reviewTotal: d.origin === "monitor" ? null : d.reviewTotal,
         origin: d.origin,
-        criteriaId: null,
+        criteriaId: d.candidateId
+          ? (candidateById.get(d.candidateId)?.run.criteriaId ?? null)
+          : null,
         isHeld: positionBySymbol.has(d.ticker.symbol),
         latestPrice: priceBySymbol.get(d.ticker.symbol) ?? null,
         buyRange: formatBuyRange(d.buyRangeLow, d.buyRangeHigh),
