@@ -19,7 +19,7 @@ import { PRODUCT_OTHER_MAX, readProductKinds, type ProductKind } from "@/lib/pro
  * saved on the project, 2. what you need help with (tap tiles, worded for what
  * you build), 3. "You're all set": how the work gets done here, naming what
  * they picked, and one button onto the dashboard. Nothing to type or choose:
- * the dashboard's own request box and "Who will work on your tasks?" take it
+ * the dashboard's own request box takes it
  * from there. It doesn't ask for links: the project header and Project
  * Settings set those. Finishing, skipping or × closes it for this project on this device.
  */

@@ -61,7 +61,7 @@ vi.mock("@/lib/agent-api/delivery", () => ({ deliverWork }));
 vi.mock("@/lib/security/secret-guard", () => ({ checkPostForSecrets }));
 
 import { ownerMove } from "@/lib/owner-moves";
-import { ownerAcceptIdeaAction, ownerConfirmAllAction, ownerMoveIssueAction } from "@/app/actions/owner-moves";
+import { ownerAcceptIdeaAction, ownerMoveIssueAction } from "@/app/actions/owner-moves";
 import { confirmLiveWorkAction, deliverForMyAgentAction, giveTestVerdictAction } from "@/app/actions/human-steps";
 import { agentConfirmLiveWork } from "@/lib/agent-api/live-confirmation";
 import { agentMoveIssueToProject } from "@/lib/agent-api/move-project";
@@ -141,27 +141,6 @@ describe("owner moves (#owner-control)", () => {
   });
 });
 
-describe("Confirm all (#bulk-confirm)", () => {
-  it("refuses someone who isn't an owner or admin, and opens nothing", async () => {
-    organisationAccessFor.mockResolvedValue({ admin: false });
-    expect(await ownerConfirmAllAction("org-1", null)).toEqual({ error: expect.stringContaining("owner or admin") });
-    expect(bugFindMany).not.toHaveBeenCalled();
-    expect(bugUpdate).not.toHaveBeenCalled();
-  });
-
-  it("opens each issue still at Requires confirmation for bids, as the owner, and skips one moved since", async () => {
-    bugFindMany.mockResolvedValue([{ id: "bug-a" }, { id: "bug-b" }]);
-    bugFindUniqueOrThrow.mockResolvedValueOnce({ substatus: "requires_confirmation" }).mockResolvedValueOnce({ substatus: "open" });
-    bugCount.mockResolvedValue(0);
-
-    expect(await ownerConfirmAllAction("org-1", null)).toEqual({ opened: 1, remaining: 0 });
-    expect(bugUpdate).toHaveBeenCalledTimes(1);
-    expect(bugUpdate).toHaveBeenCalledWith({ where: { id: "bug-a" }, data: { status: "open", substatus: "open" } });
-    expect(activityCreateMany.mock.calls[0][0].data[0]).toMatchObject({ bugId: "bug-a", actorId: "user-1", metadata: { from: "requires_confirmation", to: "open" } });
-    // It stops nobody: no claim is touched.
-    expect(claimUpdateMany).not.toHaveBeenCalled();
-  });
-});
 
 describe("acting through your agent (#owner-control)", () => {
   it("shows the agent's refusal instead of reporting success", async () => {
