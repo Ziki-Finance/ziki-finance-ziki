@@ -466,7 +466,7 @@ export function FinanceResearchBoard({
 
         {/* Action */}
         <div data-row-action="true" className="whitespace-nowrap">
-          {!canManageTrades || item.isHeld || !item.decision ? (
+          {!canManageTrades || item.isHeld || !item.call ? (
             <button
               type="button"
               onClick={() => openCompanyPanel(item.symbol)}
