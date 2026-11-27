@@ -342,7 +342,7 @@ export function AppHeader({
                 id="account-menu"
                 role="menu"
                 aria-label="Account"
-                className="absolute right-0 top-[54px] z-50 flex w-[300px] max-w-[calc(100vw-2rem)] origin-top-right flex-col gap-1 rounded-panel border border-zk-border bg-zk-surface p-2 shadow-none motion-safe:animate-[header-pop_120ms_ease-out]"
+                className="absolute right-0 top-[54px] z-50 flex max-h-[calc(100vh-5rem)] w-[300px] max-w-[calc(100vw-2rem)] origin-top-right flex-col gap-1 overflow-y-auto rounded-panel border border-zk-border bg-zk-surface p-2 shadow-none motion-safe:animate-[header-pop_120ms_ease-out]"
               >
                 <AccountSummary
                   userName={userName}
