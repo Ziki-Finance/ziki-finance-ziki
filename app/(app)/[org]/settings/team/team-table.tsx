@@ -7,6 +7,7 @@ import { Avatar } from "@/components/avatar";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { LocalTime } from "@/components/local-time";
 import { MemberRoleActions } from "@/components/member-role-actions";
+import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import type { OrganisationRole } from "@/lib/organisation-role";
 import { PILL_TONES, type PillTone } from "@/lib/pill-tones";
@@ -47,6 +48,11 @@ export type TeamCollaborator = {
 };
 
 type Group = "all" | "members" | "invites" | "collaborators";
+const PEOPLE_PER_PAGE = 15;
+
+function pageRows<T>(rows: T[], start: number, offset = 0): T[] {
+  return rows.slice(Math.max(0, start - offset), Math.max(0, start + PEOPLE_PER_PAGE - offset));
+}
 
 /** Each kind of person's label colour, from the pills the Work Feed uses for an item's state. */
 const roleTone: Record<OrganisationRole, PillTone> = { owner: "yellow", admin: "blue", member: "grey" };
@@ -65,7 +71,7 @@ function TeamSection({ id, title, count, children }: { id: string; title: string
       <h2 id={id} className="mb-2 px-1 text-[15px] font-semibold text-zk-text">
         {title} <span className="ml-1 text-[13px] font-medium tabular-nums text-zk-muted">{count}</span>
       </h2>
-      <ul className="m-0 flex list-none flex-col gap-3 rounded-panel bg-zk-bg p-3 sm:p-4" aria-label={title}>
+      <ul className="m-0 flex list-none flex-col gap-2 rounded-panel bg-zk-bg p-2" aria-label={title}>
         {children}
       </ul>
     </section>
@@ -74,7 +80,7 @@ function TeamSection({ id, title, count, children }: { id: string; title: string
 
 /**
  * One person as a Work Feed card: their avatar, their name in bold, a muted line of what to know (email, agents,
- * when they joined), and on the right their role as a coloured label over what you can do.
+ * when they joined), and on the right their role beside their available actions.
  */
 function PersonCard({
   name,
@@ -99,7 +105,7 @@ function PersonCard({
   actions?: ReactNode;
 }) {
   return (
-    <li className="flex items-center gap-3 rounded-panel border border-zk-border bg-zk-surface px-4 py-3.5 transition hover:bg-zk-chip sm:gap-4 sm:px-5 sm:py-4">
+    <li className="flex min-w-0 items-center gap-3 rounded-panel border border-zk-border bg-zk-surface px-3 py-2.5 transition hover:bg-zk-chip">
       <Avatar name={name} image={image} size="lg" />
       <div className="min-w-0 flex-1">
         <p className="m-0 flex min-w-0 items-center gap-1.5 text-[15px] font-semibold text-zk-text">
@@ -108,7 +114,7 @@ function PersonCard({
         </p>
         <p className="m-0 mt-0.5 truncate text-[13px] text-zk-muted" title={note ?? undefined}>{meta}</p>
       </div>
-      <div className="flex shrink-0 flex-col items-end gap-1">
+      <div className="flex shrink-0 items-center gap-2">
         <span className="flex items-center gap-1.5">
           {extraLabel}
           <span className="rounded-md px-2 py-0.5 text-[11.5px] font-semibold" style={PILL_TONES[tone]}>{label}</span>
@@ -143,8 +149,8 @@ function Meta({ parts }: { parts: ReactNode[] }) {
 
 /**
  * The organisation's team (#team), laid out like the Work Feed: a section each for the members, the email invites
- * still waiting and the people who work on one project only, each a heading with its count over a grey well of
- * cards. Search and a filter for one group sit above. A person's actions are in a ⋯ menu on their card; everyone
+ * still waiting and the people who work on one project only. Search and group filtering run before pagination,
+ * and each page can show cards from more than one section. A person's actions are in a ⋯ menu on their card; everyone
  * gets Leave on their own.
  */
 export function TeamTable({
@@ -173,6 +179,7 @@ export function TeamTable({
   const groupId = useId();
   const [query, setQuery] = useState("");
   const [group, setGroup] = useState<Group>("all");
+  const [page, setPage] = useState(1);
 
   const memberName = (m: TeamMember) => m.name ?? m.email ?? "Member";
   const collaboratorName = (c: TeamCollaborator) => c.userName || c.userEmail || "Collaborator";
@@ -188,6 +195,12 @@ export function TeamTable({
     : [];
   const total = members.length + invites.length + collaborators.length;
   const shown = shownMembers.length + shownInvites.length + shownCollaborators.length;
+  const pageCount = Math.max(1, Math.ceil(shown / PEOPLE_PER_PAGE));
+  const currentPage = Math.min(page, pageCount);
+  const start = (currentPage - 1) * PEOPLE_PER_PAGE;
+  const pageMembers = pageRows(shownMembers, start);
+  const pageInvites = pageRows(shownInvites, start, shownMembers.length);
+  const pageCollaborators = pageRows(shownCollaborators, start, shownMembers.length + shownInvites.length);
 
   const groups: { value: Group; label: string; count: number }[] = [
     { value: "all", label: "Everyone", count: total },
@@ -197,7 +210,7 @@ export function TeamTable({
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <label htmlFor={searchId} className="sr-only">Search the team</label>
         <div className="relative w-full sm:w-80">
@@ -209,22 +222,42 @@ export function TeamTable({
             id={searchId}
             type="search"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setPage(1);
+            }}
             placeholder="Search by name, email, agent or project"
             className="h-9 w-full rounded-control border border-zk-border bg-zk-surface pl-9 pr-3 text-sm text-zk-text"
           />
         </div>
         <label htmlFor={groupId} className="sr-only">Show</label>
         <div className="w-full sm:w-56">
-          <Select id={groupId} value={group} onChange={(event) => setGroup(event.target.value as Group)}>
+          <Select id={groupId} value={group} onChange={(event) => {
+            setGroup(event.target.value as Group);
+            setPage(1);
+          }}>
             {groups.map((option) => (
               <option key={option.value} value={option.value}>{option.label} ({option.count})</option>
             ))}
           </Select>
         </div>
-        <p className="text-xs text-zk-muted sm:ml-auto" aria-live="polite">
-          {query.trim() || group !== "all" ? `${shown} of ${total}` : `${total} ${total === 1 ? "person" : "people"}`}
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="m-0 text-xs tabular-nums text-zk-muted" aria-live="polite">
+          {shown ? `${start + 1}–${Math.min(start + PEOPLE_PER_PAGE, shown)} of ${shown} ${shown === 1 ? "person" : "people"}` : "0 matches"}
         </p>
+        {pageCount > 1 ? (
+          <nav aria-label="Team pages" className="flex items-center gap-2">
+            <Button type="button" variant="secondary" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>
+              Previous
+            </Button>
+            <span className="text-xs tabular-nums text-zk-muted">Page {currentPage} of {pageCount}</span>
+            <Button type="button" variant="secondary" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>
+              Next
+            </Button>
+          </nav>
+        ) : null}
       </div>
 
       <div className="flex flex-col gap-6 rounded-panel border border-zk-border bg-zk-surface p-3 sm:p-5">
@@ -234,9 +267,9 @@ export function TeamTable({
         </p>
       ) : null}
 
-      {shownMembers.length > 0 ? (
+      {pageMembers.length > 0 ? (
         <TeamSection id="team-members" title="Members" count={shownMembers.length}>
-          {shownMembers.map((member) => {
+          {pageMembers.map((member) => {
             const name = memberName(member);
             const isSelf = member.id === viewerId;
             const agents = agentNames(member.agents);
@@ -273,9 +306,9 @@ export function TeamTable({
         </TeamSection>
       ) : null}
 
-      {shownInvites.length > 0 ? (
+      {pageInvites.length > 0 ? (
         <TeamSection id="team-invites" title="Invites" count={shownInvites.length}>
-          {shownInvites.map((invite) => (
+          {pageInvites.map((invite) => (
             <PersonCard
               key={`i-${invite.id}`}
               name={invite.email}
@@ -305,9 +338,9 @@ export function TeamTable({
         </TeamSection>
       ) : null}
 
-      {shownCollaborators.length > 0 ? (
+      {pageCollaborators.length > 0 ? (
         <TeamSection id="team-collaborators" title="Project collaborators" count={shownCollaborators.length}>
-          {shownCollaborators.map((c) => {
+          {pageCollaborators.map((c) => {
             const name = collaboratorName(c);
             return (
               <PersonCard
