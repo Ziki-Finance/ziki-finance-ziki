@@ -30,6 +30,7 @@ export function dockVisibleOn(pathname: string | null | undefined): boolean {
   const [first] = segments;
   if (!first) return false;
   if (first === "inbox") return true;
+  if (first === "finance" && segments[1] !== "admin") return true;
   if (first === "home" || first === "feed") return segments.length === 1;
   if (isReservedProjectSlug(first) || segments.length < 2 || isProjectFirstPath(path)) return false;
   // Forum pages (/<org>/forum, /<org>/<project>/forum, and threads under them) hide the dock.

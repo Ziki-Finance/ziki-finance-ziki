@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button";
 import type { FinanceCriteriaView } from "@/lib/finance/criteria";
 import { financeCriteriaTitle } from "@/lib/validations/finance";
 import { DEMO_STOCK_ITEMS, findDemoStock } from "@/lib/finance/demo-stocks";
+import type {
+  PipelineActivityView,
+  PipelineScreeningView,
+} from "@/lib/finance/stage-view";
 import { CriteriaModal } from "./finance-criteria-manager";
 import {
   FinanceTickerPipeline,
@@ -51,7 +55,8 @@ export type TickerPanelDetail = {
   criteriaVersion: number;
   currentStage: string;
   proposedCount: number;
-  sectionsCovered: number;
+  screening?: PipelineScreeningView | null;
+  activity?: PipelineActivityView;
   buyRange: string | null;
   reviewIfBelow: string | null;
   holdFor: string | null;
@@ -212,7 +217,6 @@ function resolveItemDetail(
       criteriaVersion: demo.criteriaVersion,
       currentStage: demo.item.stage,
       proposedCount: demo.proposedCount,
-      sectionsCovered: demo.sectionsCovered,
       buyRange: demo.buyRange,
       reviewIfBelow: demo.reviewIfBelow,
       holdFor: demo.holdFor,
@@ -241,7 +245,7 @@ export function FinanceResearchBoard({
   const [selectedCriteriaId, setSelectedCriteriaId] = useState<string>("");
   const [filter, setFilter] = useState<FilterKey>("all");
   const [search, setSearch] = useState("");
-  const [showDemo, setShowDemo] = useState(items.length === 0);
+  const [showDemo, setShowDemo] = useState(false);
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCriteria, setEditingCriteria] =
@@ -462,7 +466,7 @@ export function FinanceResearchBoard({
 
         {/* Action */}
         <div data-row-action="true" className="whitespace-nowrap">
-          {!canManageTrades || item.isHeld ? (
+          {!canManageTrades || item.isHeld || !item.call ? (
             <button
               type="button"
               onClick={() => openCompanyPanel(item.symbol)}
@@ -588,16 +592,43 @@ export function FinanceResearchBoard({
 
           {filteredItems.length === 0 ? (
             <div className="p-8 text-center space-y-2">
-              <p className="text-sm font-medium text-zk-text">
-                {items.length === 0
-                  ? "No researched stocks yet"
-                  : "No stocks match this filter"}
-              </p>
-              <p className="text-xs text-zk-muted">
-                {items.length === 0
-                  ? "Save a research criteria strategy so your agents can start screening companies."
-                  : "Try clearing your search or switching tabs."}
-              </p>
+              {activeCriteria?.latestRun &&
+              activeCriteria.latestRun.stage !== "done" &&
+              activeCriteria.latestRun.candidateCount === 0 ? (
+                <>
+                  <p className="text-sm font-medium text-zk-text">
+                    Agents are working on this
+                  </p>
+                  <p className="text-xs text-zk-muted">
+                    Your criteria is running — check back in a minute.
+                  </p>
+                </>
+              ) : !activeCriteria &&
+                initialCriteria.length > 0 &&
+                items.length === 0 &&
+                !showDemo ? (
+                <>
+                  <p className="text-sm font-medium text-zk-text">
+                    Agents are working on this
+                  </p>
+                  <p className="text-xs text-zk-muted">
+                    Your criteria is running — check back in a minute.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-zk-text">
+                    {items.length === 0
+                      ? "No researched stocks yet"
+                      : "No stocks match this filter"}
+                  </p>
+                  <p className="text-xs text-zk-muted">
+                    {items.length === 0
+                      ? "Save a research criteria strategy so your agents can start screening companies."
+                      : "Try clearing your search or switching tabs."}
+                  </p>
+                </>
+              )}
             </div>
           ) : (
             <div className={hasSide ? "" : "overflow-x-auto"}>
@@ -838,7 +869,8 @@ export function FinanceResearchBoard({
                     criteriaLabel={selectedDetail.criteriaLabel}
                     criteriaVersion={selectedDetail.criteriaVersion}
                     proposedCount={selectedDetail.proposedCount}
-                    sectionsCovered={selectedDetail.sectionsCovered}
+                    screening={selectedDetail.screening}
+                    activity={selectedDetail.activity}
                     isDemo={selectedItem.isDemo}
                     evidence={selectedDetail.evidence}
                     evaluations={selectedDetail.evaluations}
@@ -862,6 +894,12 @@ export function FinanceResearchBoard({
         open={modalOpen}
         editing={editingCriteria}
         onClose={() => setModalOpen(false)}
+        onSaved={(criteriaId) => {
+          setSelectedCriteriaId(criteriaId);
+          setShowDemo(false);
+          setFilter("all");
+          setSearch("");
+        }}
       />
     </>
   );

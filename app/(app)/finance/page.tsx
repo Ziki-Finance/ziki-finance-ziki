@@ -9,9 +9,14 @@ import {
   SOURCE_TIER_LABEL,
   overallVerdict,
   scoreBreakdown,
-  sectionStatuses,
 } from "@/lib/finance/pipeline";
 import type { FinanceEvidenceSectionName } from "@/lib/finance/pipeline-settings";
+import {
+  activityView,
+  candidateStageViewSelect,
+  screeningView,
+  type CandidateStageViewRow,
+} from "@/lib/finance/stage-view";
 import {
   FinanceResearchBoard,
   type ResearchStockItem,
@@ -82,7 +87,7 @@ export default async function FinancePage() {
     criteriaId: string | null;
     criteriaLabel: string;
     criteriaVersion: number;
-    candidates: Array<{
+    candidates: Array<CandidateStageViewRow & {
       id: string;
       stage: string;
       proposedCount: number;
@@ -145,6 +150,7 @@ export default async function FinancePage() {
               companyName: true,
               ticker: { select: { symbol: true, name: true } },
               decision: { select: { id: true } },
+              ...candidateStageViewSelect,
               evidence: {
                 select: {
                   id: true,
@@ -244,6 +250,8 @@ export default async function FinancePage() {
             evidence: true,
             evaluations: { orderBy: { createdAt: "asc" } },
             reviews: { orderBy: { createdAt: "asc" } },
+            signals: candidateStageViewSelect.signals,
+            jobs: candidateStageViewSelect.jobs,
           },
         })
       : [];
@@ -392,7 +400,6 @@ export default async function FinancePage() {
     if (!cand) continue;
     const breakdown = scoreBreakdown(cand.evaluations);
     const verdict = overallVerdict(breakdown);
-    const statuses = sectionStatuses(cand.evidence);
     const evidenceById = new Map(cand.evidence.map((e) => [e.id, e] as const));
     const low = moneyStr(d.buyRangeLow);
     const high = moneyStr(d.buyRangeHigh);
@@ -403,7 +410,8 @@ export default async function FinancePage() {
       criteriaVersion: cand.run.criteriaVersion,
       currentStage: cand.stage,
       proposedCount: cand.proposedCount,
-      sectionsCovered: statuses.filter((s) => s.done).length,
+      screening: screeningView(cand),
+      activity: activityView(cand.jobs),
       buyRange: low && high ? `${low} – ${high}` : null,
       reviewIfBelow: moneyStr(d.reviewIfBelow),
       holdFor: d.holdDuration ?? null,
@@ -465,7 +473,6 @@ export default async function FinancePage() {
     if (!symbol || detailsBySymbol[symbol]) continue;
     const breakdown = scoreBreakdown(cand.evaluations);
     const verdict = overallVerdict(breakdown);
-    const statuses = sectionStatuses(cand.evidence);
     const evidenceById = new Map(cand.evidence.map((e) => [e.id, e] as const));
     const levels = evaluationLevels(cand.evaluations);
 
@@ -475,7 +482,8 @@ export default async function FinancePage() {
       criteriaVersion: cand.criteriaVersion,
       currentStage: cand.stage,
       proposedCount: cand.proposedCount,
-      sectionsCovered: statuses.filter((s) => s.done).length,
+      screening: screeningView(cand),
+      activity: activityView(cand.jobs),
       buyRange: levels.buyRange,
       reviewIfBelow: levels.reviewIfBelow,
       holdFor: levels.holdFor,

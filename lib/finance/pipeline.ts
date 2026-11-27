@@ -1,6 +1,7 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { marketData } from "./market-data";
+import { candidateStageViewSelect } from "./stage-view";
 import {
   REQUIRED_SECTIONS,
   type FinanceDossierCaps,
@@ -65,6 +66,23 @@ export function sectionIsCapped(section: FinanceEvidenceSectionName, count: numb
 /** Enrichment is done when every required section has a tier 1–2 item. */
 export function isEnrichmentComplete(items: readonly { section: FinanceEvidenceSectionName; tier: number }[]): boolean {
   return REQUIRED_SECTIONS.every((section) => items.some((item) => item.section === section && item.tier <= 2));
+}
+
+/**
+ * Enrichment ends when the dossier is complete, or once the stage time limit
+ * has passed since enrichment opened (PRD §4.3). A stock with no dossier items
+ * at all never moves on by time: evaluators must cite at least one.
+ */
+export function enrichmentReadyToAdvance(input: {
+  items: readonly { section: FinanceEvidenceSectionName; tier: number }[];
+  enrichOpenedAt: Date | null;
+  timeLimitMinutes: number;
+  now: Date;
+}): boolean {
+  if (isEnrichmentComplete(input.items)) return true;
+  if (input.items.length === 0 || !input.enrichOpenedAt) return false;
+  const limitMs = Math.max(1, input.timeLimitMinutes) * 60_000;
+  return input.now.getTime() - input.enrichOpenedAt.getTime() >= limitMs;
 }
 
 export type SectionStatus = {
@@ -491,6 +509,7 @@ export async function candidateForTicker(db: Db, symbol: string, candidateId?: s
       run: { select: { id: true, criteriaLabel: true, criteriaVersion: true } },
       evidence: { orderBy: [{ section: "asc" }, { tier: "asc" }, { readAt: "desc" }] },
       evaluations: { orderBy: { createdAt: "asc" } },
+      ...candidateStageViewSelect,
     },
   });
   return { ticker, candidate };
