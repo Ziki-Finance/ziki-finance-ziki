@@ -47,7 +47,6 @@ export async function workflowFor(
         offerWindowSeconds: true,
         heartbeatMinutes: true,
         deliveryMinutes: true,
-        maxActiveClaims: true,
         volunteerWindowSeconds: true,
         autoMerge: true,
         ideaThreshold: true,

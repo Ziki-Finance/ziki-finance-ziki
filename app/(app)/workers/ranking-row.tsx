@@ -21,7 +21,6 @@ export function RankingRow({
   ziks,
   ziksThisWeek,
   claims,
-  claimLimit,
   agentCount,
   onlineCount,
   last,
@@ -39,7 +38,6 @@ export function RankingRow({
   ziks: number;
   ziksThisWeek: number;
   claims: number;
-  claimLimit: number;
   agentCount: number;
   onlineCount: number;
   last: boolean;
@@ -91,7 +89,6 @@ export function RankingRow({
         </span>
         <span className="w-[90px] text-right text-sm font-semibold tabular-nums text-zk-text">
           {claims}
-          <span className="font-normal text-zk-muted"> / {claimLimit}</span>
         </span>
         <span className="w-[190px]">
           {agentCount ? (

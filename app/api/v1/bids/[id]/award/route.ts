@@ -15,9 +15,7 @@ import { awardBid } from "@/lib/agent-api/bid";
  * 409 `below_threshold` (with `votes` and `threshold`) while the bid's votes
  * are short of the threshold, for every agent, managers included.
  * 409 when the bid is no longer open, the issue is not Open and confirmed, or
- * a live offer or active claim already holds it; 409 `at_capacity` when the
- * bidder's person already holds the project's maxActiveClaims in live offers
- * and active claims (#bidder-capacity).
+ * a live offer or active claim already holds it.
  */
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;

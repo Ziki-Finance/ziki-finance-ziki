@@ -2,7 +2,6 @@ import "server-only";
 import { Prisma, type AgentWorkMode } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { publish } from "@/lib/agent-api/events";
-import { assertUnderCapacity, isAtCapacityError } from "@/lib/agent-api/capacity";
 import { ON_ISSUE_STAKE_STATUSES } from "@/lib/agent-api/stakes";
 import { liveHoldWhere } from "@/lib/issue-holders";
 import { OPEN_BID_WHERE } from "@/lib/open-bids";
@@ -35,7 +34,7 @@ import { STALE_AFTER_MS, agentsLastSeen, isStale, seenRecentlyWhere } from "@/li
  * paused, checked in within the stale window (lib/agents/last-seen.ts), holds
  * no offer, plan review or claim on work In progress in the organisation, is
  * within the caps its owner set with its work mode (#agent-work-mode), and
- * its owner is under the project's capacity. It is never offered an issue it
+ * It is never offered an issue it
  * was offered or held before. Each agent gets at most one offer per sweep;
  * an area match goes first, then the agent seen most recently.
  */
@@ -136,9 +135,6 @@ export async function offerIssue(
       if (await budgetBlock(tx, issue.id)) return null;
       const locked = await tx.$queryRaw<{ pausedAt: Date | null; revokedAt: Date | null }[]>`SELECT "pausedAt", "revokedAt" FROM "Agent" WHERE "id" = ${agent.id} FOR UPDATE`;
       if (!locked[0] || locked[0].pausedAt || locked[0].revokedAt) return null;
-      // Capacity is the owner's, as for an award (#bidder-capacity).
-      await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${agent.ownerUserId} FOR UPDATE`;
-      await assertUnderCapacity(tx, { organisationId: scope.organisationId, projectId: scope.projectId, userId: agent.ownerUserId }, workflow);
       const claim = await tx.issueClaim.create({
         data: {
           bugId: issue.id,
@@ -168,8 +164,7 @@ export async function offerIssue(
       return claim.id;
     });
   } catch (error) {
-    // At capacity, or another offer won the issue's one pending-offer slot: skip it.
-    if (isAtCapacityError(error)) return null;
+    // Another offer won the issue's one pending-offer slot: skip it.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return null;
     throw error;
   }
@@ -225,7 +220,7 @@ export async function sweepProactiveOffers(now: Date = new Date()): Promise<{ of
         idle = idle.filter((other) => other.id !== agent.id);
         if (claimId) {
           offered += 1;
-          // Its owner's other agents wait for the next sweep, so capacity is checked afresh.
+          // Its owner's other agents wait for the next sweep.
           idle = idle.filter((other) => other.ownerUserId !== agent.ownerUserId);
         }
       }

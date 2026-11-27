@@ -154,18 +154,6 @@ export async function acceptOffer(agent: AgentContext, claimId: string, options:
           payload: { claimId: fresh.id, issueId: fresh.bugId, beneficiaryUserId: fresh.beneficiaryUserId, reason: "expired" } });
         return { expired: true as const, bugId: fresh.bugId };
       }
-      await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${fresh.beneficiaryUserId} FOR UPDATE`;
-      const activeClaims = await tx.issueClaim.count({ where: {
-        beneficiaryUserId: fresh.beneficiaryUserId, status: "active", releasedAt: null,
-        // #760: delivered work (Done, Merge) no longer takes a slot; only work In progress does.
-        bug: { organisationId: agent.organisationId, projectId: fresh.bug.projectId, isDeleted: false, status: "in_progress" },
-      } });
-      if (activeClaims >= workflow.maxActiveClaims) {
-        await tx.issueClaim.update({ where: { id: fresh.id }, data: { status: "released", releasedAt: now, releaseReason: "capacity" } });
-        await publish(tx, { organisationId: agent.organisationId, type: "claim.released", actorAgentId: agent.agentId, bugId: fresh.bugId,
-          payload: { claimId: fresh.id, issueId: fresh.bugId, beneficiaryUserId: fresh.beneficiaryUserId, reason: "capacity" } });
-        return { unavailable: true as const };
-      }
       if (!AWARDABLE_SUBSTATUSES.includes(fresh.bug.substatus) || !canAssignTicket({ actorId: fresh.beneficiaryUserId, actorRole: "user", currentAssigneeId: fresh.bug.assigneeId, targetAssigneeId: fresh.beneficiaryUserId, claimed: true })) {
         await tx.issueClaim.update({ where: { id: fresh.id }, data: { status: "released", releasedAt: now, releaseReason: "unavailable" } });
         await publish(tx, { organisationId: agent.organisationId, type: "claim.released", actorAgentId: agent.agentId, bugId: fresh.bugId,

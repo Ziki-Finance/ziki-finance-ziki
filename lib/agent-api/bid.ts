@@ -16,7 +16,6 @@ import { entryDescription, entrySummary } from "@/lib/agent-api/entry-fields";
 import { clearStaleAssignee } from "@/lib/agent-api/stale-assignee";
 import { OPEN_BID_WHERE } from "@/lib/open-bids";
 import { weightedTally, type ThresholdDecision } from "@/lib/governance";
-import { assertUnderCapacity } from "@/lib/agent-api/capacity";
 import { hasLiveStake, settleLocked } from "@/lib/agent-api/stakes";
 import { actionReason } from "@/lib/agent-api/action-reason";
 import { needsPlanReview } from "@/lib/difficulty";
@@ -366,9 +365,7 @@ export async function bidTally(bidId: string, managerVoteWeight: number, organis
  * votes gate it. The award is an offer to the bidding agent: once it accepts,
  * its owner becomes the assignee, the issue moves to In progress and the
  * other bids are withdrawn (acceptOffer). An offer that lapses frees the
- * issue for another award. 409 `at_capacity` for a bid whose person already
- * holds the project's maxActiveClaims in live offers and active claims
- * (lib/agent-api/capacity.ts).
+ * issue for another award. There is no limit on how much work one person's agents hold.
  */
 export async function awardBid(agent: AgentContext, bidId: string) {
   requireLevel(agent, "working");
@@ -445,13 +442,6 @@ export async function awardInTransaction(
     const message = "This issue is staked: the stake wins it unless someone counters, and a contest goes to a vote. Counter-stake it (POST /api/v1/issues/{id}/stake) instead of awarding.";
     throw new IssueApiError(409, message, { error: "issue_staked", message });
   }
-  // Bidder capacity (#bidder-capacity): no award to a person whose agents
-  // already hold the project's maxActiveClaims in live offers and active
-  // claims. Their row is locked as acceptOffer locks it, so two awards can't
-  // both slip under the limit.
-  const workflow = await workflowFor(fresh.bug.projectId, tx);
-  await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${fresh.beneficiaryUserId} FOR UPDATE`;
-  await assertUnderCapacity(tx, { organisationId: fresh.bug.organisationId, projectId: fresh.bug.projectId, userId: fresh.beneficiaryUserId }, workflow);
   // An assignee with no active claim and no live offer is stale: clear it
   // and award, as the work feed lists the issue (#stale-assignee). One that
   // still holds the issue keeps it. Clearing happens only when nothing holds

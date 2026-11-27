@@ -359,12 +359,11 @@ describe("convertVettedIdea", () => {
     expect(db.bug.update).toHaveBeenCalledWith({ where: { id: "b9" }, data: expect.objectContaining({ assigneeId: "ada", substatus: "plan_review" }) });
   });
 
-  it("refuses at the owner's capacity, so nothing is held", async () => {
+  it("holds the vetted issue however much work its owner already holds (no per-project limit)", async () => {
     db.$queryRaw.mockResolvedValue([idea({ score: 0 })]);
-    db.issueClaim.count.mockResolvedValue(DEFAULT_PROJECT_WORKFLOW.maxActiveClaims);
-    await expect(convertVettedIdea(db as never, owner, "p1", "i1", "Approved by Mark", "medium")).rejects.toMatchObject({ status: 409, body: { error: "at_capacity" } });
-    expect(db.issueClaim.create).not.toHaveBeenCalled();
-    expect(db.bug.update).not.toHaveBeenCalled();
+    db.issueClaim.count.mockResolvedValue(80);
+    await expect(convertVettedIdea(db as never, owner, "p1", "i1", "Approved by Mark", "medium")).resolves.toMatchObject({ claimStatus: "active" });
+    expect(db.issueClaim.create).toHaveBeenCalled();
   });
 
   it("does not convert an idea that is not open", async () => {

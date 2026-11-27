@@ -8,6 +8,7 @@ import { publish } from "@/lib/agent-api/events";
 import { statusChangedSummary } from "@/lib/activity-log";
 import { parsePullRequestUrl } from "@/lib/github/pull-request-url";
 import { moveTo } from "@/lib/issue-substatus";
+import { claimableByDelivery, claimForWork, heldByAnotherMessage, takeoverFor, type LiveClaim } from "@/lib/agent-api/claim-by-work";
 import { PRODUCT_STEP_ONLY_MESSAGE, trackRules } from "@/lib/marketing/track";
 import { closeSupportThreadsForIssue } from "@/lib/support-threads";
 import { countedReviewers, creditedDeliveryUsers, finalizeResolved, mergeBugSelect } from "@/lib/agent-api/merge";
@@ -27,12 +28,14 @@ import { countedJudgements } from "@/lib/agent-api/tested-status";
  * (`settleForceMerged`), enough not-good ones mark it Live · Broken, where it
  * takes bids for a fix like an Open issue.
  *
- * Only the agent holding the issue's claim may force-merge it: the agent of
- * the person whose work it is (the one that fast-tracked it with alreadyVetted).
+ * Any agent may force-merge an Open or In progress issue (#deliver-claims): if it doesn't hold it, the force-merge
+ * claims it first, as a delivery does (lib/agent-api/claim-by-work.ts): at once when nobody holds it, taking it over
+ * from an agent that has held it more than 12 hours, refused under that. Delivered work (Done, Merge) is force-merged
+ * only by the agent holding it, so the delivering agent keeps the credit.
  */
 
-/** The steps a force-merge can come from: the work is held, and not yet Live. */
-export const FORCE_MERGEABLE_STATUSES = ["in_progress", "done", "merge"] as const satisfies readonly Status[];
+/** The steps a force-merge can come from: not yet Live. */
+export const FORCE_MERGEABLE_STATUSES = ["open", "in_progress", "done", "merge"] as const satisfies readonly Status[];
 
 /** The body of `POST /issues/{id}/force-merge`. */
 export const forceMergeBodySchema = z
@@ -42,6 +45,9 @@ export const forceMergeBodySchema = z
     projectId: z.string().optional(),
   })
   .strict();
+
+/** The issue moved while the force-merge ran: the transaction rolls back (the claim it took included). */
+class ForceMergeRace extends Error {}
 
 /** `via` on the activity and audit row a force-merge writes. */
 export const FORCE_MERGE_VIA = "force_merge";
@@ -79,19 +85,26 @@ export async function forceMerge(
   const bug = await prisma.bug.findFirst({
     where: { id: bugId, ...scope, isDeleted: false },
     select: {
-      id: true, status: true, substatus: true, track: true, pullRequestUrl: true, isBoosted: true,
+      id: true, projectId: true, status: true, substatus: true, track: true, pullRequestUrl: true, isBoosted: true,
       claims: { where: { status: "active", releasedAt: null }, select: { id: true, agentId: true, beneficiaryUserId: true } },
     },
   });
   if (!bug) return fail(404, "not_found", "No such issue in this project.");
   if (!trackRules(bug.track).hasProductSteps) return fail(409, "wrong_track", PRODUCT_STEP_ONLY_MESSAGE);
 
-  const claim = bug.claims.find((c) => c.agentId === agent.agentId);
-  if (!claim) {
-    return fail(403, "not_holder", "Only the agent holding this issue can force-merge it. File the local change with alreadyVetted first, so you hold it.");
-  }
   if (!(FORCE_MERGEABLE_STATUSES as readonly Status[]).includes(bug.status)) {
-    return fail(409, "not_force_mergeable", `This issue is ${bug.status}; only work in progress, done or in merge can be force-merged.`);
+    return fail(409, "not_force_mergeable", `This issue is ${bug.status}; only open work, work in progress, done or in merge can be force-merged.`);
+  }
+  const held = bug.claims.find((c) => c.agentId === agent.agentId) ?? null;
+  /** #deliver-claims: the live claims the force-merge takes over before it claims the issue for this agent. */
+  let takeOver: LiveClaim[] | null = null;
+  if (!held) {
+    if (!claimableByDelivery(bug.status)) {
+      return fail(403, "not_holder", "Only the agent holding this delivered work can force-merge it.");
+    }
+    const taking = await takeoverFor(bug.id, agent.agentId);
+    if (!taking.ok) return fail(409, "held_by_another_agent", heldByAnotherMessage(taking.hoursLeft, "force-merge"));
+    takeOver = taking.release;
   }
 
   // The merged pull request: the linked one, or linked now when the work was never delivered.
@@ -102,6 +115,7 @@ export async function forceMerge(
   if (!pullRequestUrl) return fail(409, "no_pull_request", "Send the merged pull request's URL (pullRequestUrl): this issue has none linked.");
 
   const moved = await prisma.$transaction(async (tx) => {
+    const claim = held ?? await claimForWork(tx, agent, { id: bug.id, projectId: bug.projectId }, takeOver ?? [], "force_merge");
     const changed = await tx.bug.updateMany({
       where: { id: bug.id, substatus: bug.substatus, pullRequestUrl: bug.pullRequestUrl },
       data: {
@@ -110,7 +124,7 @@ export async function forceMerge(
         ...(bug.isBoosted ? { isBoosted: false, boostedAt: null } : {}),
       },
     });
-    if (changed.count !== 1) return false;
+    if (changed.count !== 1) throw new ForceMergeRace();
 
     await tx.bugActivity.create({
       data: {
@@ -144,6 +158,9 @@ export async function forceMerge(
       },
     });
     return true;
+  }).catch((error: unknown) => {
+    if (error instanceof ForceMergeRace) return false;
+    throw error;
   });
   if (!moved) return fail(409, "status_changed", "This issue's status or linked pull request changed while the request ran. Read it again and retry.");
 

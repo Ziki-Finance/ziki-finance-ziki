@@ -225,15 +225,6 @@ describe("IssueBidsPanel (#issue-bids)", () => {
     expect(screen.queryByTestId("bid-vote")).toBeNull();
   });
 
-  it("marks an open bid whose bidder is at capacity, and offers no Award button for it (#bidder-capacity)", () => {
-    render(<IssueBidsPanel bids={[{ ...bid, id: "full", agentName: "Pixel", atCapacity: true, votes: 3 }, { ...bid, id: "free", agentName: "Cara's agent", votes: 3 }]} canAward awardThreshold={3} />);
-    const marks = screen.getAllByTestId("bid-at-capacity");
-    expect(marks).toHaveLength(1);
-    expect(marks[0]).toHaveTextContent("at capacity");
-    expect(marks[0].closest("li")).toHaveTextContent("Pixel");
-    const buttons = screen.getAllByRole("button", { name: /Award/ });
-    expect(buttons.map((button) => (button.closest("form")?.querySelector("input[name=bidId]") as HTMLInputElement | null)?.value)).toEqual(["free"]);
-  });
 
   it("shows New here instead of a record for a bidder with fewer than three tasks (#825)", () => {
     const record: BidderRecordView = {

@@ -32,7 +32,6 @@ const FIELDS: Array<{
   { name: "offerWindowSeconds", label: "Offer window (seconds)", hint: "How long an agent has to accept a claim offer." },
   { name: "heartbeatMinutes", label: "Heartbeat window (minutes)", hint: "Silence before a claim is released." },
   { name: "deliveryMinutes", label: "Delivery window (minutes)", hint: "Base time to link a fix; high and critical keep at least 60 minutes." },
-  { name: "maxActiveClaims", label: "Maximum active claims", hint: "Claims one person may hold in this project. A bid is not awarded while its bidder holds this many live offers and claims." },
   { name: "volunteerWindowSeconds", label: "Volunteer window (seconds)", hint: "Reserved for the volunteer-priority window." },
   {
     name: "abandonCheckMinutes",

@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AgentContext } from "@/lib/agents/require-agent";
 
-/** Delivering work (#pr-reports, #stranded-delivery, #owner-agents): only the claim holder delivers, or a manager agent on its behalf for a stranded pull request; a pull request reported merged, closed or missing can't be delivered. */
+/** Delivering work (#pr-reports, #stranded-delivery, #owner-agents, #deliver-claims): any agent delivers, claiming an Open or unheld issue and taking over one held more than 12 hours; a manager agent delivers a stranded pull request on its holder's behalf; a pull request reported merged, closed or missing can't be delivered. */
 const PR = "https://github.com/emerjent/ziki/pull/615";
 
 const db = vi.hoisted(() => {
@@ -15,12 +15,13 @@ const db = vi.hoisted(() => {
     testVerdict: { updateMany: vi.fn() },
     bugActivity: { create: vi.fn() },
     attachment: { updateMany: vi.fn() },
+    issueClaim: { updateMany: vi.fn(), create: vi.fn(async () => ({ id: "claim-new" })) },
   };
   return {
     tx,
     prisma: {
       bug: { findFirst: vi.fn(), findUnique: vi.fn() },
-      issueClaim: { findFirst: vi.fn() },
+      issueClaim: { findFirst: vi.fn(), findMany: vi.fn(async () => []) },
       reviewOffer: { findFirst: vi.fn() },
       agentAuditEvent: { findFirst: vi.fn() },
       pullRequestReport: { findFirst: vi.fn() },
@@ -141,8 +142,9 @@ describe("deliverWork: a manager agent delivers a stranded pull request on the h
     expect(mocks.createReviewOffers).not.toHaveBeenCalled();
   });
 
-  it("keeps 409 no_claim for a working agent without a claim, even on a stranded issue", async () => {
-    expect(await deliverWork(agent("working"), "bug1", body())).toMatchObject({ status: 409, error: "no_claim" });
+  it("lets a working agent without a claim deliver it, claiming the issue for itself (#deliver-claims)", async () => {
+    expect(await deliverWork(agent("working"), "bug1", body())).toMatchObject({ status: 201 });
+    expect(db.tx.issueClaim.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ agentId: "agent-dana", beneficiaryUserId: "dana", status: "active" }) }));
     expect(mocks.strandedDelivery).not.toHaveBeenCalled();
   });
 
@@ -643,5 +645,45 @@ describe("deliverWork: the delivery receipt (#delivery-receipt)", () => {
     expect(db.tx.delivery.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ receipt: { verified: [{ check: "Every link opens", how: "clicked each one" }], notVerified: [], reviewerShould: [] } }) }),
     );
+  });
+});
+
+describe("deliverWork: any agent may deliver, and the delivery claims the issue (#deliver-claims)", () => {
+  const HOUR = 60 * 60 * 1000;
+  const openIssue = (status: "open" | "in_progress") =>
+    db.prisma.bug.findFirst.mockResolvedValue({ id: "bug1", projectId: "p1", status, substatus: status, pullRequestUrl: null, project: { repoUrl: "https://github.com/emerjent/ziki" } });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    db.prisma.issueClaim.findFirst.mockResolvedValue(null);
+    db.prisma.issueClaim.findMany.mockResolvedValue([]);
+    db.prisma.pullRequestReport.findFirst.mockResolvedValue(null);
+    db.prisma.delivery.findMany.mockResolvedValue([{ id: "d1", agentId: "agent-dana", beneficiaryUserId: "dana", summary: "s", description: "d", pullRequestUrl: PR, headSha: null, screenshots: [], testResults: null, createdAt: new Date(), updatedAt: new Date(), agent: { name: "dana's agent" }, beneficiary: { name: "Dana" }, replies: [] }]);
+    db.tx.delivery.findUnique.mockResolvedValue(null);
+    db.tx.delivery.create.mockResolvedValue({ id: "d1" });
+    mocks.strandedDelivery.mockResolvedValue(null);
+  });
+
+  it("claims an Open issue at once, releasing a pending offer to another agent, and moves it to Requires review", async () => {
+    openIssue("open");
+    db.prisma.issueClaim.findMany.mockResolvedValue([{ id: "offer-1", agentId: "agent-rex", status: "offered", claimedAt: null, offeredAt: new Date(), createdAt: new Date() }]);
+    expect(await deliverWork(agent("working"), "bug1", body())).toMatchObject({ status: 201 });
+    expect(db.tx.issueClaim.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: { in: ["offer-1"] } }), data: expect.objectContaining({ status: "released" }) }));
+    expect(db.tx.issueClaim.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ agentId: "agent-dana", status: "active" }) }));
+    expect(db.tx.bug.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ substatus: "requires_review" }) }));
+  });
+
+  it("refuses while another agent has held it for less than 12 hours", async () => {
+    openIssue("in_progress");
+    db.prisma.issueClaim.findMany.mockResolvedValue([{ id: "claim-rex", agentId: "agent-rex", status: "active", claimedAt: new Date(Date.now() - 2 * HOUR), offeredAt: null, createdAt: new Date() }]);
+    expect(await deliverWork(agent("working"), "bug1", body())).toMatchObject({ status: 409, error: "held_by_another_agent" });
+    expect(db.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("takes the claim over from an agent that has held it for more than 12 hours", async () => {
+    openIssue("in_progress");
+    db.prisma.issueClaim.findMany.mockResolvedValue([{ id: "claim-rex", agentId: "agent-rex", status: "active", claimedAt: new Date(Date.now() - 13 * HOUR), offeredAt: null, createdAt: new Date() }]);
+    expect(await deliverWork(agent("working"), "bug1", body())).toMatchObject({ status: 201 });
+    expect(db.tx.issueClaim.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: { in: ["claim-rex"] } }) }));
+    expect(db.tx.issueClaim.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ agentId: "agent-dana", beneficiaryUserId: "dana" }) }));
   });
 });

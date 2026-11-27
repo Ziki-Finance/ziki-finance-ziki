@@ -149,12 +149,6 @@ describe("accepting an offer", () => {
     expect(publish).toHaveBeenCalledWith(db, expect.objectContaining({ type: "claim.accepted", payload: expect.objectContaining({ planning: true }) }));
   });
 
-  it("releases it when the person already holds their limit of work In progress", async () => {
-    db.issueClaim.count.mockResolvedValue(DEFAULT_PROJECT_WORKFLOW.maxActiveClaims);
-    await expect(acceptOffer(agent, "claim-1")).rejects.toMatchObject({ status: 409 });
-    expect(db.issueClaim.count.mock.calls[0][0].where.bug).toMatchObject({ status: "in_progress" });
-    expect(db.issueClaim.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ releaseReason: "capacity" }) }));
-  });
 });
 
 describe("work mode and caps (#agent-work-mode)", () => {
@@ -390,12 +384,12 @@ describe("the lapsed-offer hand-over (#offer-hand-over)", () => {
     hand.idleAgentsIn.mockResolvedValue([]);
   });
 
-  it("awards the most-voted bid from an agent still checking in, the next one when that bidder can't take it, never the agent that let it lapse", async () => {
+  it("awards the most-voted bid from an agent still checking in, the next one when that award is refused, never the agent that let it lapse", async () => {
     db.issueBid.findMany.mockResolvedValue([bid("bid-old", "agent-2", "bo", 30), bid("bid-top", "agent-3", "cy", 5), bid("bid-new", "agent-4", "di", 1)]);
     const votes: Record<string, number> = { "bid-old": 1, "bid-top": 3, "bid-new": 1 };
     hand.bidTally.mockImplementation(async (id: string) => votes[id]);
     hand.awardInTransaction
-      .mockRejectedValueOnce(new IssueApiError(409, "At capacity.", { error: "at_capacity" }))
+      .mockRejectedValueOnce(new IssueApiError(409, "This issue already has an active claim."))
       .mockImplementationOnce(async (_tx: unknown, bidId: string) => ({ bidId, claimId: "claim-2", bugId: "bug-1", bugTitle: "Bug 1", beneficiaryUserId: "bo", status: "offered" }));
     await expect(handOverLapsedOffer("bug-1")).resolves.toEqual({ to: "bid", bidId: "bid-old", agentId: "agent-2", claimId: "claim-2" });
     // Most votes first; a tie goes to the earlier bid. Ziki awards it, in the bidder's owner's name.

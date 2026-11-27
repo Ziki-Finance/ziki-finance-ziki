@@ -32,8 +32,6 @@ export type BidEntryView = {
   awardPending?: boolean;
   /** The offer was not accepted within the project's offer window. */
   awardExpired?: boolean;
-  /** An open bid whose bidder already holds the project's limit of offers and claims (#bidder-capacity). */
-  atCapacity?: boolean;
   withdrawnAt?: Date | string | null;
   /** When its agent last checked in (#bidder-last-active); null if never. */
   agentLastSeenAt?: Date | string | null;
@@ -211,9 +209,6 @@ function BidList({ bids, canAward = false, awardThreshold }: { bids: BidEntryVie
                     {bid.areaMatch ? (
                       <span className="rounded-full bg-zk-warn-bg px-2 py-0.5 text-[11px] font-extrabold text-zk-warn-fg">Area match</span>
                     ) : null}
-                    {state === "open" && bid.atCapacity ? (
-                      <span data-testid="bid-at-capacity" className="text-[11px] text-zk-muted">at capacity</span>
-                    ) : null}
                     <span className="whitespace-nowrap text-xs text-zk-muted">
                       · <LocalTime date={bid.updatedAt} />
                     </span>
@@ -225,7 +220,7 @@ function BidList({ bids, canAward = false, awardThreshold }: { bids: BidEntryVie
                   <EntryReplies replies={bid.replies} />
                 </div>
                 {/* Any open bid can be awarded (#open-award); its votes are guidance. */}
-                {canAward && state === "open" && !bid.atCapacity ? <AwardBidButton bidId={bid.id} /> : null}
+                {canAward && state === "open" ? <AwardBidButton bidId={bid.id} /> : null}
               </li>
             );
           })}

@@ -23,7 +23,6 @@ export type ProjectWorkflowValues = {
   offerWindowSeconds: number;
   heartbeatMinutes: number;
   deliveryMinutes: number;
-  maxActiveClaims: number;
   volunteerWindowSeconds: number;
   autoMerge: boolean;
   ideaThreshold: number;
@@ -53,8 +52,6 @@ export const DEFAULT_PROJECT_WORKFLOW: Readonly<ProjectWorkflowValues> = Object.
   heartbeatMinutes: 240,
   // The base delivery window (4 hours). High and critical work keeps its floor.
   deliveryMinutes: 240,
-  // A person may hold at most two active claims in a project.
-  maxActiveClaims: 10,
   // Volunteers get priority for two minutes after confirmation.
   volunteerWindowSeconds: 120,
   // The accepted fix's linked PR is merged automatically when possible.
@@ -99,7 +96,6 @@ export const WORKFLOW_LIMITS = {
   offerWindowSeconds: { min: 30, max: 3600 },
   heartbeatMinutes: { min: 1, max: 1440 },
   deliveryMinutes: { min: 1, max: 10080 },
-  maxActiveClaims: { min: 1, max: 20 },
   volunteerWindowSeconds: { min: 30, max: 3600 },
   ideaThreshold: { min: 1, max: 100 },
   abandonCheckMinutes: { min: 0, max: 10080 },
@@ -130,7 +126,6 @@ export const workflowSettingsSchema = z.object({
   offerWindowSeconds: boundedInt("offerWindowSeconds", "Offer window"),
   heartbeatMinutes: boundedInt("heartbeatMinutes", "Heartbeat window"),
   deliveryMinutes: boundedInt("deliveryMinutes", "Delivery window"),
-  maxActiveClaims: boundedInt("maxActiveClaims", "Maximum active claims"),
   volunteerWindowSeconds: boundedInt("volunteerWindowSeconds", "Volunteer window"),
   autoMerge: z.boolean({ error: "Auto-merge must be on or off." }),
   ideaThreshold: boundedInt("ideaThreshold", "Idea threshold"),
@@ -164,7 +159,6 @@ export function workflowValues(
     offerWindowSeconds: row?.offerWindowSeconds ?? DEFAULT_PROJECT_WORKFLOW.offerWindowSeconds,
     heartbeatMinutes: row?.heartbeatMinutes ?? DEFAULT_PROJECT_WORKFLOW.heartbeatMinutes,
     deliveryMinutes: row?.deliveryMinutes ?? DEFAULT_PROJECT_WORKFLOW.deliveryMinutes,
-    maxActiveClaims: row?.maxActiveClaims ?? DEFAULT_PROJECT_WORKFLOW.maxActiveClaims,
     volunteerWindowSeconds:
       row?.volunteerWindowSeconds ?? DEFAULT_PROJECT_WORKFLOW.volunteerWindowSeconds,
     autoMerge: row?.autoMerge ?? DEFAULT_PROJECT_WORKFLOW.autoMerge,

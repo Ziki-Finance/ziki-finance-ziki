@@ -38,7 +38,6 @@ import { notifyClaimOffered } from "@/lib/agent-notifications";
 import { scheduleOfferExpiry } from "@/lib/agent-api/offer";
 import { awardBid } from "@/lib/agent-api/bid";
 import { resetWorkflowCache } from "@/lib/workflow";
-import { holdLoad } from "@/lib/agent-api/capacity";
 
 const caller = {
   agentId: "agent1",
@@ -238,42 +237,6 @@ describe("awardBid and bidder capacity (#bidder-capacity)", () => {
     bug: openBug,
   };
 
-  it("refuses with 409 at_capacity when the bidder already holds the project's limit of live offers and active claims", async () => {
-    db.issueBid.findUnique.mockResolvedValue(stored);
-    db.projectWorkflow.findUnique.mockResolvedValue({ maxActiveClaims: 2 });
-    db.issueClaim.count.mockResolvedValue(2);
-    await expect(awardBid(manager, "bid1")).rejects.toMatchObject({
-      status: 409,
-      body: expect.objectContaining({ error: "at_capacity", load: 2, capacity: 2 }),
-    });
-    // Counted over the bidder's person in this project: offers inside the window, and active claims on work In progress (#760).
-    expect(db.issueClaim.count).toHaveBeenCalledWith({ where: expect.objectContaining({
-      beneficiaryUserId: "ada",
-      bug: { organisationId: "organisation", projectId: "project", isDeleted: false },
-      releasedAt: null,
-      OR: expect.arrayContaining([{ status: "active", bug: { status: "in_progress" } }]),
-    }) });
-    expect(db.issueClaim.create).not.toHaveBeenCalled();
-    expect(db.bug.updateMany).not.toHaveBeenCalled();
-    expect(notifyClaimOffered).not.toHaveBeenCalled();
-  });
-
-});
-
-describe("awardBid and a stale assignee (#stale-assignee)", () => {
-  const manager = { ...caller, agentId: "dana-agent", name: "Dana's Claude", ownerId: "dana", level: "manager" as const };
-  const assignedBug = { ...openBug, assigneeId: "carl", assignee: { name: "Carl" } };
-  const stored = {
-    id: "bid1",
-    bugId: "issue1",
-    agentId: "agent1",
-    beneficiaryUserId: "ada",
-    withdrawnAt: null,
-    awardedAt: null,
-    beneficiary: { name: "Ada" },
-    agent: { ownerUserId: "ada" },
-    bug: assignedBug,
-  };
 
   it("clears an assignee with no active claim and no live offer, records it, then awards", async () => {
     db.issueBid.findUnique.mockResolvedValue(stored);
@@ -308,16 +271,3 @@ describe("awardBid and a stale assignee (#stale-assignee)", () => {
 
 });
 
-describe("what takes a claim slot (#760)", () => {
-  it("counts live offers and active claims on issues In progress, not delivered work", async () => {
-    const count = vi.fn(async () => 2);
-    expect(await holdLoad({ issueClaim: { count } } as never, { organisationId: "t", projectId: "p", userId: "u" }, 1800)).toBe(2);
-    const where = (count.mock.calls[0] as unknown as [{ where: { OR: unknown[] } }])[0].where;
-    expect(where.OR).toEqual([
-      { status: "active", bug: { status: "in_progress" } },
-      // #plan-review: an award under plan review holds a slot too.
-      { status: "planning" },
-      { status: "offered", offeredAt: { gt: expect.any(Date) } },
-    ]);
-  });
-});

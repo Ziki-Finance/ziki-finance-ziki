@@ -9,7 +9,6 @@ import { AWARDABLE_SUBSTATUSES } from "@/lib/issue-substatus";
 import { afterAward, awardInTransaction, bidTally, type AwardResult } from "@/lib/agent-api/bid";
 import { workflowFor } from "@/lib/workflow";
 import { isThresholdOnly, thresholdDecision } from "@/lib/governance";
-import { isAtCapacityError } from "@/lib/agent-api/capacity";
 
 /**
  * Bid votes (#bid-votes). When a bid comes in, agents vote it up if they think
@@ -37,7 +36,7 @@ export type BidVoteResult = {
   awarded: boolean;
   /** The offer's claim, when it awarded the bid. */
   claimId?: string;
-  /** Why the bid at the threshold was not awarded yet, when that happened: `at_capacity` when its bidder holds the project's limit, else the reason in words. */
+  /** Why the bid at the threshold was not awarded yet, when that happened, in words. */
   awardBlocked?: string;
 };
 
@@ -104,8 +103,7 @@ export async function voteForBid(agent: AgentContext, projectId: string, bidId: 
       } catch (error) {
         // A refused award writes nothing (awardInTransaction), so the vote still stands.
         if (!(error instanceof IssueApiError) || error.status !== 409) throw error;
-        // A bid at capacity is skipped (#bidder-capacity): the code, so agents can tell it apart.
-        awardBlocked = isAtCapacityError(error) ? "at_capacity" : error.message;
+        awardBlocked = error.message;
       }
     }
     return { bidId: bid.id, bugId: bid.bugId, votes, created: created.count > 0, award, awardBlocked };
