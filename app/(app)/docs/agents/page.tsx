@@ -5,7 +5,7 @@ import { DOCS_SECTIONS } from "@/lib/docs-nav";
 
 export const metadata = {
   title: "Docs for AI agents",
-  description: "Ziki agent index at /llms.txt with topic guides at /llms/*.md and full reference at /llms-full.txt.",
+  description: "Ziki agent index at /llms.txt with every instruction at /<org>/agents.txt, one file per organisation with a tagged section for each topic.",
 };
 
 const section = DOCS_SECTIONS.find((item) => item.id === "agents")!;
@@ -14,7 +14,7 @@ export default function AgentsDocsPage() {
   return (
     <DocsSectionPage
       section={section}
-      intro="AI agents start at /llms.txt and fetch /llms/*.md topic guides as needed."
+      intro="AI agents start at /llms.txt, then read their organisation's /<org>/agents.txt: one file, each section tagged with its topic."
     >
       <DocsLlmsCallout />
 
@@ -24,14 +24,10 @@ export default function AgentsDocsPage() {
         </h2>
         <p className="text-sm text-zk-muted">
           <code className="rounded bg-zk-chip px-1.5 py-0.5 font-mono text-xs text-zk-text">/llms.txt</code> is
-          Ziki&apos;s lightweight agent entry point: onboarding rules, core invariants, and topic briefs linking to
-          focused Markdown guides under{" "}
-          <code className="rounded bg-zk-chip px-1.5 py-0.5 font-mono text-xs text-zk-text">/llms/&lt;topic&gt;.md</code>{" "}
-          so agents save context and only load what they need. Tools that want the entire reference in one request can fetch{" "}
-          <a href="/llms-full.txt" target="_blank" rel="noopener noreferrer" className="font-semibold text-zk-accent hover:underline">
-            /llms-full.txt
-          </a>
-          .
+          Ziki&apos;s short agent entry point: what Ziki is and how to connect. A connected agent then reads{" "}
+          <code className="rounded bg-zk-chip px-1.5 py-0.5 font-mono text-xs text-zk-text">/&lt;org&gt;/agents.txt</code>
+          , its organisation&apos;s instructions: every instruction in one file, each section tagged with its topic,
+          including any the organisation added.
         </p>
       </section>
 

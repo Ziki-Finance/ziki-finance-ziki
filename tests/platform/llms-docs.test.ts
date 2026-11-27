@@ -1,155 +1,83 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("next-auth", () => ({ default: () => ({ auth: (handler: unknown) => handler }) }));
 vi.mock("@/auth.config", () => ({ default: {} }));
 
-import { GET as getLlmsIndex } from "@/app/llms.txt/route";
-import { GET as getLlmsFull } from "@/app/llms-full.txt/route";
-import { GET as getLlmsTopic, generateStaticParams } from "@/app/llms/[topic]/route";
-import { clearLlmsCache, LLMS_TOPICS, resolveLlmsTopic } from "@/lib/llms-docs";
+const ORG = { id: "org-a", name: "Acme" };
+const rows = [
+  { tag: "basics", title: "Basics", summary: "", body: "Shared basics.", position: 10, organisationId: null },
+  { tag: "core-rules", title: "Core Rules", summary: "", body: "Shared rules.", position: 20, organisationId: null },
+  { tag: "core-rules", title: "Acme Core Rules", summary: "", body: "Acme rules replace the shared ones.", position: 20, organisationId: "org-a" },
+  { tag: "deploys", title: "Acme deploys", summary: "", body: "Acme deploys on Fridays.", position: 5, organisationId: "org-a" },
+  { tag: "secret", title: "Other org", summary: "", body: "Another organisation's note.", position: 30, organisationId: "org-b" },
+];
+const session = vi.hoisted(() => ({ user: null as null | { id: string; role: string }, agentOrg: null as string | null }));
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    organisation: { findFirst: vi.fn(async ({ where }: { where: { slug: string } }) => (where.slug === "acme" ? ORG : null)) },
+    membership: { findFirst: vi.fn(async ({ where }: { where: { userId: string } }) => (where.userId === "member" ? { id: "m1" } : null)) },
+    instruction: {
+      findMany: vi.fn(async ({ where }: { where: { OR?: { organisationId: string | null }[]; organisationId?: null } }) => {
+        const orgIds = where.OR ? where.OR.map((clause) => clause.organisationId) : [null];
+        return rows.filter((row) => orgIds.includes(row.organisationId)).sort((a, b) => a.position - b.position);
+      }),
+    },
+  },
+}));
+vi.mock("@/lib/agents/require-agent", () => ({
+  requireAgent: vi.fn(async () => {
+    if (!session.agentOrg) throw new Error("bad key");
+    return { organisationId: session.agentOrg };
+  }),
+}));
+vi.mock("@/lib/auth-helpers", () => ({ optionalUser: vi.fn(async () => session.user) }));
+
+import { GET as getLlms } from "@/app/llms.txt/route";
+import { GET as getAgents } from "@/app/[org]/agents.txt/route";
 import { isPublicPath } from "@/middleware";
 
-describe("Modular /llms.txt and /llms/*.md documentation routes", () => {
+const agentsTxt = (org: string, headers?: Record<string, string>) =>
+  getAgents(new Request(`https://ziki.dev/${org}/agents.txt`, { headers }), { params: Promise.resolve({ org }) });
+
+describe("agent instructions (#instructions)", () => {
   beforeEach(() => {
-    clearLlmsCache();
+    session.user = null;
+    session.agentOrg = null;
   });
 
-  it("serves compact /llms.txt with ETag, 304 caching, and valid topic links", async () => {
-    const res = await getLlmsIndex(new Request("https://ziki.dev/llms.txt"));
-    expect(res.status).toBe(200);
-    expect(res.headers.get("content-type")).toBe("text/plain; charset=utf-8");
-    const etag = res.headers.get("etag");
-    expect(etag).toBeTruthy();
-
-    const body = await res.text();
-    const byteLength = Buffer.byteLength(body, "utf8");
-    expect(byteLength).toBeGreaterThan(2_000);
-    expect(byteLength).toBeLessThan(15_000);
-    expect(body).toContain("## How Ziki Works (At a Glance)");
-
-    // Every topic in LLMS_TOPICS must be linked in index.md and resolve cleanly
-    const matches = [...body.matchAll(/\/llms\/([a-z0-9-]+\.md)/g)].map((m) => m[1]);
-    expect(new Set(matches)).toEqual(new Set(LLMS_TOPICS.map((t) => `${t}.md`)));
-    for (const filename of matches) {
-      expect(resolveLlmsTopic(filename)).not.toBeNull();
-    }
-
-    // 304 Not Modified on matching ETag
-    const cached = await getLlmsIndex(
-      new Request("https://ziki.dev/llms.txt", { headers: { "if-none-match": etag! } }),
-    );
-    expect(cached.status).toBe(304);
-  });
-
-  it("serves every static topic at /llms/[topic] as text/markdown with ETag/304", async () => {
-    const params = generateStaticParams();
-    expect(params.map((p) => p.topic)).toEqual(LLMS_TOPICS.map((t) => `${t}.md`));
-
-    for (const { topic } of params) {
-      const res = await getLlmsTopic(new Request(`https://ziki.dev/llms/${topic}`), {
-        params: Promise.resolve({ topic }),
-      });
-      expect(res.status).toBe(200);
-      expect(res.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
-      const etag = res.headers.get("etag");
-      expect(etag).toBeTruthy();
-
-      const body = await res.text();
-      expect(body).toContain("# Ziki Agent Docs —");
-
-      const cached = await getLlmsTopic(
-        new Request(`https://ziki.dev/llms/${topic}`, { headers: { "if-none-match": etag! } }),
-        { params: Promise.resolve({ topic }) },
-      );
-      expect(cached.status).toBe(304);
-    }
-  });
-
-  it("returns 404 for unknown or invalid topic paths", async () => {
-    for (const bad of ["unknown.md", "onboarding", "../index.md", "index.md"]) {
-      const res = await getLlmsTopic(new Request(`https://ziki.dev/llms/${bad}`), {
-        params: Promise.resolve({ topic: bad }),
-      });
-      expect(res.status).toBe(404);
-    }
-  });
-
-  it("serves full concatenated reference at /llms-full.txt", async () => {
-    const res = await getLlmsFull(new Request("https://ziki.dev/llms-full.txt"));
-    expect(res.status).toBe(200);
-    expect(res.headers.get("content-type")).toBe("text/plain; charset=utf-8");
-    const etag = res.headers.get("etag");
-    expect(etag).toBeTruthy();
-
-    const body = await res.text();
-    expect(body).toContain("## Agent Persona & Interaction Protocol");
-    expect(body).toContain("## Ziki Agent Forum & Peer Collaboration");
-    expect(body).toContain("### Marketing assets");
-
-    const cached = await getLlmsFull(
-      new Request("https://ziki.dev/llms-full.txt", { headers: { "if-none-match": etag! } }),
-    );
-    expect(cached.status).toBe(304);
-  });
-
-  it("preserves #agent-profile heading in onboarding.md for API help_url pointers", async () => {
-    const res = await getLlmsTopic(new Request("https://ziki.dev/llms/onboarding.md"), {
-      params: Promise.resolve({ topic: "onboarding.md" }),
-    });
-    const body = await res.text();
-    expect(body).toContain("## Agent profile");
-    expect(body).not.toContain('"help_url": "https://ziki.dev/llms.txt"');
-    expect(body).not.toContain('"profile_help_url": "https://ziki.dev/llms.txt#agent-profile"');
-  });
-
-  it("ensures every same-file and cross-file #anchor link in docs/llms/*.md resolves", async () => {
-    const slugify = (heading: string) =>
-      heading
-        .trim()
-        .toLowerCase()
-        .replace(/[^\w\s-]/g, "")
-        .replace(/ /g, "-");
-
-    const bodies = new Map<string, string>();
-    const headingsByFile = new Map<string, Set<string>>();
-
-    for (const slug of LLMS_TOPICS) {
-      const filename = `${slug}.md`;
-      const res = await getLlmsTopic(new Request(`https://ziki.dev/llms/${filename}`), {
-        params: Promise.resolve({ topic: filename }),
-      });
-      const text = await res.text();
-      bodies.set(filename, text);
-      const headings = new Set<string>();
-      for (const line of text.split(/\r?\n/)) {
-        const match = /^#{1,6}\s+(.+)$/.exec(line);
-        if (match) headings.add(slugify(match[1]));
-      }
-      headingsByFile.set(filename, headings);
-    }
-
-    const broken: string[] = [];
-    for (const [filename, text] of bodies) {
-      const ownHeadings = headingsByFile.get(filename)!;
-      for (const m of text.matchAll(/\[[^\]]+\]\(#([a-z0-9-]+)\)/g)) {
-        if (!ownHeadings.has(m[1])) {
-          broken.push(`${filename}: same-file #${m[1]}`);
-        }
-      }
-      for (const m of text.matchAll(/\[[^\]]+\]\(\/llms\/([a-z0-9-]+\.md)#([a-z0-9-]+)\)/g)) {
-        const targetHeadings = headingsByFile.get(m[1]);
-        if (!targetHeadings || !targetHeadings.has(m[2])) {
-          broken.push(`${filename}: cross-file /llms/${m[1]}#${m[2]}`);
-        }
-      }
-    }
-    expect(broken).toEqual([]);
-  });
-
-  it("allows /llms.txt, /llms-full.txt, and /llms/*.md through public auth middleware", () => {
+  it("serves /llms.txt as a short public start page that sends connected agents to their organisation's agents.txt", async () => {
     expect(isPublicPath("/llms.txt")).toBe(true);
-    expect(isPublicPath("/llms-full.txt")).toBe(true);
-    expect(isPublicPath("/llms/onboarding.md")).toBe(true);
-    expect(isPublicPath("/llms/forum.md")).toBe(true);
+    const body = await (await getLlms(new Request("https://ziki.dev/llms.txt"))).text();
+    expect(body).toContain("/<your-org>/agents.txt");
+    expect(Buffer.byteLength(body, "utf8")).toBeLessThan(4_000);
+  });
+
+  it("serves an organisation's agents.txt as one file: shared sections, its own replacing the same tag, the rest added", async () => {
+    session.agentOrg = "org-a";
+    const res = await agentsTxt("acme", { authorization: "Bearer key" });
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).toContain('<instruction tag="basics">\n## Basics');
+    expect(body).toContain("Acme rules replace the shared ones.");
+    expect(body).not.toContain("Shared rules.");
+    expect(body).toContain('<instruction tag="deploys">');
+    expect(body.indexOf('tag="core-rules"')).toBeLessThan(body.indexOf('tag="deploys"'));
+    expect(body).not.toContain("Another organisation's note.");
+    const cached = await agentsTxt("acme", { authorization: "Bearer key", "if-none-match": res.headers.get("etag")! });
+    expect(cached.status).toBe(304);
+  });
+
+  it("refuses another organisation's key, a bad key, a signed-out reader and a non-member", async () => {
+    session.agentOrg = "org-b";
+    expect((await agentsTxt("acme", { authorization: "Bearer key" })).status).toBe(404);
+    session.agentOrg = null;
+    expect((await agentsTxt("acme", { authorization: "Bearer bad" })).status).toBe(404);
+    expect((await agentsTxt("acme")).status).toBe(404);
+    session.user = { id: "stranger", role: "user" };
+    expect((await agentsTxt("acme")).status).toBe(404);
+    session.user = { id: "member", role: "user" };
+    expect((await agentsTxt("acme")).status).toBe(200);
+    expect((await agentsTxt("nowhere")).status).toBe(404);
   });
 });

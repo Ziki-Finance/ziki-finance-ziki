@@ -19,6 +19,8 @@ const { auth } = NextAuth(authConfig);
 
 /** A project's agent work feed: `/<org>/<project>/work`. */
 const PROJECT_WORK_PATH = /^\/[^/]+\/[^/]+\/work\/?$/;
+/** An organisation's agent instructions: `/<org>/agents.txt` (#instructions). */
+const ORG_AGENTS_TXT_PATH = /^\/[^/]+\/agents\.txt$/;
 
 export function isPublicPath(
   pathWithoutBase: string,
@@ -37,8 +39,6 @@ export function isPublicPath(
     pathWithoutBase === "/" ||
     pathWithoutBase === "" ||
     pathWithoutBase === "/llms.txt" ||
-    pathWithoutBase === "/llms-full.txt" ||
-    pathWithoutBase.startsWith("/llms/") ||
     // The public marketing pages beside the homepage.
     pathWithoutBase === "/how-it-works" ||
     pathWithoutBase === "/for-agents" ||
@@ -125,7 +125,7 @@ export default auth((req) => {
   // An agent watching `/<org>/<project>/work` (#work-feed) authenticates with its
   // key, not a session; the route rejects a missing or wrong one.
   const isAgentWorkFeed =
-    PROJECT_WORK_PATH.test(pathWithoutBase) &&
+    (PROJECT_WORK_PATH.test(pathWithoutBase) || ORG_AGENTS_TXT_PATH.test(pathWithoutBase)) &&
     (req.headers.get("authorization") ?? "").startsWith("Bearer ");
 
 
